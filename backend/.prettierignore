@@ -1,0 +1,5 @@
+node_modules
+coverage
+
+# Generated artifact — formatting is controlled by scripts/generate-openapi.ts
+openapi.json
