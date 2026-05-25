@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict pmKnMB7b0XYf0o1T4DSgJqeVGaChUFdf3mA1dcIYONc3eddD0UAemCnJnq6nRE5
+\restrict enameschemadump
 
 -- Dumped from database version 16.14
 -- Dumped by pg_dump version 16.14
@@ -113,5 +113,5 @@ ALTER TABLE ONLY public.enames
 -- PostgreSQL database dump complete
 --
 
-\unrestrict pmKnMB7b0XYf0o1T4DSgJqeVGaChUFdf3mA1dcIYONc3eddD0UAemCnJnq6nRE5
+\unrestrict enameschemadump
 
