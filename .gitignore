@@ -11,4 +11,5 @@ AGENTS.local.md
 
 _private
 
-/docs
+/docs/*
+!/docs/ename-internals.md
