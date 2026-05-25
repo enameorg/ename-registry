@@ -1,0 +1,5 @@
+-- Canonical schema dump, regenerated after each migration run by `npm run db:dump`.
+-- This file is versioned: review it alongside migration PRs to confirm the
+-- applied schema matches intent.
+--
+-- Empty until the first migration lands.

@@ -19,6 +19,16 @@
     "test:coverage": "node --test --experimental-test-coverage",
     "openapi:generate": "node scripts/generate-openapi.ts",
     "rebuild:trusted": "npm rebuild --ignore-scripts=false",
+    "db:up": "docker compose -f ../docker-compose.yml --project-directory .. up -d --wait db && npm run db:migrate && npm run db:migrate:test",
+    "db:down": "docker compose -f ../docker-compose.yml --project-directory .. down",
+    "db:nuke": "docker compose -f ../docker-compose.yml --project-directory .. down -v",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.ts dev",
+    "db:migrate:test": "node --env-file-if-exists=.env scripts/migrate.ts test",
+    "db:new": "node scripts/new-migration.ts",
+    "db:reset": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_dev WITH (FORCE); CREATE DATABASE ename_dev;\" && npm run db:migrate",
+    "db:reset:test": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_test WITH (FORCE); CREATE DATABASE ename_test;\" && npm run db:migrate:test",
+    "db:dump": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db pg_dump -U postgres -d ename_dev --schema-only --no-owner --no-privileges > ../db/schema.sql",
+    "db:status": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d ename_dev -c \"SELECT version, name, applied_at FROM schema_migrations ORDER BY version\"",
     "check": "npm run typecheck && npm run lint && npm run format && npm run test"
   },
   "dependencies": {
@@ -26,11 +36,13 @@
     "@hono/zod-openapi": "^1.4.0",
     "@scalar/hono-api-reference": "^0.10.16",
     "hono": "^4.12.0",
+    "pg": "^8.13.0",
     "pino": "^10.3.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
+    "@types/pg": "^8.11.10",
     "eslint": "^10.4.0",
     "eslint-plugin-import-x": "^4.16.2",
     "eslint-plugin-unused-imports": "^4.4.1",
