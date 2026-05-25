@@ -1,5 +1,117 @@
--- Canonical schema dump, regenerated after each migration run by `npm run db:dump`.
--- This file is versioned: review it alongside migration PRs to confirm the
--- applied schema matches intent.
 --
--- Empty until the first migration lands.
+-- PostgreSQL database dump
+--
+
+\restrict pmKnMB7b0XYf0o1T4DSgJqeVGaChUFdf3mA1dcIYONc3eddD0UAemCnJnq6nRE5
+
+-- Dumped from database version 16.14
+-- Dumped by pg_dump version 16.14
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: enames; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.enames (
+    id uuid NOT NULL,
+    subject_id uuid NOT NULL,
+    name_part text NOT NULL,
+    number_part bigint NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    CONSTRAINT enames_name_part_charset CHECK ((name_part ~ '^[a-z0-9-]+$'::text)),
+    CONSTRAINT enames_name_part_length CHECK (((length(name_part) >= 1) AND (length(name_part) <= 50))),
+    CONSTRAINT enames_number_part_range CHECK (((number_part >= 1) AND (number_part <= '999999999999'::bigint)))
+);
+
+
+--
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    version text NOT NULL,
+    name text NOT NULL,
+    hash text NOT NULL,
+    applied_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: subjects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subjects (
+    id uuid NOT NULL,
+    kind text NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    CONSTRAINT subjects_kind_allowed CHECK ((kind = 'person'::text))
+);
+
+
+--
+-- Name: enames enames_name_part_number_part_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enames
+    ADD CONSTRAINT enames_name_part_number_part_key UNIQUE (name_part, number_part);
+
+
+--
+-- Name: enames enames_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enames
+    ADD CONSTRAINT enames_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: subjects subjects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subjects
+    ADD CONSTRAINT subjects_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: enames_subject_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX enames_subject_id_idx ON public.enames USING btree (subject_id);
+
+
+--
+-- Name: enames enames_subject_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enames
+    ADD CONSTRAINT enames_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.subjects(id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict pmKnMB7b0XYf0o1T4DSgJqeVGaChUFdf3mA1dcIYONc3eddD0UAemCnJnq6nRE5
+
