@@ -39,6 +39,34 @@ CREATE TABLE public.enames (
 
 
 --
+-- Name: events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.events (
+    sequence bigint NOT NULL,
+    request_id uuid NOT NULL,
+    kind text NOT NULL,
+    payload jsonb NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    CONSTRAINT events_kind_allowed CHECK ((kind = ANY (ARRAY['subject.register'::text, 'ename.create'::text])))
+);
+
+
+--
+-- Name: events_sequence_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.events ALTER COLUMN sequence ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.events_sequence_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -76,6 +104,22 @@ ALTER TABLE ONLY public.enames
 
 ALTER TABLE ONLY public.enames
     ADD CONSTRAINT enames_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT events_pkey PRIMARY KEY (sequence);
+
+
+--
+-- Name: events events_request_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT events_request_id_key UNIQUE (request_id);
 
 
 --
