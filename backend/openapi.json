@@ -21,6 +21,193 @@
         "required": [
           "status"
         ]
+      },
+      "RegisterSubjectResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-05-27T14:32:11.123Z"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/Subject"
+          },
+          "ename": {
+            "$ref": "#/components/schemas/Ename"
+          }
+        },
+        "required": [
+          "createdAt",
+          "subject",
+          "ename"
+        ]
+      },
+      "Subject": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person"
+            ],
+            "example": "person"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ]
+      },
+      "Ename": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e10"
+          },
+          "namePart": {
+            "type": "string",
+            "example": "jean-dupont"
+          },
+          "numberPart": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999999999,
+            "example": 1
+          }
+        },
+        "required": [
+          "id",
+          "namePart",
+          "numberPart"
+        ]
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "example": "Validation failed"
+          },
+          "status": {
+            "type": "integer",
+            "example": 422
+          },
+          "detail": {
+            "type": "string",
+            "example": "1 validation error"
+          },
+          "requestId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "message"
+              ]
+            },
+            "example": [
+              {
+                "path": [
+                  "namePart"
+                ],
+                "message": "invalid format"
+              }
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "requestId"
+        ]
+      },
+      "RegisterSubjectRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/RegisterSubjectRequestSubject"
+          },
+          "ename": {
+            "$ref": "#/components/schemas/RegisterSubjectRequestEname"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "subject",
+          "ename"
+        ]
+      },
+      "RegisterSubjectRequestSubject": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "person"
+            ],
+            "example": "person"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "RegisterSubjectRequestEname": {
+        "type": "object",
+        "properties": {
+          "namePart": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^[a-z]+(-[a-z]+)*$",
+            "example": "jean-dupont"
+          }
+        },
+        "required": [
+          "namePart"
+        ]
       }
     },
     "parameters": {}
@@ -47,6 +234,64 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subjects": {
+      "post": {
+        "summary": "Register a new subject (with its first ename)",
+        "description": "Atomically registers a new subject (of `kind = person` in v1) together with its first ename. A subject without at least one ename has no meaning in the registry — the two are created together. Emits one `subject.registered` event in the registry log. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key with a different body returns `409 Conflict`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterSubjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subject and first ename registered (or idempotent replay of a prior success)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterSubjectResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency key already used for a different operation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body failed validation, or the resulting ename exceeds 52 characters",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }

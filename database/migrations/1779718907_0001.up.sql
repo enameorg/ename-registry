@@ -12,7 +12,7 @@
 --     database enforces only invariants expected to hold across all future format
 --     evolutions: length, and the broadest allowed character set (lowercase letters,
 --     digits, hyphen) — digits are already included here in anticipation of
---     organisation enames. Finer rules (hyphen placement, etc.) live in Zod.
+--     organization enames. Finer rules (hyphen placement, etc.) live in Zod.
 
 CREATE TABLE subjects (
   id          UUID        PRIMARY KEY,

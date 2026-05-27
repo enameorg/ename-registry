@@ -1,0 +1,53 @@
+import type { MiddlewareHandler } from 'hono';
+import type { Logger } from 'pino';
+import { v7 as uuidv7 } from 'uuid';
+
+import { logger as rootLogger } from '../logger.ts';
+
+// Hono Variables exposed by the request-context middleware.
+//
+//   - `requestId`: per-HTTP-request id generated server-side (UUIDv7). Echoed
+//     in the `X-Request-Id` response header and bound to the child logger.
+//     Distinct from `idempotencyKey` (body field of write endpoints, persistent
+//     contract value) — see `docs/ename-internals.md`.
+//   - `logger`: Pino child logger bound to `{ requestId }`. Handlers use it
+//     directly; services receive it as an explicit argument in their `context`
+//     parameter so that they never touch the Hono context.
+export type RequestContextVariables = {
+  requestId: string;
+  logger: Logger;
+};
+
+const REQUEST_ID_HEADER = 'X-Request-Id';
+
+// Generates `requestId`, binds a child logger, sets the response header,
+// logs entrance and exit (with duration and final status). Acceptance of a
+// client-provided header is deliberately NOT supported in v1: trusting it
+// would let any caller poison the logs.
+export const requestContext: MiddlewareHandler<{
+  Variables: RequestContextVariables;
+}> = async (context, next) => {
+  const requestId = uuidv7();
+  const childLogger = rootLogger.child({ requestId });
+
+  context.set('requestId', requestId);
+  context.set('logger', childLogger);
+  context.header(REQUEST_ID_HEADER, requestId);
+
+  const startedAt = performance.now();
+  const method = context.req.method;
+  const path = context.req.path;
+
+  childLogger.info({ method, path }, 'request received');
+
+  try {
+    await next();
+  } finally {
+    const durationMs = Math.round(performance.now() - startedAt);
+    const status = context.res.status;
+    // Status >= 500 is logged at error level so it surfaces in production
+    // alerting; 4xx and 2xx stay at info — they are normal request outcomes.
+    const level = status >= 500 ? 'error' : 'info';
+    childLogger[level]({ method, path, status, durationMs }, 'request completed');
+  }
+};

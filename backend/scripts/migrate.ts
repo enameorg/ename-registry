@@ -47,12 +47,12 @@ async function loadMigrations(): Promise<Migration[]> {
   let entries: string[];
   try {
     entries = await readdir(migrationsDir);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw err;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
   }
 
-  const upFiles = entries.filter((e) => e.endsWith('.up.sql')).sort();
+  const upFiles = entries.filter((entry) => entry.endsWith('.up.sql')).sort();
   const migrations: Migration[] = [];
 
   for (const filename of upFiles) {
@@ -97,48 +97,48 @@ async function run(target: string): Promise<void> {
     const appliedResult = await client.query<AppliedRow>(
       'SELECT version, name, hash FROM schema_migrations',
     );
-    const applied = new Map(appliedResult.rows.map((r) => [r.version, r]));
+    const applied = new Map(appliedResult.rows.map((row) => [row.version, row]));
 
     const migrations = await loadMigrations();
 
-    for (const m of migrations) {
-      const a = applied.get(m.version);
-      if (a && a.hash !== m.hash) {
+    for (const migration of migrations) {
+      const appliedRow = applied.get(migration.version);
+      if (appliedRow && appliedRow.hash !== migration.hash) {
         throw new Error(
-          `Migration ${m.version} (${m.name}) was modified after being applied ` +
-            `(hash on disk: ${m.hash.slice(0, 12)}…, hash in DB: ${a.hash.slice(0, 12)}…). ` +
+          `Migration ${migration.version} (${migration.name}) was modified after being applied ` +
+            `(hash on disk: ${migration.hash.slice(0, 12)}…, hash in DB: ${appliedRow.hash.slice(0, 12)}…). ` +
             `Migrations are immutable once applied — create a new migration instead.`,
         );
       }
     }
 
-    const pending = migrations.filter((m) => !applied.has(m.version));
+    const pending = migrations.filter((migration) => !applied.has(migration.version));
 
     if (pending.length === 0) {
       console.log(`[migrate:${target}] no pending migrations (${migrations.length} applied)`);
       return;
     }
 
-    for (const m of pending) {
-      console.log(`[migrate:${target}] applying ${m.version}_${m.name}…`);
-      if (m.noTransaction) {
-        await client.query(m.sql);
+    for (const migration of pending) {
+      console.log(`[migrate:${target}] applying ${migration.version}_${migration.name}…`);
+      if (migration.noTransaction) {
+        await client.query(migration.sql);
         await client.query(
           'INSERT INTO schema_migrations (version, name, hash) VALUES ($1, $2, $3)',
-          [m.version, m.name, m.hash],
+          [migration.version, migration.name, migration.hash],
         );
       } else {
         try {
           await client.query('BEGIN');
-          await client.query(m.sql);
+          await client.query(migration.sql);
           await client.query(
             'INSERT INTO schema_migrations (version, name, hash) VALUES ($1, $2, $3)',
-            [m.version, m.name, m.hash],
+            [migration.version, migration.name, migration.hash],
           );
           await client.query('COMMIT');
-        } catch (err) {
+        } catch (error) {
           await client.query('ROLLBACK');
-          throw err;
+          throw error;
         }
       }
     }
@@ -161,7 +161,7 @@ if (target !== 'dev' && target !== 'test') {
 
 try {
   await run(target);
-} catch (err) {
-  console.error(err instanceof Error ? err.message : err);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 }

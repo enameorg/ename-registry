@@ -20,6 +20,13 @@ export async function resetTestDb(pool: Pool): Promise<void> {
 
   if (result.rows.length === 0) return;
 
-  const tableList = result.rows.map((r) => `"${r.tablename}"`).join(', ');
+  // String interpolation rather than parameterized statement: `TRUNCATE TABLE`
+  // does not accept identifier placeholders, so the table names must be
+  // splice in textually. Safe here because the source (`pg_tables`) is the
+  // PostgreSQL catalog itself — values cannot be attacker-controlled — and
+  // the function is gated by the NODE_ENV=test guard above. Identifiers are
+  // double-quoted defensively against any future identifier that happens to
+  // collide with a SQL reserved word.
+  const tableList = result.rows.map((row) => `"${row.tablename}"`).join(', ');
   await pool.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
 }

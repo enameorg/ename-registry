@@ -15,9 +15,9 @@
     "lint:fix": "eslint --fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "test": "node --test",
-    "test:coverage": "node --test --experimental-test-coverage",
-    "openapi:generate": "node scripts/generate-openapi.ts",
+    "test": "NODE_ENV=test LOG_LEVEL=silent node --env-file-if-exists=.env --test --test-concurrency=1",
+    "test:coverage": "NODE_ENV=test LOG_LEVEL=silent node --env-file-if-exists=.env --test --test-concurrency=1 --experimental-test-coverage",
+    "openapi:generate": "node --env-file-if-exists=.env scripts/generate-openapi.ts",
     "rebuild:trusted": "npm rebuild --ignore-scripts=false",
     "db:up": "docker compose -f ../docker-compose.yml --project-directory .. up -d --wait db && npm run db:migrate && npm run db:migrate:test",
     "db:down": "docker compose -f ../docker-compose.yml --project-directory .. down",
@@ -25,8 +25,8 @@
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.ts dev",
     "db:migrate:test": "node --env-file-if-exists=.env scripts/migrate.ts test",
     "db:new": "node scripts/new-migration.ts",
-    "db:reset": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_dev WITH (FORCE); CREATE DATABASE ename_dev;\" && npm run db:migrate",
-    "db:reset:test": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_test WITH (FORCE); CREATE DATABASE ename_test;\" && npm run db:migrate:test",
+    "db:reset": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_dev WITH (FORCE)\" -c \"CREATE DATABASE ename_dev\" && npm run db:migrate",
+    "db:reset:test": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_test WITH (FORCE)\" -c \"CREATE DATABASE ename_test\" && npm run db:migrate:test",
     "db:dump": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db pg_dump -U postgres -d ename_dev --schema-only --no-owner --no-privileges --restrict-key=enameschemadump > ../database/schema.sql",
     "db:status": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d ename_dev -c \"SELECT version, name, applied_at FROM schema_migrations ORDER BY version\"",
     "check": "npm run typecheck && npm run lint && npm run format && npm run test"
@@ -38,6 +38,7 @@
     "hono": "^4.12.0",
     "pg": "^8.13.0",
     "pino": "^10.3.1",
+    "uuid": "^14.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

@@ -1,0 +1,143 @@
+import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
+
+import { registerSubject, type RegisterSubjectResult } from '../services/subject.ts';
+import { UUIDV7_REGEX } from '../uuid.ts';
+
+import type { RequestContextVariables } from './middleware.ts';
+import { problemResponse } from './problem.ts';
+
+// ---------------------------------------------------------------------------
+// Request and response schemas (inline at v1; extract to a dedicated file
+// the day they get reused by a second consumer, per the doctrine in
+// docs/ename-internals.md § Zod schema organization).
+//
+// Both request and response are nested by entity block (`subject`, `ename`):
+// same shape as the event payload and as the service input/result types.
+// One mental model end to end — wire body, service signature, log entry,
+// HTTP response all read the same way.
+// ---------------------------------------------------------------------------
+
+// `namePart` per ename-format v0.7: lowercase letters and hyphens only, no
+// leading/trailing/consecutive hyphens, at least one letter, length 1..50.
+// The single regex expresses the grammar in one pass — clearer and faster
+// than a cascade of `.refine()` calls.
+const NAME_PART_REGEX = /^[a-z]+(-[a-z]+)*$/;
+
+const RegisterSubjectRequestSchema = z
+  .object({
+    idempotencyKey: z
+      .string()
+      .regex(UUIDV7_REGEX, { message: 'must be a UUIDv7' })
+      .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
+    subject: z
+      .object({
+        kind: z.literal('person').openapi({ example: 'person' }),
+      })
+      .openapi('RegisterSubjectRequestSubject'),
+    ename: z
+      .object({
+        namePart: z
+          .string()
+          .min(1)
+          .max(50)
+          .regex(NAME_PART_REGEX, {
+            message:
+              'must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)',
+          })
+          .openapi({ example: 'jean-dupont' }),
+      })
+      .openapi('RegisterSubjectRequestEname'),
+  })
+  .openapi('RegisterSubjectRequest');
+
+const RegisterSubjectResponseSchema = z
+  .object({
+    createdAt: z.iso.datetime().openapi({ example: '2026-05-27T14:32:11.123Z' }),
+    subject: z
+      .object({
+        id: z
+          .string()
+          .regex(UUIDV7_REGEX)
+          .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
+        kind: z.literal('person').openapi({ example: 'person' }),
+      })
+      .openapi('Subject'),
+    ename: z
+      .object({
+        id: z
+          .string()
+          .regex(UUIDV7_REGEX)
+          .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e10' }),
+        namePart: z.string().openapi({ example: 'jean-dupont' }),
+        // Upper bound mirrors the DB CHECK (`enames_number_part_range`,
+        // 1..999_999_999_999). Surfaced in OpenAPI so SDK generators document
+        // the bound; stays well under 2^53, hence JSON `integer` is safe.
+        numberPart: z.number().int().min(1).max(999_999_999_999).openapi({ example: 1 }),
+      })
+      .openapi('Ename'),
+  })
+  .openapi('RegisterSubjectResponse');
+
+// ---------------------------------------------------------------------------
+// Route definition
+// ---------------------------------------------------------------------------
+
+export const registerSubjectRoute = createRoute({
+  method: 'post',
+  path: '/subjects',
+  summary: 'Register a new subject (with its first ename)',
+  description:
+    'Atomically registers a new subject (of `kind = person` in v1) together with its first ename. ' +
+    'A subject without at least one ename has no meaning in the registry — the two are created together. ' +
+    'Emits one `subject.registered` event in the registry log. ' +
+    'Idempotent via `idempotencyKey`: retrying with the same key returns the original result; ' +
+    'reusing the same key with a different body returns `409 Conflict`.',
+  request: {
+    body: {
+      required: true,
+      content: {
+        'application/json': { schema: RegisterSubjectRequestSchema },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Subject and first ename registered (or idempotent replay of a prior success)',
+      content: {
+        'application/json': { schema: RegisterSubjectResponseSchema },
+      },
+    },
+    409: problemResponse('Idempotency key already used for a different operation'),
+    422: problemResponse(
+      'Request body failed validation, or the resulting ename exceeds 52 characters',
+    ),
+    500: problemResponse('Unexpected error'),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
+
+function resultToResponse(result: RegisterSubjectResult) {
+  return {
+    createdAt: result.createdAt.toISOString(),
+    subject: { id: result.subject.id, kind: result.subject.kind },
+    ename: {
+      id: result.ename.id,
+      namePart: result.ename.namePart,
+      numberPart: result.ename.numberPart,
+    },
+  };
+}
+
+export const registerSubjectHandler: RouteHandler<
+  typeof registerSubjectRoute,
+  { Variables: RequestContextVariables }
+> = async (context) => {
+  const input = context.req.valid('json');
+  const logger = context.var.logger;
+
+  const result = await registerSubject(input, { logger });
+  return context.json(resultToResponse(result), 201);
+};

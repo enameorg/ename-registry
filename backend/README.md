@@ -61,11 +61,12 @@ The local database is a single PostgreSQL 16 cluster (matching Scaleway Serverle
 
 ## Endpoints
 
-| Method | Path                   | Description                                                                              |
-| ------ | ---------------------- | ---------------------------------------------------------------------------------------- |
-| `GET`  | `/api/v1/health`       | Service health check. Returns 200 + `{"status":"ok"}` or 503 + `{"status":"unhealthy"}`. |
-| `GET`  | `/api/v1/openapi.json` | OpenAPI 3.1 specification of the v1 contract.                                            |
-| `GET`  | `/api/v1/docs`         | Interactive API reference and client (Scalar UI), reading the live spec.                 |
+| Method | Path                   | Description                                                                                                                                |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST` | `/api/v1/subjects`     | Register a new subject together with its first ename atomically. Idempotent via `idempotencyKey`. Produces one `subject.registered` event. |
+| `GET`  | `/api/v1/health`       | Service health check. Returns 200 + `{"status":"ok"}` or 503 + `{"status":"unhealthy"}`.                                                   |
+| `GET`  | `/api/v1/openapi.json` | OpenAPI 3.1 specification of the v1 contract.                                                                                              |
+| `GET`  | `/api/v1/docs`         | Interactive API reference and client (Scalar UI), reading the live spec.                                                                   |
 
 After `npm run dev`, open <http://localhost:3000/api/v1/docs> in a browser to browse the endpoints, send requests, and store variables and environments locally. The page fetches `openapi.json` live at each load, so it always reflects the running code — no import or duplication step.
 
@@ -79,15 +80,22 @@ backend/
 │   ├── api/                       # API Layer (HTTP surface)
 │   │   ├── application.ts         # /health route, handler, and its Zod schema (inline)
 │   │   ├── application.test.ts    # HTTP-level test
-│   │   ├── index.ts               # v1 sub-app assembly
-│   │   └── openapi-metadata.ts    # OpenAPI info object
-│   ├── database/                  # Service Layer — DB access
+│   │   ├── index.ts               # v1 sub-app assembly: middleware, routes, defaultHook, onError
+│   │   ├── middleware.ts          # requestId (UUIDv7) + Pino child logger + entrance/exit logs
+│   │   ├── openapi-metadata.ts    # OpenAPI info object
+│   │   ├── problem.ts             # RFC 9457 Problem Details schema + helpers (shared error shape)
+│   │   ├── subject.ts             # POST /subjects route, handler, and inline Zod schemas
+│   │   └── subject.test.ts        # HTTP-level integration tests
+│   ├── database/                  # Low-level DB plumbing (singletons + helpers consumed by services)
 │   │   ├── pool.ts                # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)
 │   │   ├── query.ts               # queryRows() + withTransaction() helpers, camelize at boundary
 │   │   └── reset-for-tests.ts     # TRUNCATE all public tables; refuses to run outside NODE_ENV=test
 │   ├── services/                  # Service Layer (business logic, no HTTP)
 │   │   ├── application.ts         # health()
-│   │   └── application.test.ts
+│   │   ├── application.test.ts
+│   │   ├── errors.ts              # Domain error classes (DomainError, ValidationError, IdempotencyConflictError)
+│   │   ├── subject.ts             # registerSubject() use case
+│   │   └── subject.test.ts        # Service-level tests (concurrency)
 │   ├── config.ts                  # Environment-driven configuration (Zod-validated)
 │   ├── index.ts                   # Top-level app assembly (mounts /api/v1)
 │   ├── logger.ts                  # Pino root logger
@@ -102,6 +110,8 @@ backend/
 ├── package.json
 └── README.md
 ```
+
+The split between `src/database/` and `src/services/` is intentional: `database/` holds **stateless DB plumbing** (the pool singleton, generic helpers, the test-only reset utility) consumed by the Service Layer; `services/` holds the **business use cases** themselves (subject registration, future key rotation, etc.). Both belong conceptually to the Service Layer (cf. `docs/ename-internals.md` § Two-layer application architecture) — the API Layer never imports from either directly.
 
 Repo-root files used by the backend:
 

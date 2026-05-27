@@ -3,7 +3,7 @@ import { z } from 'zod';
 const ConfigSchema = z.object({
   port: z.coerce.number().int().min(1).max(65535).default(3000),
   nodeEnv: z.enum(['development', 'test', 'production']).default('development'),
-  logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   databaseUrl: z.url(),
 });
 

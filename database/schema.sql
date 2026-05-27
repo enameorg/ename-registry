@@ -44,11 +44,11 @@ CREATE TABLE public.enames (
 
 CREATE TABLE public.events (
     sequence bigint NOT NULL,
-    request_id uuid NOT NULL,
+    idempotency_key uuid NOT NULL,
     kind text NOT NULL,
     payload jsonb NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    CONSTRAINT events_kind_allowed CHECK ((kind = ANY (ARRAY['subject.register'::text, 'ename.create'::text])))
+    CONSTRAINT events_kind_allowed CHECK ((kind = ANY (ARRAY['subject.registered'::text, 'subject.ename_added'::text])))
 );
 
 
@@ -107,19 +107,19 @@ ALTER TABLE ONLY public.enames
 
 
 --
+-- Name: events events_idempotency_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.events
+    ADD CONSTRAINT events_idempotency_key_key UNIQUE (idempotency_key);
+
+
+--
 -- Name: events events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.events
     ADD CONSTRAINT events_pkey PRIMARY KEY (sequence);
-
-
---
--- Name: events events_request_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.events
-    ADD CONSTRAINT events_request_id_key UNIQUE (request_id);
 
 
 --
