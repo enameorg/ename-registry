@@ -1,0 +1,36 @@
+# Local development infrastructure for the database. Single PostgreSQL cluster
+# with two logical databases (ename_dev created via POSTGRES_DB, ename_test
+# created by the init script). Match Scaleway Serverless SQL (PG 16) to avoid
+# version-skew bugs.
+#
+# `name: ename` makes the project name independent of the launch directory:
+# whether this file is started standalone (from `database/`) or pulled in via
+# the root `compose.yml` (`include:`), Compose uses the same project name and
+# therefore the same volume (`ename_pgdata`). Data persists across launch sites.
+
+name: ename
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ename-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ename_dev
+    ports:
+      # Bind to loopback only — the container should never be reachable from
+      # outside the host, even on a hostile network.
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d ename_dev']
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

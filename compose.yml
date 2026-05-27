@@ -1,0 +1,17 @@
+# Root-level orchestration of the local development stack.
+#
+# Today this file just pulls in the database compose. As more services land in
+# the monorepo (backend, observability, etc.), they will be declared here. The
+# database package owns its own compose file (`database/compose.yml`) so that
+# `db:*` scripts run from `database/` can only affect the `db` service —
+# stopping or wiping the database can never accidentally tear down the rest of
+# the stack.
+#
+# `name: ename` is repeated in both files so Compose uses the same project
+# name (and therefore the same named volume) whether you launch from here or
+# from `database/`. See `database/compose.yml` for details.
+
+name: ename
+
+include:
+  - ./database/compose.yml
