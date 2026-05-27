@@ -25,7 +25,7 @@ if (!slug) {
 }
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const migrationsDir = resolve(scriptDir, '..', '..', 'database', 'migrations');
+const migrationsDir = resolve(scriptDir, '..', 'migrations');
 const timestamp = Math.floor(Date.now() / 1000).toString();
 const base = `${timestamp}_${slug}`;
 const upPath = resolve(migrationsDir, `${base}.up.sql`);

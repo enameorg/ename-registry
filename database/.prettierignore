@@ -1,0 +1,6 @@
+node_modules
+
+# SQL files are hand-written and column-aligned in places — leave them alone.
+migrations
+init
+schema.sql

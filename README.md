@@ -10,6 +10,7 @@ For a complete project synthesis, see [`docs/ename-synthesis.md`](./docs/ename-s
 
 This repository is a monorepo. Each top-level package is built and versioned independently.
 
+- **[`database/`](./database/)** — Schema, migrations, local PostgreSQL cluster, and the migration runner. Consumed today by the Node backend; the same on-disk layout will feed the Rust phase via `sqlx-cli`. See [`database/README.md`](./database/README.md) for setup and usage.
 - **[`backend/`](./backend/)** — Registry backend service. Phase 1 is Node.js + TypeScript; a Rust port (axum + sqlx) is planned for phase 2 once a dedicated team is recruited. See [`backend/README.md`](./backend/README.md) for setup and usage.
 - **`frontend/`** — Planned. Web UI for end users (registration, key rotation, lookup). Not yet started.
 

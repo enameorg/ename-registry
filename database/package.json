@@ -1,0 +1,42 @@
+{
+  "name": "ename-registry-database",
+  "version": "0.1.0",
+  "description": "Ename registry database tooling (schema, migrations, local dev cluster)",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "rebuild:trusted": "npm rebuild --ignore-scripts=false",
+    "db:up": "docker compose -f ../docker-compose.yml --project-directory .. up -d --wait db && npm run db:migrate && npm run db:migrate:test",
+    "db:down": "docker compose -f ../docker-compose.yml --project-directory .. down",
+    "db:nuke": "docker compose -f ../docker-compose.yml --project-directory .. down -v",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.ts dev",
+    "db:migrate:test": "node --env-file-if-exists=.env scripts/migrate.ts test",
+    "db:new": "node scripts/new-migration.ts",
+    "db:reset": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_dev WITH (FORCE)\" -c \"CREATE DATABASE ename_dev\" && npm run db:migrate",
+    "db:reset:test": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_test WITH (FORCE)\" -c \"CREATE DATABASE ename_test\" && npm run db:migrate:test",
+    "db:dump": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db pg_dump -U postgres -d ename_dev --schema-only --no-owner --no-privileges --restrict-key=enameschemadump > schema.sql",
+    "db:status": "docker compose -f ../docker-compose.yml --project-directory .. exec -T db psql -U postgres -d ename_dev -c \"SELECT version, name, applied_at FROM schema_migrations ORDER BY version\"",
+    "check": "npm run typecheck && npm run lint && npm run format"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@types/pg": "^8.11.10",
+    "eslint": "^10.4.0",
+    "eslint-plugin-import-x": "^4.16.2",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.4"
+  }
+}

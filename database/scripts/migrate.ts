@@ -27,7 +27,7 @@ import pg from 'pg';
 const ADVISORY_LOCK_KEY = 9_876_543_210n;
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const migrationsDir = resolve(scriptDir, '..', '..', 'database', 'migrations');
+const migrationsDir = resolve(scriptDir, '..', 'migrations');
 
 interface Migration {
   version: string;
