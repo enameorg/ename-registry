@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Create a pair of empty <unix_ts>_<name>.up.sql / .down.sql files in
-// db/migrations/. The Unix-timestamp prefix gives a stable lexicographic order
+// database/migrations/. The Unix-timestamp prefix gives a stable lexicographic order
 // across machines without collisions in normal use.
 
 const rawName = process.argv[2];
@@ -25,7 +25,7 @@ if (!slug) {
 }
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const migrationsDir = resolve(scriptDir, '..', '..', 'db', 'migrations');
+const migrationsDir = resolve(scriptDir, '..', '..', 'database', 'migrations');
 const timestamp = Math.floor(Date.now() / 1000).toString();
 const base = `${timestamp}_${slug}`;
 const upPath = resolve(migrationsDir, `${base}.up.sql`);

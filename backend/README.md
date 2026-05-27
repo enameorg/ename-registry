@@ -52,10 +52,10 @@ The local database is a single PostgreSQL 16 cluster (matching Scaleway Serverle
 | `npm run db:nuke`          | Stop the container **and delete the data volume**. Destructive.                              |
 | `npm run db:migrate`       | Apply pending migrations to `ename_dev`.                                                     |
 | `npm run db:migrate:test`  | Apply pending migrations to `ename_test`.                                                    |
-| `npm run db:new -- <name>` | Create a new pair of `<unix_ts>_<name>.up.sql` / `.down.sql` in `db/migrations/`.            |
+| `npm run db:new -- <name>` | Create a new pair of `<unix_ts>_<name>.up.sql` / `.down.sql` in `database/migrations/`.      |
 | `npm run db:reset`         | Drop and recreate `ename_dev`, then re-run migrations. Fast reset without nuking the volume. |
 | `npm run db:reset:test`    | Same for `ename_test`.                                                                       |
-| `npm run db:dump`          | Dump `ename_dev`'s schema to `db/schema.sql` (versioned).                                    |
+| `npm run db:dump`          | Dump `ename_dev`'s schema to `database/schema.sql` (versioned).                              |
 | `npm run db:status`        | List migrations applied to `ename_dev`.                                                      |
 | `npm run check`            | Run typecheck + lint + format + tests in sequence.                                           |
 
@@ -81,7 +81,7 @@ backend/
 │   │   ├── application.test.ts    # HTTP-level test
 │   │   ├── index.ts               # v1 sub-app assembly
 │   │   └── openapi-metadata.ts    # OpenAPI info object
-│   ├── db/                        # Service Layer — DB access
+│   ├── database/                  # Service Layer — DB access
 │   │   ├── pool.ts                # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)
 │   │   ├── query.ts               # queryRows() + withTransaction() helpers, camelize at boundary
 │   │   └── reset-for-tests.ts     # TRUNCATE all public tables; refuses to run outside NODE_ENV=test
@@ -107,7 +107,7 @@ Repo-root files used by the backend:
 
 ```
 docker-compose.yml                 # Local PostgreSQL (shared between Node phase and future Rust phase)
-db/
+database/
 ├── init/
 │   └── 01-create-databases.sql    # Runs once at first container boot — creates ename_test
 ├── migrations/                    # <unix_ts>_<name>.up.sql + .down.sql (sqlx-cli compatible)

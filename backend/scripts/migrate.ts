@@ -7,7 +7,7 @@ import pg from 'pg';
 
 // Forward-only migration runner. Adopts the sqlx-cli on-disk format
 // (<unix_ts>_<name>.up.sql / .down.sql) from day one, so the Rust phase can
-// point sqlx-cli at db/migrations/ without any transformation.
+// point sqlx-cli at database/migrations/ without any transformation.
 //
 // Invariants enforced:
 //   1. pg_advisory_lock around the whole run — prevents concurrent runners
@@ -27,7 +27,7 @@ import pg from 'pg';
 const ADVISORY_LOCK_KEY = 9_876_543_210n;
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const migrationsDir = resolve(scriptDir, '..', '..', 'db', 'migrations');
+const migrationsDir = resolve(scriptDir, '..', '..', 'database', 'migrations');
 
 interface Migration {
   version: string;
