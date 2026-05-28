@@ -4,12 +4,23 @@ import { beforeEach, test } from 'node:test';
 import { pino } from 'pino';
 import { v7 as uuidv7 } from 'uuid';
 
-import { pool } from '../database/pool.ts';
+// Service integration tests assert on (a) the return value of the service
+// function under test and (b) the resulting state observed through the
+// Service Layer's own public surface (`findSubjects`, `findEnames`,
+// `findEvents`, `getEventByIdempotencyKey`, etc.). They do not import `pool`
+// and do not issue raw SQL: every state inspection passes through a Service
+// function whose existence is justified by a credible production use case
+// (transparency log, lookups, admin/operator reads).
+//
+// `resetTestDb` is the only import from `../database/*`: tests share the
+// real PostgreSQL instance and must start each case on a clean slate.
 import { resetTestDb } from '../database/reset-for-tests.ts';
 import { UUIDV7_REGEX } from '../uuid.ts';
 
+import { findEnames } from './ename.ts';
 import { IdempotencyConflictError, ValidationError } from './errors.ts';
-import { registerSubject } from './subject.ts';
+import { findEvents, getEventByIdempotencyKey } from './event.ts';
+import { findSubjects, registerSubject, SubjectRegisteredPayloadSchema } from './subject.ts';
 
 // Silent logger: these tests assert behavior, not log output. Keeping the
 // test runner output clean while still exercising the logger plumbing in the
@@ -45,52 +56,36 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(result.ename.numberPart, 1);
 
   // `subjects` projection.
-  const { rows: subjects } = await pool.query<{ id: string; kind: string; created_at: Date }>(
-    'SELECT id, kind, created_at FROM subjects',
-  );
+  const subjects = await findSubjects();
   assert.equal(subjects.length, 1);
   assert.equal(subjects[0]?.id, result.subject.id);
   assert.equal(subjects[0]?.kind, 'person');
 
   // `enames` projection.
-  const { rows: enames } = await pool.query<{
-    id: string;
-    subject_id: string;
-    name_part: string;
-    number_part: string;
-    created_at: Date;
-  }>('SELECT id, subject_id, name_part, number_part, created_at FROM enames');
+  const enames = await findEnames();
   assert.equal(enames.length, 1);
   assert.equal(enames[0]?.id, result.ename.id);
-  assert.equal(enames[0]?.subject_id, result.subject.id);
-  assert.equal(enames[0]?.name_part, namePart);
-  assert.equal(enames[0]?.number_part, '1');
+  assert.equal(enames[0]?.subjectId, result.subject.id);
+  assert.equal(enames[0]?.namePart, namePart);
+  assert.equal(enames[0]?.numberPart, 1);
 
   // Event log.
-  const { rows: events } = await pool.query<{
-    sequence: string;
-    idempotency_key: string;
-    kind: string;
-    payload: {
-      subject: { id: string; kind: string };
-      ename: { id: string; namePart: string; numberPart: number };
-    };
-    created_at: Date;
-  }>('SELECT sequence, idempotency_key, kind, payload, created_at FROM events ORDER BY sequence');
+  const events = await findEvents();
   assert.equal(events.length, 1);
-  assert.equal(events[0]?.idempotency_key, idempotencyKey);
+  assert.equal(events[0]?.idempotencyKey, idempotencyKey);
   assert.equal(events[0]?.kind, 'subject.registered');
-  assert.equal(events[0]?.payload.subject.id, result.subject.id);
-  assert.equal(events[0]?.payload.subject.kind, 'person');
-  assert.equal(events[0]?.payload.ename.id, result.ename.id);
-  assert.equal(events[0]?.payload.ename.namePart, namePart);
-  assert.equal(events[0]?.payload.ename.numberPart, 1);
+  const payload = SubjectRegisteredPayloadSchema.parse(events[0]?.payload);
+  assert.equal(payload.subject.id, result.subject.id);
+  assert.equal(payload.subject.kind, 'person');
+  assert.equal(payload.ename.id, result.ename.id);
+  assert.equal(payload.ename.namePart, namePart);
+  assert.equal(payload.ename.numberPart, 1);
 
   // The three created_at values are strictly equal — required for
   // deterministic projection-by-replay.
-  const subjectAt = subjects[0]?.created_at.getTime();
-  const enameAt = enames[0]?.created_at.getTime();
-  const eventAt = events[0]?.created_at.getTime();
+  const subjectAt = subjects[0]?.createdAt.getTime();
+  const enameAt = enames[0]?.createdAt.getTime();
+  const eventAt = events[0]?.createdAt.getTime();
   const resultAt = result.createdAt.getTime();
   assert.equal(subjectAt, eventAt);
   assert.equal(enameAt, eventAt);
@@ -138,18 +133,9 @@ test('idempotent replay: second sequential call with the same input returns the 
   assert.equal(first.ename.numberPart, second.ename.numberPart);
   assert.equal(first.createdAt.getTime(), second.createdAt.getTime());
 
-  const { rows: eventRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM events',
-  );
-  assert.equal(eventRows[0]?.count, '1');
-  const { rows: enameRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM enames',
-  );
-  assert.equal(enameRows[0]?.count, '1');
-  const { rows: subjectRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM subjects',
-  );
-  assert.equal(subjectRows[0]?.count, '1');
+  assert.equal((await findEvents()).length, 1);
+  assert.equal((await findEnames()).length, 1);
+  assert.equal((await findSubjects()).length, 1);
 });
 
 test('idempotency conflict: same idempotencyKey with a different body throws IdempotencyConflictError', async () => {
@@ -235,22 +221,13 @@ test('concurrent registrations with the same idempotencyKey produce a single eve
     assert.equal(result.createdAt.getTime(), first.createdAt.getTime());
   }
 
-  // Exactly one event row in the log.
-  const { rows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM events WHERE idempotency_key = $1',
-    [idempotencyKey],
-  );
-  assert.equal(rows[0]?.count, '1');
-
-  // Exactly one subject and one ename in the projections.
-  const { rows: subjectRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM subjects',
-  );
-  assert.equal(subjectRows[0]?.count, '1');
-  const { rows: enameRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM enames',
-  );
-  assert.equal(enameRows[0]?.count, '1');
+  // Exactly one event was committed for this idempotency key, and exactly
+  // one subject + one ename in the projections — the other 9 attempts
+  // reconciled to the winner without leaving any trace.
+  assert.ok(await getEventByIdempotencyKey(idempotencyKey));
+  assert.equal((await findEvents()).length, 1);
+  assert.equal((await findSubjects()).length, 1);
+  assert.equal((await findEnames()).length, 1);
 });
 
 // ---------------------------------------------------------------------------
@@ -258,23 +235,18 @@ test('concurrent registrations with the same idempotencyKey produce a single eve
 // ---------------------------------------------------------------------------
 
 test('52-char post-allocation guard: throws ValidationError pointing at ename.namePart and rolls back the transaction', async () => {
-  // Seed an existing ename with a 50-char namePart and numberPart=9 — the
-  // next allocation would be numberPart=10 (2 digits), giving total
-  // 50 + 1 + 2 = 53 > 52. Bypass the service to plant this state directly:
-  // we are testing the post-allocation guard, not the seed path.
+  // Seed via the public service surface — no test backdoor. With a 50-char
+  // namePart, the first 9 registrations stay within the 52-char limit
+  // (50 + 1 + 1-digit numberPart ≤ 52). The 10th attempt would allocate
+  // numberPart=10 (2 digits) → total 53 > 52, triggering the
+  // post-allocation guard.
   const namePart = 'a'.repeat(50);
-  const seedSubjectId = uuidv7();
-  const seedEnameId = uuidv7();
-  const seedAt = new Date();
-  await pool.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [
-    seedSubjectId,
-    'person',
-    seedAt,
-  ]);
-  await pool.query(
-    'INSERT INTO enames (id, subject_id, name_part, number_part, created_at) VALUES ($1, $2, $3, $4, $5)',
-    [seedEnameId, seedSubjectId, namePart, 9, seedAt],
-  );
+  for (let index = 0; index < 9; index += 1) {
+    await registerSubject(
+      { idempotencyKey: uuidv7(), subject: { kind: 'person' }, ename: { namePart } },
+      context,
+    );
+  }
 
   await assert.rejects(
     () =>
@@ -293,18 +265,10 @@ test('52-char post-allocation guard: throws ValidationError pointing at ename.na
     },
   );
 
-  // Nothing extra was committed (the ROLLBACK undid the subjects/enames
-  // INSERTs from this attempt) — only the seed row remains.
-  const { rows: subjectRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM subjects',
-  );
-  assert.equal(subjectRows[0]?.count, '1');
-  const { rows: enameRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM enames',
-  );
-  assert.equal(enameRows[0]?.count, '1');
-  const { rows: eventRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM events',
-  );
-  assert.equal(eventRows[0]?.count, '0');
+  // Nothing extra was committed — the ROLLBACK undid the subjects/enames
+  // INSERTs from the failed attempt. Only the 9 seeded entities remain in
+  // each projection, and exactly 9 events in the log.
+  assert.equal((await findSubjects()).length, 9);
+  assert.equal((await findEnames()).length, 9);
+  assert.equal((await findEvents()).length, 9);
 });

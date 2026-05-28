@@ -10,6 +10,7 @@ import { queryRows, withTransaction } from '../database/query.ts';
 import { UUIDV7_REGEX } from '../uuid.ts';
 
 import { IdempotencyConflictError, ValidationError } from './errors.ts';
+import { type Event, getEventByIdempotencyKey } from './event.ts';
 
 const MAX_TOTAL_LENGTH = 52;
 // Number of allowed retry attempts when the (name_part, number_part) UNIQUE
@@ -24,7 +25,44 @@ const ENAMES_NUMBER_PART_CONSTRAINT = 'enames_name_part_number_part_key';
 const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
 
 // ---------------------------------------------------------------------------
-// Payload and row schemas
+// Subject domain type and lookups
+// ---------------------------------------------------------------------------
+
+// Domain-shaped Subject. Mirrors the `subjects` projection table.
+export const SubjectSchema = z.object({
+  id: z.string().regex(UUIDV7_REGEX),
+  kind: z.literal('person'),
+  createdAt: z.date(),
+});
+
+export type Subject = z.infer<typeof SubjectSchema>;
+
+const SELECT_SUBJECT_COLUMNS = 'id, kind, created_at';
+
+export async function getSubject(id: string): Promise<Subject | undefined> {
+  const rows = await queryRows(
+    pool,
+    `SELECT ${SELECT_SUBJECT_COLUMNS} FROM subjects WHERE id = $1`,
+    [id],
+    SubjectSchema,
+  );
+  return rows[0];
+}
+
+// Returns subjects ordered by `(created_at, id)` — deterministic for tests and
+// for any admin listing. `id` is a UUIDv7 so it provides a stable tiebreaker
+// for rows sharing the same `created_at`.
+export async function findSubjects(): Promise<Subject[]> {
+  return await queryRows(
+    pool,
+    `SELECT ${SELECT_SUBJECT_COLUMNS} FROM subjects ORDER BY created_at, id`,
+    [],
+    SubjectSchema,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// `subject.registered` event payload schema
 // ---------------------------------------------------------------------------
 
 // Inner shape of the `events.payload` JSONB column for kind = 'subject.registered'.
@@ -34,7 +72,11 @@ const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
 // Domain-shaped (entity blocks), no projection-table mirroring, camelCase end
 // to end. `created_at` lives in the `events.created_at` column, not in the
 // payload (cf. ename-internals.md § events table).
-const SubjectRegisteredPayloadSchema = z.object({
+//
+// Exported so consumers of the generic `findEvents()` / `getEventByIdempotencyKey()`
+// can narrow to this kind and parse the payload. The Event type in `./event.ts`
+// keeps `payload: unknown` because the table holds heterogeneous kinds.
+export const SubjectRegisteredPayloadSchema = z.object({
   subject: z.object({
     id: z.string().regex(UUIDV7_REGEX),
     kind: z.literal('person'),
@@ -48,17 +90,6 @@ const SubjectRegisteredPayloadSchema = z.object({
 
 type SubjectRegisteredPayload = z.infer<typeof SubjectRegisteredPayloadSchema>;
 
-// Permissive row for the preliminary idempotency lookup: we want to decide
-// whether the existing event is a replay of this same operation or a kind
-// collision (409) WITHOUT requiring the payload to match this endpoint's
-// expected shape. The kind is checked first; the payload is parsed against
-// `SubjectRegisteredPayloadSchema` only when the kind matches.
-const ExistingEventRowSchema = z.object({
-  payload: z.unknown(),
-  createdAt: z.date(),
-  kind: z.string(),
-});
-
 // Row shape for `INSERT enames ... RETURNING number_part`. The pg driver
 // returns BIGINT as a string by default — `z.coerce.number()` accepts both
 // the string form and a real number, and keeps validation honest about the
@@ -68,7 +99,7 @@ const NumberPartRowSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Public types
+// registerSubject — public types
 // ---------------------------------------------------------------------------
 
 // Domain-shaped input: entity blocks (`subject`, `ename`) mirror the event
@@ -92,7 +123,7 @@ export type ServiceContext = {
 };
 
 // ---------------------------------------------------------------------------
-// Internals
+// registerSubject — internals
 // ---------------------------------------------------------------------------
 
 // Sentinel used to signal a 23505 on `events.idempotency_key` from inside the
@@ -125,18 +156,6 @@ function payloadToResult(
   };
 }
 
-async function findEventByIdempotencyKey(
-  idempotencyKey: string,
-): Promise<z.infer<typeof ExistingEventRowSchema> | undefined> {
-  const rows = await queryRows(
-    pool,
-    'SELECT payload, created_at, kind FROM events WHERE idempotency_key = $1',
-    [idempotencyKey],
-    ExistingEventRowSchema,
-  );
-  return rows[0];
-}
-
 // Map a discovered existing event to either a replay result (same operation,
 // return the prior response) or an IdempotencyConflictError (different
 // operation, surface as 409).
@@ -146,7 +165,7 @@ async function findEventByIdempotencyKey(
 // The technical specifics — which kind was actually stored, which field
 // differed — are logged so operators can correlate via `requestId`.
 function reconcileReplay(
-  existing: z.infer<typeof ExistingEventRowSchema>,
+  existing: Event,
   input: RegisterSubjectInput,
   logger: Logger,
 ): RegisterSubjectResult {
@@ -256,7 +275,7 @@ async function insertEnameWithNextNumber(
 }
 
 // ---------------------------------------------------------------------------
-// Public use case
+// registerSubject — public use case
 // ---------------------------------------------------------------------------
 
 // Register a new subject and its first ename atomically.
@@ -289,7 +308,7 @@ export async function registerSubject(
   const { logger } = context;
 
   // Step 1 — preliminary idempotency lookup.
-  const existing = await findEventByIdempotencyKey(input.idempotencyKey);
+  const existing = await getEventByIdempotencyKey(input.idempotencyKey);
   if (existing) {
     logger.info(
       { idempotencyKey: input.idempotencyKey, outcome: 'replay' },
@@ -386,7 +405,7 @@ export async function registerSubject(
         { idempotencyKey: input.idempotencyKey },
         'idempotency race detected at events insert, reconciling from winner',
       );
-      const winner = await findEventByIdempotencyKey(input.idempotencyKey);
+      const winner = await getEventByIdempotencyKey(input.idempotencyKey);
       if (!winner) {
         // Pathological: the constraint fired but the row is no longer
         // visible (concurrent ROLLBACK between our INSERT-fail and this
