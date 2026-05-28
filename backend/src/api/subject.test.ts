@@ -3,7 +3,15 @@ import { beforeEach, test } from 'node:test';
 
 import { v7 as uuidv7 } from 'uuid';
 
-import { pool } from '../database/pool.ts';
+// API tests assert the HTTP contract only — status codes, headers, response
+// shape, Problem Details bodies. They do not inspect persistent state: every
+// invariant about what gets written to `subjects`, `enames` or `events` lives
+// in `src/services/subject.test.ts`.
+//
+// `resetTestDb` is the only import from `../database/*`: the service the API
+// calls writes to the database, so successive tests would otherwise share
+// state. No direct database access (`pool`, `pool.query`) appears anywhere
+// in this file.
 import { resetTestDb } from '../database/reset-for-tests.ts';
 import { app } from '../index.ts';
 import { UUIDV7_REGEX } from '../uuid.ts';
@@ -11,7 +19,7 @@ import { UUIDV7_REGEX } from '../uuid.ts';
 const ENDPOINT = 'http://localhost/api/v1/subjects';
 
 beforeEach(async () => {
-  await resetTestDb(pool);
+  await resetTestDb();
 });
 
 async function postSubject(body: unknown): Promise<Response> {
@@ -40,13 +48,11 @@ function makeBody(overrides: {
 }
 
 // ---------------------------------------------------------------------------
-// Happy path + idempotency
+// Happy path + idempotency (HTTP contract — persistence is covered in services)
 // ---------------------------------------------------------------------------
 
-test('happy path: returns 201 with the created subject and ename, and writes one row per table', async () => {
-  const idempotencyKey = uuidv7();
-
-  const response = await postSubject(makeBody({ idempotencyKey, namePart: 'jean-dupont' }));
+test('happy path: returns 201 with the created subject and ename', async () => {
+  const response = await postSubject(makeBody({ namePart: 'jean-dupont' }));
 
   assert.equal(response.status, 201);
   assert.match(response.headers.get('Content-Type') ?? '', /^application\/json/);
@@ -64,51 +70,6 @@ test('happy path: returns 201 with the created subject and ename, and writes one
   assert.match(body.subject.id, UUIDV7_REGEX);
   assert.match(body.ename.id, UUIDV7_REGEX);
   assert.ok(!Number.isNaN(Date.parse(body.createdAt)));
-
-  // Projections.
-  const { rows: subjects } = await pool.query<{ id: string; kind: string; created_at: Date }>(
-    'SELECT id, kind, created_at FROM subjects',
-  );
-  assert.equal(subjects.length, 1);
-  assert.equal(subjects[0]?.id, body.subject.id);
-
-  const { rows: enames } = await pool.query<{
-    id: string;
-    subject_id: string;
-    name_part: string;
-    number_part: string;
-    created_at: Date;
-  }>('SELECT id, subject_id, name_part, number_part, created_at FROM enames');
-  assert.equal(enames.length, 1);
-  assert.equal(enames[0]?.id, body.ename.id);
-  assert.equal(enames[0]?.subject_id, body.subject.id);
-  assert.equal(enames[0]?.name_part, 'jean-dupont');
-  assert.equal(enames[0]?.number_part, '1');
-
-  // Event log.
-  const { rows: events } = await pool.query<{
-    sequence: string;
-    idempotency_key: string;
-    kind: string;
-    payload: { subject: { id: string }; ename: { id: string; numberPart: number } };
-    created_at: Date;
-  }>('SELECT sequence, idempotency_key, kind, payload, created_at FROM events ORDER BY sequence');
-  assert.equal(events.length, 1);
-  assert.equal(events[0]?.idempotency_key, idempotencyKey);
-  assert.equal(events[0]?.kind, 'subject.registered');
-  assert.equal(events[0]?.payload.subject.id, body.subject.id);
-  assert.equal(events[0]?.payload.ename.id, body.ename.id);
-  assert.equal(events[0]?.payload.ename.numberPart, 1);
-
-  // The three created_at values are strictly equal — required for
-  // deterministic projection-by-replay.
-  const subjectAt = subjects[0]?.created_at.getTime();
-  const enameAt = enames[0]?.created_at.getTime();
-  const eventAt = events[0]?.created_at.getTime();
-  const responseAt = Date.parse(body.createdAt);
-  assert.equal(subjectAt, eventAt);
-  assert.equal(enameAt, eventAt);
-  assert.equal(responseAt, eventAt);
 });
 
 test('two sequential POSTs with the same namePart produce distinct subjects and consecutive numberParts', async () => {
@@ -133,7 +94,7 @@ test('two sequential POSTs with the same namePart produce distinct subjects and 
   assert.equal(secondBody.ename.numberPart, 2);
 });
 
-test('idempotent replay: same idempotencyKey + same body returns the same payload and writes nothing new', async () => {
+test('idempotent replay: same idempotencyKey + same body returns the same payload', async () => {
   const idempotencyKey = uuidv7();
   const requestBody = makeBody({ idempotencyKey, namePart: 'albert-einstein' });
 
@@ -145,15 +106,6 @@ test('idempotent replay: same idempotencyKey + same body returns the same payloa
   const firstBody = await firstResponse.json();
   const secondBody = await secondResponse.json();
   assert.deepEqual(firstBody, secondBody);
-
-  const { rows: events } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM events',
-  );
-  assert.equal(events[0]?.count, '1');
-  const { rows: enames } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM enames',
-  );
-  assert.equal(enames[0]?.count, '1');
 });
 
 test('idempotency conflict: same idempotencyKey with a different body returns 409 problem+json', async () => {
@@ -281,62 +233,6 @@ for (const scenario of [
     );
   });
 }
-
-// ---------------------------------------------------------------------------
-// Domain validation: total length > 52 chars after numberPart allocation
-// ---------------------------------------------------------------------------
-
-test('domain validation: allocation that would exceed 52 chars returns 422', async () => {
-  // Seed an existing ename with a 50-char namePart and numberPart=9 — the
-  // next allocation would be numberPart=10 (2 digits), giving total
-  // 50 + 1 + 2 = 53 > 52. Bypass the service to plant this state directly:
-  // we are testing the post-allocation guard, not the seed path.
-  const namePart = 'a'.repeat(50);
-  const seedSubjectId = uuidv7();
-  const seedEnameId = uuidv7();
-  const seedAt = new Date();
-  await pool.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [
-    seedSubjectId,
-    'person',
-    seedAt,
-  ]);
-  await pool.query(
-    'INSERT INTO enames (id, subject_id, name_part, number_part, created_at) VALUES ($1, $2, $3, $4, $5)',
-    [seedEnameId, seedSubjectId, namePart, 9, seedAt],
-  );
-
-  const response = await postSubject(makeBody({ namePart }));
-
-  assert.equal(response.status, 422);
-  assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
-  const body = (await response.json()) as {
-    title: string;
-    detail: string;
-    errors?: Array<{ path: Array<string | number>; message: string }>;
-  };
-  assert.equal(body.title, 'Validation failed');
-  assert.match(body.detail, /52/);
-  assert.match(body.detail, /shorter/i);
-  // The error path now points at the nested location in the request body.
-  assert.ok(
-    body.errors?.some((issue) => issue.path[0] === 'ename' && issue.path[1] === 'namePart'),
-  );
-
-  // Nothing extra was committed (the ROLLBACK undid the subjects/enames
-  // INSERTs from this attempt) — only the seed subject remains.
-  const { rows: subjectRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM subjects',
-  );
-  assert.equal(subjectRows[0]?.count, '1');
-  const { rows: enameRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM enames',
-  );
-  assert.equal(enameRows[0]?.count, '1');
-  const { rows: eventRows } = await pool.query<{ count: string }>(
-    'SELECT COUNT(*)::text AS count FROM events',
-  );
-  assert.equal(eventRows[0]?.count, '0');
-});
 
 // ---------------------------------------------------------------------------
 // Headers

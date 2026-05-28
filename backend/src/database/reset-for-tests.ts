@@ -1,6 +1,6 @@
-import type { Pool } from 'pg';
-
 import { config } from '../config.ts';
+
+import { pool } from './pool.ts';
 
 // TRUNCATE all user tables in the public schema. Sequences are reset by
 // RESTART IDENTITY; foreign keys are followed by CASCADE.
@@ -8,7 +8,12 @@ import { config } from '../config.ts';
 // Safety net: refuse to run unless NODE_ENV=test. This is what stands between
 // a misconfigured test runner and the dev database. The two URLs in .env are
 // the first guard; this is the second.
-export async function resetTestDb(pool: Pool): Promise<void> {
+//
+// Uses the singleton pool from `./pool.ts` directly: the app has one pool, and
+// this helper is only ever called from tests — no need to parameterize. Keeps
+// call sites a one-symbol import (`resetTestDb`) so test files in higher
+// layers don't need to reference `pool` themselves.
+export async function resetTestDb(): Promise<void> {
   if (config.nodeEnv !== 'test') {
     throw new Error(`resetTestDb() called with NODE_ENV=${config.nodeEnv}; only allowed in 'test'`);
   }
