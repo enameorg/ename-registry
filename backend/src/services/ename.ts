@@ -36,10 +36,10 @@ export const MAX_NAME_PART_LENGTH = 50;
 export const MAX_NUMBER_PART = 999_999_999_999;
 
 // Shared Zod sub-schema for a `numberPart` field as it appears on DB rows
-// and in event payloads stored as JSONB. Centralizes the (min, max, integer,
+// and in event outcomes stored as JSONB. Centralizes the (min, max, integer,
 // coerce) chain so the projection schema (`EnameSchema`), the
-// INSERT-RETURNING row schema, and the persisted event payload schema
-// (`SubjectRegisteredPayloadSchema` in subject.ts) all agree on the same
+// INSERT-RETURNING row schema, and the persisted event outcome schema
+// (`SubjectRegisteredOutcomeSchema` in subject.ts) all agree on the same
 // validation — keeping the read path no laxer than the write path.
 //
 // `z.coerce` accepts both string and number: BIGINT columns come back as

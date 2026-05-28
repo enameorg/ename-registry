@@ -11,5 +11,6 @@
 // in the generated JSON Schema, which is malformed).
 //
 // Shared between layers: validates request inputs (API), validates persisted
-// payload contents (services), and documents response field formats (OpenAPI).
+// event `request`/`outcome` JSONB contents (services), and documents response
+// field formats (OpenAPI).
 export const UUIDV7_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

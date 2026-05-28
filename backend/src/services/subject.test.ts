@@ -20,7 +20,12 @@ import { UUIDV7_REGEX } from '../uuid.ts';
 import { findEnames } from './ename.ts';
 import { IdempotencyConflictError, ValidationError } from './errors.ts';
 import { findEvents, getEventByIdempotencyKey } from './event.ts';
-import { findSubjects, registerSubject, SubjectRegisteredPayloadSchema } from './subject.ts';
+import {
+  findSubjects,
+  registerSubject,
+  SubjectRegisteredOutcomeSchema,
+  SubjectRegisteredRequestSchema,
+} from './subject.ts';
 
 // Silent logger: these tests assert behavior, not log output. Keeping the
 // test runner output clean while still exercising the logger plumbing in the
@@ -36,7 +41,7 @@ beforeEach(async () => {
 // Happy path: full inspection of projections and event log
 // ---------------------------------------------------------------------------
 
-test('happy path: writes one row per table with consistent ids, namePart, numberPart, payload, kind, idempotency_key and created_at', async () => {
+test('happy path: writes one row per table with consistent ids, namePart, numberPart, request, outcome, kind, idempotency_key and created_at', async () => {
   const idempotencyKey = uuidv7();
   const namePart = 'jean-dupont';
 
@@ -74,12 +79,16 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(events.length, 1);
   assert.equal(events[0]?.idempotencyKey, idempotencyKey);
   assert.equal(events[0]?.kind, 'subject.registered');
-  const payload = SubjectRegisteredPayloadSchema.parse(events[0]?.payload);
-  assert.equal(payload.subject.id, result.subject.id);
-  assert.equal(payload.subject.kind, 'person');
-  assert.equal(payload.ename.id, result.ename.id);
-  assert.equal(payload.ename.namePart, namePart);
-  assert.equal(payload.ename.numberPart, 1);
+  // `request` holds what the client submitted (the input the future layer-1
+  // signature will cover); `outcome` holds what the server allocated
+  // (covered separately by the future layer-2 signed tree head).
+  const request = SubjectRegisteredRequestSchema.parse(events[0]?.request);
+  assert.equal(request.subject.kind, 'person');
+  assert.equal(request.ename.namePart, namePart);
+  const outcome = SubjectRegisteredOutcomeSchema.parse(events[0]?.outcome);
+  assert.equal(outcome.subject.id, result.subject.id);
+  assert.equal(outcome.ename.id, result.ename.id);
+  assert.equal(outcome.ename.numberPart, 1);
 
   // The three created_at values are strictly equal — required for
   // deterministic projection-by-replay.
@@ -209,7 +218,7 @@ test('concurrent registrations with the same idempotencyKey produce a single eve
   );
 
   // All callers must observe the same canonical result (same subject id,
-  // same ename id, same numberPart, same createdAt) — the winner's payload
+  // same ename id, same numberPart, same createdAt) — the winner's row
   // reconciled to every loser via the preliminary lookup or the 23505
   // race-recovery path.
   const first = results[0];

@@ -18,9 +18,9 @@ import { problemResponse } from './problem.ts';
 // docs/ename-internals.md § Zod schema organization).
 //
 // Both request and response are nested by entity block (`subject`, `ename`):
-// same shape as the event payload and as the service input/result types.
-// One mental model end to end — wire body, service signature, log entry,
-// HTTP response all read the same way.
+// same shape as the event's `request`/`outcome` split and as the service
+// input/result types. One mental model end to end — wire body, service
+// signature, log entry, HTTP response all read the same way.
 //
 // The ename-format rules (`NAME_PART_REGEX`, `MAX_NAME_PART_LENGTH`,
 // `MAX_NUMBER_PART`) are imported from the ename service: they describe

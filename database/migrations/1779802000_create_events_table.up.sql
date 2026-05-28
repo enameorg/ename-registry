@@ -22,10 +22,22 @@
 --   - `kind` rather than `type` to avoid reserved-word collisions across SQL
 --     dialects and target languages (notably Rust where `type` is a strict
 --     keyword). Same convention as `subjects.kind`.
---   - `payload` is JSONB shaped by domain entities (subject, ename), not by
---     the projection tables. Excludes `idempotency_key` (transport metadata,
---     lives in its own column) and `created_at` (event-level metadata, lives
---     in its own column).
+--   - `request` and `outcome` are two distinct JSONB columns, both shaped by
+--     domain entities (subject, ename), not by the projection tables.
+--       - `request` carries the input the actor submitted — the fields the
+--         signer controls and can see at submission time (e.g. `subject.kind`,
+--         `ename.namePart`, and for endpoints addressing an existing subject
+--         the `subject.id` taken from the URL). This is the scope the future
+--         layer-1 event signature will cover: a signer can only commit to
+--         what they have under their eyes when they sign, not to identifiers
+--         the server is about to allocate.
+--       - `outcome` carries the server-allocated fields produced by the
+--         operation (UUIDv7s, sequenced counters such as `ename.numberPart`).
+--         These are covered separately by the layer-2 signed tree head, which
+--         binds each event — including its outcome — to its position in the
+--         log. The two layers are complementary, not redundant.
+--     Both columns exclude `idempotency_key` (transport metadata, its own
+--     column) and `created_at` (event-level metadata, its own column).
 --   - `created_at` follows the same rule as on projection tables: supplied by
 --     the application, not `DEFAULT now()`, so the projection remains
 --     deterministically reconstructible by replay.
@@ -47,7 +59,8 @@ CREATE TABLE events (
   sequence        BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   idempotency_key UUID        NOT NULL UNIQUE,
   kind            TEXT        NOT NULL,
-  payload         JSONB       NOT NULL,
+  request         JSONB       NOT NULL,
+  outcome         JSONB       NOT NULL,
   created_at      TIMESTAMPTZ NOT NULL,
 
   CONSTRAINT events_kind_allowed CHECK (kind IN ('subject.registered', 'subject.ename_added'))

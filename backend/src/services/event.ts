@@ -26,11 +26,21 @@ export class IdempotencyRaceError extends Error {
 // the registry per the event-sourcing model (cf. ename-internals.md § Registry
 // architecture as a verifiable event log).
 //
-// `payload` is intentionally `unknown`: the table holds heterogeneous event
-// kinds (v1: `subject.registered`; future: `subject.ename_added`, key rotation,
-// recovery, etc.), each with its own payload schema. Callers narrow by `kind`
-// and parse `payload` with the schema specific to that kind (e.g. the service
-// for `subject.registered` parses with `SubjectRegisteredPayloadSchema`).
+// `request` and `outcome` are intentionally `unknown`: the table holds
+// heterogeneous event kinds (v1: `subject.registered`; future:
+// `subject.ename_added`, key rotation, recovery, etc.), each with its own
+// pair of schemas. Callers narrow by `kind` and parse each column with the
+// schema specific to that kind — for example the service for
+// `subject.registered` parses with `SubjectRegisteredRequestSchema` and
+// `SubjectRegisteredOutcomeSchema`.
+//
+// The split between `request` and `outcome` reflects two distinct cryptographic
+// scopes (cf. ename-internals.md § events table): `request` is what the actor
+// submitted and what the future layer-1 signature will cover; `outcome` is
+// what the server allocated, covered separately by the layer-2 signed tree
+// head. Keeping them in different columns means the signed canonical bytes
+// will be derivable from `request` alone, with no contamination by
+// server-side allocations.
 //
 // `idempotencyKey` is included here for service-internal use (replay lookup,
 // race reconciliation) and operator/admin reads. Per ename-internals.md § events
@@ -41,13 +51,14 @@ export const EventSchema = z.object({
   sequence: z.coerce.number().int().min(1),
   idempotencyKey: z.string().regex(UUIDV7_REGEX),
   kind: z.string(),
-  payload: z.unknown(),
+  request: z.unknown(),
+  outcome: z.unknown(),
   createdAt: z.date(),
 });
 
 export type Event = z.infer<typeof EventSchema>;
 
-const SELECT_EVENT_COLUMNS = 'sequence, idempotency_key, kind, payload, created_at';
+const SELECT_EVENT_COLUMNS = 'sequence, idempotency_key, kind, request, outcome, created_at';
 
 export async function getEventByIdempotencyKey(idempotencyKey: string): Promise<Event | undefined> {
   const rows = await queryRows(
@@ -78,15 +89,16 @@ export async function insertEvent(
   params: {
     idempotencyKey: string;
     kind: string;
-    payload: unknown;
+    request: unknown;
+    outcome: unknown;
     createdAt: Date;
   },
 ): Promise<void> {
   try {
     await client.query(
-      `INSERT INTO events (idempotency_key, kind, payload, created_at)
-       VALUES ($1, $2, $3, $4)`,
-      [params.idempotencyKey, params.kind, params.payload, params.createdAt],
+      `INSERT INTO events (idempotency_key, kind, request, outcome, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [params.idempotencyKey, params.kind, params.request, params.outcome, params.createdAt],
     );
   } catch (error) {
     if (isUniqueViolation(error, EVENTS_IDEMPOTENCY_KEY_CONSTRAINT)) {

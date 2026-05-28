@@ -94,7 +94,7 @@ test('two sequential POSTs with the same namePart produce distinct subjects and 
   assert.equal(secondBody.ename.numberPart, 2);
 });
 
-test('idempotent replay: same idempotencyKey + same body returns the same payload', async () => {
+test('idempotent replay: same idempotencyKey + same body returns the same response', async () => {
   const idempotencyKey = uuidv7();
   const requestBody = makeBody({ idempotencyKey, namePart: 'albert-einstein' });
 

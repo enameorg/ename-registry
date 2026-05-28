@@ -76,45 +76,62 @@ async function insertSubject(
 }
 
 // ---------------------------------------------------------------------------
-// `subject.registered` event payload schema
+// `subject.registered` event request + outcome schemas
 // ---------------------------------------------------------------------------
 
-// Inner shape of the `events.payload` JSONB column for kind = 'subject.registered'.
-// (`subject.registered` is the v1 kind emitted by this endpoint;
-// `subject.ename_added` will be emitted by the future
-// POST /api/v1/subjects/{id}/enames endpoint and gets its own payload schema.)
+// Inner shapes of the `events.request` and `events.outcome` JSONB columns for
+// kind = 'subject.registered'. (`subject.registered` is the v1 kind emitted by
+// this endpoint; `subject.ename_added` will be emitted by the future
+// POST /api/v1/subjects/{id}/enames endpoint and gets its own pair of schemas.)
 // Domain-shaped (entity blocks), no projection-table mirroring, camelCase end
-// to end. `created_at` lives in the `events.created_at` column, not in the
-// payload (cf. ename-internals.md § events table).
+// to end. `created_at` and `idempotency_key` live in their own columns, not in
+// these JSONB blobs (cf. ename-internals.md § events table).
 //
-// Exported so consumers of the generic `findEvents()` / `getEventByIdempotencyKey()`
-// can narrow to this kind and parse the payload. The Event type in `./event.ts`
-// keeps `payload: unknown` because the table holds heterogeneous kinds.
-export const SubjectRegisteredPayloadSchema = z.object({
+// The split between request and outcome materializes the boundary between
+// what the actor submits (and what the future layer-1 signature will cover)
+// and what the server allocates (covered separately by the layer-2 signed
+// tree head). For `subject.registered` specifically:
+//   - request : fields the client submitted (subject.kind, ename.namePart).
+//   - outcome : server-allocated identifiers (subject.id, ename.id, ename.numberPart).
+//
+// Exported so consumers of the generic `findEvents()` /
+// `getEventByIdempotencyKey()` can narrow to this kind and parse each column.
+// The Event type in `./event.ts` keeps both columns as `unknown` because the
+// table holds heterogeneous kinds.
+
+export const SubjectRegisteredRequestSchema = z.object({
   subject: z.object({
-    id: z.string().regex(UUIDV7_REGEX),
     kind: z.literal('person'),
   }),
   ename: z.object({
-    id: z.string().regex(UUIDV7_REGEX),
     namePart: z.string(),
+  }),
+});
+
+export const SubjectRegisteredOutcomeSchema = z.object({
+  subject: z.object({
+    id: z.string().regex(UUIDV7_REGEX),
+  }),
+  ename: z.object({
+    id: z.string().regex(UUIDV7_REGEX),
     // Uses the same (min, max, integer, coerce) chain as the projection
-    // schema so a payload re-parsed from the event log cannot pass a
+    // schema so an outcome re-parsed from the event log cannot pass a
     // `numberPart` that the original INSERT would have rejected.
     numberPart: NumberPartFieldSchema,
   }),
 });
 
-type SubjectRegisteredPayload = z.infer<typeof SubjectRegisteredPayloadSchema>;
+type SubjectRegisteredRequest = z.infer<typeof SubjectRegisteredRequestSchema>;
+type SubjectRegisteredOutcome = z.infer<typeof SubjectRegisteredOutcomeSchema>;
 
 // ---------------------------------------------------------------------------
 // registerSubject — public types
 // ---------------------------------------------------------------------------
 
-// Domain-shaped input: entity blocks (`subject`, `ename`) mirror the event
-// payload, the response shape, and the public API request body. Same shape
-// at the request boundary, the service signature, the event payload and the
-// service result — no impedance mismatch between layers.
+// Domain-shaped input: entity blocks (`subject`, `ename`) mirror the event's
+// `request` JSONB shape and the public API request body. The body minus
+// `idempotencyKey` is exactly what gets persisted in `events.request` —
+// no transformation, no impedance mismatch.
 export type RegisterSubjectInput = {
   idempotencyKey: string;
   subject: { kind: 'person' };
@@ -131,17 +148,22 @@ export type RegisterSubjectResult = {
 // registerSubject — internals
 // ---------------------------------------------------------------------------
 
-function payloadToResult(
-  payload: SubjectRegisteredPayload,
+// Reconstruct the public service result from the persisted request + outcome
+// of a `subject.registered` event. Used both on the success path of a fresh
+// registration (where request + outcome are built in-memory) and on the
+// replay path (where they are re-parsed from the event row).
+function buildResult(
+  request: SubjectRegisteredRequest,
+  outcome: SubjectRegisteredOutcome,
   createdAt: Date,
 ): RegisterSubjectResult {
   return {
     createdAt,
-    subject: { id: payload.subject.id, kind: payload.subject.kind },
+    subject: { id: outcome.subject.id, kind: request.subject.kind },
     ename: {
-      id: payload.ename.id,
-      namePart: payload.ename.namePart,
-      numberPart: payload.ename.numberPart,
+      id: outcome.ename.id,
+      namePart: request.ename.namePart,
+      numberPart: outcome.ename.numberPart,
     },
   };
 }
@@ -149,6 +171,13 @@ function payloadToResult(
 // Map a discovered existing event to either a replay result (same operation,
 // return the prior response) or an IdempotencyConflictError (different
 // operation, surface as 409).
+//
+// Conflict detection is a direct structural deep-equal between the current
+// input (minus `idempotencyKey`, which lives in its own column) and the
+// persisted `request`. No reconstruction, no whitelist of fields — the
+// `events.request` column is, by design, exactly what the client submitted,
+// so equality is the natural check (cf. ename-internals.md § events table,
+// § Service-side idempotency algorithm).
 //
 // Error messages are intentionally generic: they describe the situation to
 // the client without echoing internal vocabulary (event kinds, column names).
@@ -168,35 +197,22 @@ function reconcileReplay(
       'this idempotency key has already been used for a different operation',
     );
   }
-  const payload = SubjectRegisteredPayloadSchema.parse(existing.payload);
-  // Structural equality between the input's entity blocks and the payload's
-  // entity blocks. Field-by-field equality (`payload.subject.kind === ...`)
-  // would be a whitelist that silently breaks the idempotency contract
-  // (same key + different body → same response) the day a new field is
-  // added to `RegisterSubjectInput` without updating this comparison.
-  // Here we reconstruct the payload that THIS input would have produced —
-  // re-using the server-allocated fields from the existing payload — and
-  // deep-equal the whole shape. Adding a field to the input automatically
-  // participates in the equality; the only list to maintain is the small
-  // set of server-allocated fields spread on the expected side
-  // (subject.id, ename.id, ename.numberPart).
-  const expectedPayload = {
-    subject: { ...input.subject, id: payload.subject.id },
-    ename: { ...input.ename, id: payload.ename.id, numberPart: payload.ename.numberPart },
+  const request = SubjectRegisteredRequestSchema.parse(existing.request);
+  const outcome = SubjectRegisteredOutcomeSchema.parse(existing.outcome);
+  const submittedRequest: SubjectRegisteredRequest = {
+    subject: input.subject,
+    ename: input.ename,
   };
-  if (!isDeepStrictEqual(expectedPayload, payload)) {
+  if (!isDeepStrictEqual(submittedRequest, request)) {
     logger.info(
-      {
-        existing: payload,
-        requested: { subject: input.subject, ename: input.ename },
-      },
+      { existing: request, requested: submittedRequest },
       'idempotency conflict: existing event has a different request body',
     );
     throw new IdempotencyConflictError(
       'this idempotency key has already been used with a different request body',
     );
   }
-  return payloadToResult(payload, existing.createdAt);
+  return buildResult(request, outcome, existing.createdAt);
 }
 
 // ---------------------------------------------------------------------------
@@ -217,14 +233,16 @@ function reconcileReplay(
 //   1. Preliminary SELECT on events.idempotency_key (outside transaction).
 //      Found → reconcile (replay or conflict). Not found → proceed.
 //   2. Generate UUIDv7 ids and a single createdAt (propagated to all three
-//      INSERTs and to the event payload — required for deterministic
+//      INSERTs and to the event's outcome JSONB — required for deterministic
 //      projection-by-replay).
 //   3. BEGIN, INSERT subjects.
 //   4. INSERT enames with COALESCE(MAX(number_part), 0) + 1, under a
 //      SAVEPOINT, retry on UNIQUE collision.
 //   5. Enforce the 52-char total length on the resulting ename.
-//   6. INSERT events. On UNIQUE collision on idempotency_key (race between
-//      step 1 and step 6), rollback and reconcile from the winner's row.
+//   6. INSERT events with request (what the client submitted) and outcome
+//      (server allocations). On UNIQUE collision on idempotency_key (race
+//      between step 1 and step 6), rollback and reconcile from the winner's
+//      row.
 //   7. COMMIT, return.
 export async function registerSubject(
   input: RegisterSubjectInput,
@@ -274,18 +292,23 @@ export async function registerSubject(
         // against another backend that won between step 1 and here;
         // `insertEvent` raises `IdempotencyRaceError` and we reconcile
         // from outside the transaction.
-        const payload: SubjectRegisteredPayload = {
-          subject: { id: subjectId, kind },
-          ename: { id: enameId, namePart, numberPart },
+        const request: SubjectRegisteredRequest = {
+          subject: { kind },
+          ename: { namePart },
+        };
+        const outcome: SubjectRegisteredOutcome = {
+          subject: { id: subjectId },
+          ename: { id: enameId, numberPart },
         };
         await insertEvent(client, {
           idempotencyKey: input.idempotencyKey,
           kind: 'subject.registered',
-          payload,
+          request,
+          outcome,
           createdAt,
         });
 
-        return payloadToResult(payload, createdAt);
+        return buildResult(request, outcome, createdAt);
       },
       logger,
     );
