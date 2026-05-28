@@ -1,8 +1,26 @@
+import type { PoolClient } from 'pg';
 import { z } from 'zod';
 
+import { isUniqueViolation } from '../database/errors.ts';
 import { pool } from '../database/pool.ts';
 import { queryRows } from '../database/query.ts';
 import { UUIDV7_REGEX } from '../uuid.ts';
+
+const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
+
+// Sentinel raised by `insertEvent` when the UNIQUE constraint on
+// `events.idempotency_key` fires — signals to the caller that another
+// transaction won the idempotency race between the preliminary lookup and
+// this INSERT. Not a `DomainError`: it is an internal control-flow sentinel
+// caught by the service that owns the use case (e.g. `registerSubject`),
+// which then rolls back the surrounding transaction and reconciles from
+// the winner's row. Must never reach the API layer.
+export class IdempotencyRaceError extends Error {
+  public override readonly name = 'IdempotencyRaceError';
+  constructor() {
+    super('idempotency race');
+  }
+}
 
 // Domain-shaped Event. Mirrors the `events` table — single source of truth of
 // the registry per the event-sourcing model (cf. ename-internals.md § Registry
@@ -50,4 +68,30 @@ export async function findEvents(): Promise<Event[]> {
     [],
     EventSchema,
   );
+}
+
+// INSERT one event row. On UNIQUE collision on `idempotency_key`, throws
+// `IdempotencyRaceError` so the caller can rollback the surrounding
+// transaction and reconcile from the winner's row.
+export async function insertEvent(
+  client: PoolClient,
+  params: {
+    idempotencyKey: string;
+    kind: string;
+    payload: unknown;
+    createdAt: Date;
+  },
+): Promise<void> {
+  try {
+    await client.query(
+      `INSERT INTO events (idempotency_key, kind, payload, created_at)
+       VALUES ($1, $2, $3, $4)`,
+      [params.idempotencyKey, params.kind, params.payload, params.createdAt],
+    );
+  } catch (error) {
+    if (isUniqueViolation(error, EVENTS_IDEMPOTENCY_KEY_CONSTRAINT)) {
+      throw new IdempotencyRaceError();
+    }
+    throw error;
+  }
 }

@@ -1,5 +1,11 @@
 import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
 
+import {
+  MAX_ENAME_LENGTH,
+  MAX_NAME_PART_LENGTH,
+  MAX_NUMBER_PART,
+  NAME_PART_REGEX,
+} from '../services/ename.ts';
 import { registerSubject, type RegisterSubjectResult } from '../services/subject.ts';
 import { UUIDV7_REGEX } from '../uuid.ts';
 
@@ -15,13 +21,12 @@ import { problemResponse } from './problem.ts';
 // same shape as the event payload and as the service input/result types.
 // One mental model end to end — wire body, service signature, log entry,
 // HTTP response all read the same way.
+//
+// The ename-format rules (`NAME_PART_REGEX`, `MAX_NAME_PART_LENGTH`,
+// `MAX_NUMBER_PART`) are imported from the ename service: they describe
+// the domain, not an API-layer concern, and any future ename-creating
+// endpoint must agree on the same shape.
 // ---------------------------------------------------------------------------
-
-// `namePart` per ename-format v0.7: lowercase letters and hyphens only, no
-// leading/trailing/consecutive hyphens, at least one letter, length 1..50.
-// The single regex expresses the grammar in one pass — clearer and faster
-// than a cascade of `.refine()` calls.
-const NAME_PART_REGEX = /^[a-z]+(-[a-z]+)*$/;
 
 const RegisterSubjectRequestSchema = z
   .object({
@@ -39,7 +44,7 @@ const RegisterSubjectRequestSchema = z
         namePart: z
           .string()
           .min(1)
-          .max(50)
+          .max(MAX_NAME_PART_LENGTH)
           .regex(NAME_PART_REGEX, {
             message:
               'must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)',
@@ -69,10 +74,9 @@ const RegisterSubjectResponseSchema = z
           .regex(UUIDV7_REGEX)
           .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e10' }),
         namePart: z.string().openapi({ example: 'jean-dupont' }),
-        // Upper bound mirrors the DB CHECK (`enames_number_part_range`,
-        // 1..999_999_999_999). Surfaced in OpenAPI so SDK generators document
-        // the bound; stays well under 2^53, hence JSON `integer` is safe.
-        numberPart: z.number().int().min(1).max(999_999_999_999).openapi({ example: 1 }),
+        // Upper bound mirrors the DB CHECK (`enames_number_part_range`).
+        // Surfaced in OpenAPI so SDK generators document the bound.
+        numberPart: z.number().int().min(1).max(MAX_NUMBER_PART).openapi({ example: 1 }),
       })
       .openapi('Ename'),
   })
@@ -109,7 +113,7 @@ export const registerSubjectRoute = createRoute({
     },
     409: problemResponse('Idempotency key already used for a different operation'),
     422: problemResponse(
-      'Request body failed validation, or the resulting ename exceeds 52 characters',
+      `Request body failed validation, or the resulting ename exceeds ${MAX_ENAME_LENGTH} characters`,
     ),
     500: problemResponse('Unexpected error'),
   },

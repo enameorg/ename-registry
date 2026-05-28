@@ -9,20 +9,19 @@ import { pool } from '../database/pool.ts';
 import { queryRows, withTransaction } from '../database/query.ts';
 import { UUIDV7_REGEX } from '../uuid.ts';
 
-import { IdempotencyConflictError, ValidationError } from './errors.ts';
-import { type Event, getEventByIdempotencyKey } from './event.ts';
-
-const MAX_TOTAL_LENGTH = 52;
-// Number of allowed retry attempts when the (name_part, number_part) UNIQUE
-// constraint fires inside the SAVEPOINT loop. Under READ COMMITTED, two
-// concurrent transactions can read the same MAX(number_part) and race to
-// insert the same value; each round of collisions eliminates roughly one
-// contender, so the budget caps the supported burst of concurrent inserts
-// on a single name_part. 20 covers a comfortably pessimistic real-world
-// burst; beyond that the request fails loud (500) and the client may retry.
-const MAX_NUMBER_PART_RETRIES = 20;
-const ENAMES_NUMBER_PART_CONSTRAINT = 'enames_name_part_number_part_key';
-const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
+import type { ServiceContext } from './context.ts';
+import {
+  enforceMaxEnameLength,
+  insertEnameWithNextNumber,
+  NumberPartFieldSchema,
+} from './ename.ts';
+import { IdempotencyConflictError } from './errors.ts';
+import {
+  type Event,
+  getEventByIdempotencyKey,
+  IdempotencyRaceError,
+  insertEvent,
+} from './event.ts';
 
 // ---------------------------------------------------------------------------
 // Subject domain type and lookups
@@ -61,6 +60,21 @@ export async function findSubjects(): Promise<Subject[]> {
   );
 }
 
+// INSERT one subject row. Thin wrapper kept for symmetry with
+// `insertEnameWithNextNumber` and `insertEvent`: each table's write
+// belongs to the service that owns the table, even when the SQL is a
+// one-liner.
+async function insertSubject(
+  client: PoolClient,
+  params: { id: string; kind: 'person'; createdAt: Date },
+): Promise<void> {
+  await client.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [
+    params.id,
+    params.kind,
+    params.createdAt,
+  ]);
+}
+
 // ---------------------------------------------------------------------------
 // `subject.registered` event payload schema
 // ---------------------------------------------------------------------------
@@ -84,19 +98,14 @@ export const SubjectRegisteredPayloadSchema = z.object({
   ename: z.object({
     id: z.string().regex(UUIDV7_REGEX),
     namePart: z.string(),
-    numberPart: z.number().int().positive(),
+    // Uses the same (min, max, integer, coerce) chain as the projection
+    // schema so a payload re-parsed from the event log cannot pass a
+    // `numberPart` that the original INSERT would have rejected.
+    numberPart: NumberPartFieldSchema,
   }),
 });
 
 type SubjectRegisteredPayload = z.infer<typeof SubjectRegisteredPayloadSchema>;
-
-// Row shape for `INSERT enames ... RETURNING number_part`. The pg driver
-// returns BIGINT as a string by default — `z.coerce.number()` accepts both
-// the string form and a real number, and keeps validation honest about the
-// declared range (CHECK on the DB side is 1..999_999_999_999).
-const NumberPartRowSchema = z.object({
-  numberPart: z.coerce.number().int().min(1).max(999_999_999_999),
-});
 
 // ---------------------------------------------------------------------------
 // registerSubject — public types
@@ -118,28 +127,9 @@ export type RegisterSubjectResult = {
   ename: { id: string; namePart: string; numberPart: number };
 };
 
-export type ServiceContext = {
-  logger: Logger;
-};
-
 // ---------------------------------------------------------------------------
 // registerSubject — internals
 // ---------------------------------------------------------------------------
-
-// Sentinel used to signal a 23505 on `events.idempotency_key` from inside the
-// transaction up to the outer reconciliation block. Never escapes this file.
-class IdempotencyRaceError extends Error {
-  public override readonly name = 'IdempotencyRaceError';
-  constructor() {
-    super('idempotency race');
-  }
-}
-
-function isUniqueViolation(error: unknown, constraint: string): boolean {
-  if (!(error instanceof Error)) return false;
-  const candidate = error as { code?: unknown; constraint?: unknown };
-  return candidate.code === '23505' && candidate.constraint === constraint;
-}
 
 function payloadToResult(
   payload: SubjectRegisteredPayload,
@@ -209,71 +199,6 @@ function reconcileReplay(
   return payloadToResult(payload, existing.createdAt);
 }
 
-// INSERT the ename with the next number_part for the given name_part. The
-// number is computed atomically inside the INSERT via COALESCE(MAX(...), 0)+1.
-// Two concurrent backends can pick the same MAX, so we protect each attempt
-// with a SAVEPOINT and retry on 23505 — the already-inserted subject row
-// survives across attempts.
-async function insertEnameWithNextNumber(
-  client: PoolClient,
-  params: {
-    enameId: string;
-    subjectId: string;
-    namePart: string;
-    createdAt: Date;
-  },
-  logger: Logger,
-): Promise<number> {
-  for (let attempt = 1; attempt <= MAX_NUMBER_PART_RETRIES; attempt += 1) {
-    await client.query('SAVEPOINT ename_attempt');
-    try {
-      const rows = await queryRows(
-        client,
-        `INSERT INTO enames (id, subject_id, name_part, number_part, created_at)
-         SELECT $1, $2, $3, COALESCE(MAX(number_part), 0) + 1, $4
-         FROM enames WHERE name_part = $3
-         RETURNING number_part`,
-        [params.enameId, params.subjectId, params.namePart, params.createdAt],
-        NumberPartRowSchema,
-      );
-      const row = rows[0];
-      if (!row) {
-        // Unreachable in practice: an INSERT ... RETURNING that succeeds
-        // always returns one row. Defensive against a future SQL refactor.
-        // Thrown BEFORE RELEASE SAVEPOINT so the catch's ROLLBACK targets a
-        // still-existing savepoint — releasing first would make the rollback
-        // fail with "no such savepoint" and mask the real error.
-        throw new Error('insert enames returned no row');
-      }
-      await client.query('RELEASE SAVEPOINT ename_attempt');
-      return row.numberPart;
-    } catch (error) {
-      // Same defensive pattern as `withTransaction`: a SAVEPOINT rollback
-      // failure (typically a dead connection or an already-aborted txn)
-      // must not mask the original INSERT error.
-      try {
-        await client.query('ROLLBACK TO SAVEPOINT ename_attempt');
-      } catch (rollbackError) {
-        logger.error(
-          { err: rollbackError, namePart: params.namePart, attempt },
-          'rollback to savepoint failed; original error will be re-thrown',
-        );
-      }
-      if (isUniqueViolation(error, ENAMES_NUMBER_PART_CONSTRAINT)) {
-        logger.warn(
-          { namePart: params.namePart, attempt },
-          'number_part collision on enames insert, retrying',
-        );
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw new Error(
-    `failed to allocate number_part for namePart=${params.namePart} after ${MAX_NUMBER_PART_RETRIES} attempts`,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // registerSubject — public use case
 // ---------------------------------------------------------------------------
@@ -332,11 +257,7 @@ export async function registerSubject(
       pool,
       async (client) => {
         // Step 3 — INSERT subjects.
-        await client.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [
-          subjectId,
-          kind,
-          createdAt,
-        ]);
+        await insertSubject(client, { id: subjectId, kind, createdAt });
 
         // Step 4 — INSERT enames with retry.
         const numberPart = await insertEnameWithNextNumber(
@@ -345,55 +266,24 @@ export async function registerSubject(
           logger,
         );
 
-        // Step 5 — 52-char guard. Depends on numberPart so cannot live in Zod
-        // input validation. Raised as a domain error to be mapped to 422.
-        // The public detail stays generic; arithmetic specifics go to the log
-        // (correlatable by `requestId`).
-        const numberPartDigits = String(numberPart).length;
-        const totalLength = namePart.length + 1 + numberPartDigits;
-        if (totalLength > MAX_TOTAL_LENGTH) {
-          logger.warn(
-            {
-              namePartLength: namePart.length,
-              numberPart,
-              numberPartDigits,
-              totalLength,
-              maxTotalLength: MAX_TOTAL_LENGTH,
-            },
-            '52-char overflow on ename creation',
-          );
-          throw new ValidationError(
-            `the resulting ename would exceed the ${MAX_TOTAL_LENGTH}-character limit; choose a shorter namePart`,
-            [
-              {
-                path: ['ename', 'namePart'],
-                message: `namePart is too long: combined with the next available numberPart it would exceed ${MAX_TOTAL_LENGTH} characters`,
-              },
-            ],
-          );
-        }
+        // Step 5 — 52-char guard. Depends on numberPart so cannot live in
+        // Zod input validation. Throws ValidationError (→ 422).
+        enforceMaxEnameLength({ namePart, numberPart }, logger);
 
-        // Step 6 — INSERT events. The payload is built now that numberPart
-        // is known. A 23505 on idempotency_key signals a race against another
-        // backend that won between step 1 and here; we rollback and reconcile
-        // from outside.
+        // Step 6 — INSERT events. A 23505 on idempotency_key signals a race
+        // against another backend that won between step 1 and here;
+        // `insertEvent` raises `IdempotencyRaceError` and we reconcile
+        // from outside the transaction.
         const payload: SubjectRegisteredPayload = {
           subject: { id: subjectId, kind },
           ename: { id: enameId, namePart, numberPart },
         };
-
-        try {
-          await client.query(
-            `INSERT INTO events (idempotency_key, kind, payload, created_at)
-           VALUES ($1, $2, $3, $4)`,
-            [input.idempotencyKey, 'subject.registered', payload, createdAt],
-          );
-        } catch (error) {
-          if (isUniqueViolation(error, EVENTS_IDEMPOTENCY_KEY_CONSTRAINT)) {
-            throw new IdempotencyRaceError();
-          }
-          throw error;
-        }
+        await insertEvent(client, {
+          idempotencyKey: input.idempotencyKey,
+          kind: 'subject.registered',
+          payload,
+          createdAt,
+        });
 
         return payloadToResult(payload, createdAt);
       },
