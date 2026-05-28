@@ -1,8 +1,8 @@
 import type { MiddlewareHandler } from 'hono';
 import type { Logger } from 'pino';
-import { v7 as uuidv7 } from 'uuid';
 
 import { logger as rootLogger } from '../logger.ts';
+import { generateUUIDv7 } from '../uuid.ts';
 
 // Hono Variables exposed by the request-context middleware.
 //
@@ -27,7 +27,7 @@ const REQUEST_ID_HEADER = 'X-Request-Id';
 export const requestContext: MiddlewareHandler<{
   Variables: RequestContextVariables;
 }> = async (context, next) => {
-  const requestId = uuidv7();
+  const requestId = generateUUIDv7();
   const childLogger = rootLogger.child({ requestId });
 
   context.set('requestId', requestId);

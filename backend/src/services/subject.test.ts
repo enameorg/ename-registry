@@ -2,7 +2,6 @@ import { strict as assert } from 'node:assert';
 import { beforeEach, test } from 'node:test';
 
 import { pino } from 'pino';
-import { v7 as uuidv7 } from 'uuid';
 
 // Service integration tests assert on (a) the return value of the service
 // function under test and (b) the resulting state observed through the
@@ -15,7 +14,7 @@ import { v7 as uuidv7 } from 'uuid';
 // `resetTestDb` is the only import from `../database/*`: tests share the
 // real PostgreSQL instance and must start each case on a clean slate.
 import { resetTestDb } from '../database/reset-for-tests.ts';
-import { UUIDV7_REGEX } from '../uuid.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../uuid.ts';
 
 import { findEnames } from './ename.ts';
 import { IdempotencyConflictError, ValidationError } from './errors.ts';
@@ -42,7 +41,7 @@ beforeEach(async () => {
 // ---------------------------------------------------------------------------
 
 test('happy path: writes one row per table with consistent ids, namePart, numberPart, request, outcome, kind, idempotency_key and created_at', async () => {
-  const idempotencyKey = uuidv7();
+  const idempotencyKey = generateUUIDv7();
   const namePart = 'jean-dupont';
 
   const result = await registerSubject(
@@ -109,11 +108,11 @@ test('two sequential registrations for the same namePart produce consecutive num
   const namePart = 'marie-curie';
 
   const first = await registerSubject(
-    { idempotencyKey: uuidv7(), subject: { kind: 'person' }, ename: { namePart } },
+    { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
     context,
   );
   const second = await registerSubject(
-    { idempotencyKey: uuidv7(), subject: { kind: 'person' }, ename: { namePart } },
+    { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
     context,
   );
 
@@ -127,7 +126,7 @@ test('two sequential registrations for the same namePart produce consecutive num
 // ---------------------------------------------------------------------------
 
 test('idempotent replay: second sequential call with the same input returns the same result and writes nothing new', async () => {
-  const idempotencyKey = uuidv7();
+  const idempotencyKey = generateUUIDv7();
   const input = {
     idempotencyKey,
     subject: { kind: 'person' as const },
@@ -148,7 +147,7 @@ test('idempotent replay: second sequential call with the same input returns the 
 });
 
 test('idempotency conflict: same idempotencyKey with a different body throws IdempotencyConflictError', async () => {
-  const idempotencyKey = uuidv7();
+  const idempotencyKey = generateUUIDv7();
 
   await registerSubject(
     { idempotencyKey, subject: { kind: 'person' }, ename: { namePart: 'first-name' } },
@@ -181,7 +180,7 @@ test('concurrent registrations for the same namePart produce consecutive numberP
     Array.from({ length: concurrency }, () =>
       registerSubject(
         {
-          idempotencyKey: uuidv7(),
+          idempotencyKey: generateUUIDv7(),
           subject: { kind: 'person' },
           ename: { namePart },
         },
@@ -205,7 +204,7 @@ test('concurrent registrations for the same namePart produce consecutive numberP
 });
 
 test('concurrent registrations with the same idempotencyKey produce a single event', async () => {
-  const idempotencyKey = uuidv7();
+  const idempotencyKey = generateUUIDv7();
   const input = {
     idempotencyKey,
     subject: { kind: 'person' as const },
@@ -252,7 +251,7 @@ test('52-char post-allocation guard: throws ValidationError pointing at ename.na
   const namePart = 'a'.repeat(50);
   for (let index = 0; index < 9; index += 1) {
     await registerSubject(
-      { idempotencyKey: uuidv7(), subject: { kind: 'person' }, ename: { namePart } },
+      { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
       context,
     );
   }
@@ -260,7 +259,7 @@ test('52-char post-allocation guard: throws ValidationError pointing at ename.na
   await assert.rejects(
     () =>
       registerSubject(
-        { idempotencyKey: uuidv7(), subject: { kind: 'person' }, ename: { namePart } },
+        { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
         context,
       ),
     (error: unknown) => {

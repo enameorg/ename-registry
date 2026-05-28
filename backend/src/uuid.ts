@@ -1,3 +1,9 @@
+import { v7 as uuidv7 } from 'uuid';
+
+export function generateUUIDv7(): string {
+  return uuidv7();
+}
+
 // Strict UUIDv7 pattern: 8-4-4-4-12 hex, version nibble 7, RFC 4122 variant
 // bits 10. Case-sensitive lowercase — RFC 9562 §4 prescribes lowercase as the
 // canonical output form, and we generate lowercase (`uuid` package v7()) and

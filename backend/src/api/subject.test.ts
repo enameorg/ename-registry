@@ -1,8 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { beforeEach, test } from 'node:test';
 
-import { v7 as uuidv7 } from 'uuid';
-
 // API tests assert the HTTP contract only — status codes, headers, response
 // shape, Problem Details bodies. They do not inspect persistent state: every
 // invariant about what gets written to `subjects`, `enames` or `events` lives
@@ -14,7 +12,7 @@ import { v7 as uuidv7 } from 'uuid';
 // in this file.
 import { resetTestDb } from '../database/reset-for-tests.ts';
 import { app } from '../index.ts';
-import { UUIDV7_REGEX } from '../uuid.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../uuid.ts';
 
 const ENDPOINT = 'http://localhost/api/v1/subjects';
 
@@ -41,7 +39,7 @@ function makeBody(overrides: {
   namePart?: string;
 }): unknown {
   return {
-    idempotencyKey: overrides.idempotencyKey ?? uuidv7(),
+    idempotencyKey: overrides.idempotencyKey ?? generateUUIDv7(),
     subject: { kind: overrides.kind ?? 'person' },
     ename: { namePart: overrides.namePart ?? 'jean-dupont' },
   };
@@ -95,7 +93,7 @@ test('two sequential POSTs with the same namePart produce distinct subjects and 
 });
 
 test('idempotent replay: same idempotencyKey + same body returns the same response', async () => {
-  const idempotencyKey = uuidv7();
+  const idempotencyKey = generateUUIDv7();
   const requestBody = makeBody({ idempotencyKey, namePart: 'albert-einstein' });
 
   const firstResponse = await postSubject(requestBody);
@@ -109,7 +107,7 @@ test('idempotent replay: same idempotencyKey + same body returns the same respon
 });
 
 test('idempotency conflict: same idempotencyKey with a different body returns 409 problem+json', async () => {
-  const idempotencyKey = uuidv7();
+  const idempotencyKey = generateUUIDv7();
 
   const firstResponse = await postSubject(makeBody({ idempotencyKey, namePart: 'first-name' }));
   assert.equal(firstResponse.status, 201);
@@ -144,17 +142,17 @@ test('idempotency conflict: same idempotencyKey with a different body returns 40
 for (const scenario of [
   {
     name: 'missing ename block entirely',
-    body: { idempotencyKey: uuidv7(), subject: { kind: 'person' } },
+    body: { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' } },
     expectedPath: ['ename'],
   },
   {
     name: 'missing namePart inside ename block',
-    body: { idempotencyKey: uuidv7(), subject: { kind: 'person' }, ename: {} },
+    body: { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: {} },
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'missing subject block entirely',
-    body: { idempotencyKey: uuidv7(), ename: { namePart: 'jean' } },
+    body: { idempotencyKey: generateUUIDv7(), ename: { namePart: 'jean' } },
     expectedPath: ['subject'],
   },
   {

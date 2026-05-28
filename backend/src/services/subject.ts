@@ -2,12 +2,11 @@ import { isDeepStrictEqual } from 'node:util';
 
 import type { PoolClient } from 'pg';
 import type { Logger } from 'pino';
-import { v7 as uuidv7 } from 'uuid';
 import { z } from 'zod';
 
 import { pool } from '../database/pool.ts';
 import { queryRows, withTransaction } from '../database/query.ts';
-import { UUIDV7_REGEX } from '../uuid.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../uuid.ts';
 
 import type { ServiceContext } from './context.ts';
 import {
@@ -261,8 +260,8 @@ export async function registerSubject(
   }
 
   // Step 2 — capture identity + timestamp once.
-  const subjectId = uuidv7();
-  const enameId = uuidv7();
+  const subjectId = generateUUIDv7();
+  const enameId = generateUUIDv7();
   const createdAt = new Date();
 
   // Convenience locals — avoid repeating `input.subject.kind` and
