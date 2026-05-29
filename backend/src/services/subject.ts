@@ -47,9 +47,8 @@ export async function getSubject(id: string): Promise<Subject | undefined> {
   return rows[0];
 }
 
-// Returns subjects ordered by `(created_at, id)` — deterministic for tests and
-// for any admin listing. `id` is a UUIDv7 so it provides a stable tiebreaker
-// for rows sharing the same `created_at`.
+// Ordered by (created_at, id): deterministic; id (UUIDv7) breaks ties on
+// equal created_at.
 export async function findSubjects(): Promise<Subject[]> {
   return await queryRows(
     pool,
@@ -59,10 +58,8 @@ export async function findSubjects(): Promise<Subject[]> {
   );
 }
 
-// INSERT one subject row. Thin wrapper kept for symmetry with
-// `insertEnameWithNextNumber` and `insertEvent`: each table's write
-// belongs to the service that owns the table, even when the SQL is a
-// one-liner.
+// Thin wrapper for symmetry with insertEnameWithNextNumber / insertEvent:
+// each table's write lives in the service that owns it, even when trivial.
 async function insertSubject(
   client: PoolClient,
   params: { id: string; kind: 'person'; createdAt: Date },
@@ -78,25 +75,12 @@ async function insertSubject(
 // `subject.registered` event request + outcome schemas
 // ---------------------------------------------------------------------------
 
-// Inner shapes of the `events.request` and `events.outcome` JSONB columns for
-// kind = 'subject.registered'. (`subject.registered` is the v1 kind emitted by
-// this endpoint; `subject.ename_added` will be emitted by the future
-// POST /api/v1/subjects/{id}/enames endpoint and gets its own pair of schemas.)
-// Domain-shaped (entity blocks), no projection-table mirroring, camelCase end
-// to end. `created_at` and `idempotency_key` live in their own columns, not in
-// these JSONB blobs (cf. ename-internals.md § events table).
-//
-// The split between request and outcome materializes the boundary between
-// what the actor submits (and what the future layer-1 signature will cover)
-// and what the server allocates (covered separately by the layer-2 signed
-// tree head). For `subject.registered` specifically:
+// request/outcome shapes for kind = 'subject.registered':
 //   - request : fields the client submitted (subject.kind, ename.namePart).
-//   - outcome : server-allocated identifiers (subject.id, ename.id, ename.numberPart).
-//
-// Exported so consumers of the generic `findEvents()` /
-// `getEventByIdempotencyKey()` can narrow to this kind and parse each column.
-// The Event type in `./event.ts` keeps both columns as `unknown` because the
-// table holds heterogeneous kinds.
+//   - outcome : server-allocated ids (subject.id, ename.id, ename.numberPart).
+// The request/outcome split and its two signature scopes are in
+// ename-internals.md. Exported so generic event readers can narrow to this
+// kind and parse each column.
 
 export const SubjectRegisteredRequestSchema = z.object({
   subject: z.object({
@@ -113,9 +97,8 @@ export const SubjectRegisteredOutcomeSchema = z.object({
   }),
   ename: z.object({
     id: z.string().regex(UUIDV7_REGEX),
-    // Uses the same (min, max, integer, coerce) chain as the projection
-    // schema so an outcome re-parsed from the event log cannot pass a
-    // `numberPart` that the original INSERT would have rejected.
+    // Same chain as the projection schema, so a numberPart re-parsed from the
+    // event log can't pass what the original INSERT would have rejected.
     numberPart: NumberPartFieldSchema,
   }),
 });
@@ -127,10 +110,8 @@ type SubjectRegisteredOutcome = z.infer<typeof SubjectRegisteredOutcomeSchema>;
 // registerSubject — public types
 // ---------------------------------------------------------------------------
 
-// Domain-shaped input: entity blocks (`subject`, `ename`) mirror the event's
-// `request` JSONB shape and the public API request body. The body minus
-// `idempotencyKey` is exactly what gets persisted in `events.request` —
-// no transformation, no impedance mismatch.
+// Entity blocks (subject, ename) mirror the event's request shape and the API
+// body. The body minus idempotencyKey is exactly what lands in events.request.
 export type RegisterSubjectInput = {
   idempotencyKey: string;
   subject: { kind: 'person' };
@@ -147,10 +128,8 @@ export type RegisterSubjectResult = {
 // registerSubject — internals
 // ---------------------------------------------------------------------------
 
-// Reconstruct the public service result from the persisted request + outcome
-// of a `subject.registered` event. Used both on the success path of a fresh
-// registration (where request + outcome are built in-memory) and on the
-// replay path (where they are re-parsed from the event row).
+// Build the public result from a request + outcome pair — used both on a fresh
+// registration (built in-memory) and on replay (re-parsed from the event row).
 function buildResult(
   request: SubjectRegisteredRequest,
   outcome: SubjectRegisteredOutcome,
@@ -167,21 +146,11 @@ function buildResult(
   };
 }
 
-// Map a discovered existing event to either a replay result (same operation,
-// return the prior response) or an IdempotencyConflictError (different
-// operation, surface as 409).
-//
-// Conflict detection is a direct structural deep-equal between the current
-// input (minus `idempotencyKey`, which lives in its own column) and the
-// persisted `request`. No reconstruction, no whitelist of fields — the
-// `events.request` column is, by design, exactly what the client submitted,
-// so equality is the natural check (cf. ename-internals.md § events table,
-// § Service-side idempotency algorithm).
-//
-// Error messages are intentionally generic: they describe the situation to
-// the client without echoing internal vocabulary (event kinds, column names).
-// The technical specifics — which kind was actually stored, which field
-// differed — are logged so operators can correlate via `requestId`.
+// Map a found event to a replay result (same operation) or an
+// IdempotencyConflictError (different operation, → 409). Conflict is a
+// structural deep-equal between the submitted body (minus idempotencyKey) and
+// the stored request. Messages stay generic for the client; the specifics
+// (which kind, which field differed) go to the log, correlatable by requestId.
 function reconcileReplay(
   existing: Event,
   input: RegisterSubjectInput,
@@ -218,31 +187,11 @@ function reconcileReplay(
 // registerSubject — public use case
 // ---------------------------------------------------------------------------
 
-// Register a new subject and its first ename atomically.
-//
-// Emits one `subject.registered` event in the log (the subject and its first
-// ename are created atomically — a subject without an ename has no meaning in
-// the registry), and projects one row each
-// into `subjects` and `enames`. Idempotent via `input.idempotencyKey`: a
-// retry with the same key returns the original result; a retry with a
-// different body raises `IdempotencyConflictError` (mapped to 409 by the
-// API layer).
-//
-// Algorithm (cf. docs/ename-internals.md):
-//   1. Preliminary SELECT on events.idempotency_key (outside transaction).
-//      Found → reconcile (replay or conflict). Not found → proceed.
-//   2. Generate UUIDv7 ids and a single createdAt (propagated to all three
-//      INSERTs and to the event's outcome JSONB — required for deterministic
-//      projection-by-replay).
-//   3. BEGIN, INSERT subjects.
-//   4. INSERT enames with COALESCE(MAX(number_part), 0) + 1, under a
-//      SAVEPOINT, retry on UNIQUE collision.
-//   5. Enforce the 52-char total length on the resulting ename.
-//   6. INSERT events with request (what the client submitted) and outcome
-//      (server allocations). On UNIQUE collision on idempotency_key (race
-//      between step 1 and step 6), rollback and reconcile from the winner's
-//      row.
-//   7. COMMIT, return.
+// Register a new subject and its first ename atomically, emitting one
+// subject.registered event. Idempotent via idempotencyKey: a retry with the
+// same body replays the original result, a different body raises
+// IdempotencyConflictError (409). The algorithm is in ename-internals.md;
+// its steps are marked inline below.
 export async function registerSubject(
   input: RegisterSubjectInput,
   context: ServiceContext,
@@ -264,8 +213,7 @@ export async function registerSubject(
   const enameId = generateUUIDv7();
   const createdAt = new Date();
 
-  // Convenience locals — avoid repeating `input.subject.kind` and
-  // `input.ename.namePart` throughout the transaction body.
+  // Convenience locals for the transaction body.
   const { kind } = input.subject;
   const { namePart } = input.ename;
 
@@ -287,10 +235,9 @@ export async function registerSubject(
         // Zod input validation. Throws ValidationError (→ 422).
         enforceMaxEnameLength({ namePart, numberPart }, logger);
 
-        // Step 6 — INSERT events. A 23505 on idempotency_key signals a race
-        // against another backend that won between step 1 and here;
-        // `insertEvent` raises `IdempotencyRaceError` and we reconcile
-        // from outside the transaction.
+        // Step 6 — INSERT events. A 23505 on idempotency_key means another
+        // backend won the race since step 1; insertEvent raises
+        // IdempotencyRaceError and we reconcile outside the transaction.
         const request: SubjectRegisteredRequest = {
           subject: { kind },
           ename: { namePart },

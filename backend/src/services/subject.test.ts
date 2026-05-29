@@ -3,16 +3,10 @@ import { beforeEach, test } from 'node:test';
 
 import { pino } from 'pino';
 
-// Service integration tests assert on (a) the return value of the service
-// function under test and (b) the resulting state observed through the
-// Service Layer's own public surface (`findSubjects`, `findEnames`,
-// `findEvents`, `getEventByIdempotencyKey`, etc.). They do not import `pool`
-// and do not issue raw SQL: every state inspection passes through a Service
-// function whose existence is justified by a credible production use case
-// (transparency log, lookups, admin/operator reads).
-//
-// `resetTestDb` is the only import from `../database/*`: tests share the
-// real PostgreSQL instance and must start each case on a clean slate.
+// Service integration tests: assert the return value and the persisted state
+// read back through the Service's own functions (findSubjects, findEnames,
+// findEvents, getEventByIdempotencyKey) — no raw pool/SQL. resetTestDb is the
+// only ../database import. Test doctrine: ename-internals.md.
 import { resetTestDb } from '../database/reset-for-tests.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../uuid.ts';
 
@@ -78,9 +72,7 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(events.length, 1);
   assert.equal(events[0]?.idempotencyKey, idempotencyKey);
   assert.equal(events[0]?.kind, 'subject.registered');
-  // `request` holds what the client submitted (the input the future layer-1
-  // signature will cover); `outcome` holds what the server allocated
-  // (covered separately by the future layer-2 signed tree head).
+  // request = what the client submitted; outcome = what the server allocated.
   const request = SubjectRegisteredRequestSchema.parse(events[0]?.request);
   assert.equal(request.subject.kind, 'person');
   assert.equal(request.ename.namePart, namePart);

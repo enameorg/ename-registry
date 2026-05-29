@@ -13,19 +13,14 @@ import type { RequestContextVariables } from './middleware.ts';
 import { problemResponse } from './problem.ts';
 
 // ---------------------------------------------------------------------------
-// Request and response schemas (inline at v1; extract to a dedicated file
-// the day they get reused by a second consumer, per the doctrine in
-// docs/ename-internals.md § Zod schema organization).
+// Request and response schemas, inline with the route (see ename-internals.md).
+// Both are nested by entity block (subject, ename) — same shape as the event's
+// request/outcome and the service input/result, so wire body, service
+// signature, log entry and HTTP response all read the same way.
 //
-// Both request and response are nested by entity block (`subject`, `ename`):
-// same shape as the event's `request`/`outcome` split and as the service
-// input/result types. One mental model end to end — wire body, service
-// signature, log entry, HTTP response all read the same way.
-//
-// The ename-format rules (`NAME_PART_REGEX`, `MAX_NAME_PART_LENGTH`,
-// `MAX_NUMBER_PART`) are imported from the ename service: they describe
-// the domain, not an API-layer concern, and any future ename-creating
-// endpoint must agree on the same shape.
+// The ename-format rules (NAME_PART_REGEX, MAX_NAME_PART_LENGTH,
+// MAX_NUMBER_PART) come from the ename service: they describe the domain, and
+// any future ename-creating endpoint must agree on the same shape.
 // ---------------------------------------------------------------------------
 
 const RegisterSubjectRequestSchema = z

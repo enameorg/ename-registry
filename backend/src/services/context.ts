@@ -1,10 +1,9 @@
 import type { Logger } from 'pino';
 
-// Shared context type passed to every Service Layer function. Carries
-// per-request infrastructure that services need (logger today; future:
-// traceId, authenticated actor, etc.) without coupling services to the
-// HTTP layer. The API layer builds the context in its handler and passes
-// it explicitly — services never reach back into Hono.
+// Context passed to every Service layer function. Carries per-request infra
+// services need (logger today; later traceId, authenticated actor) without
+// coupling them to HTTP — the API handler builds it and passes it explicitly;
+// services never reach into Hono.
 export type ServiceContext = {
   logger: Logger;
 };

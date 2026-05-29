@@ -39,18 +39,15 @@ function problemJson(
 }
 
 export const api = new OpenAPIHono<{ Variables: RequestContextVariables }>({
-  // Intercepts Zod validation failures from `createRoute(...)` request
-  // schemas BEFORE the handler runs, and maps them to a RFC 9457
-  // Problem Details 422 response. Without this hook, @hono/zod-openapi
-  // emits its own default error shape, which would drift from our contract.
+  // Maps Zod request-validation failures to an RFC 9457 422 before the handler
+  // runs. Without this hook @hono/zod-openapi emits its own shape, drifting
+  // from our contract.
   defaultHook: (result, context) => {
     if (!result.success) {
       const issues = result.error.issues.map((issue) => ({
-        // Cast: Zod's `issue.path` is typed `PropertyKey[]` (includes
-        // `symbol`), but JSON Schema paths only ever contain strings or
-        // numbers in practice — symbols cannot appear in a parsed JSON
-        // structure. Narrowing here keeps the public ProblemDetails shape
-        // JSON-safe.
+        // Cast: Zod types issue.path as PropertyKey[] (includes symbol), but a
+        // parsed JSON structure only ever has string/number paths. Narrowing
+        // keeps the ProblemDetails shape JSON-safe.
         path: [...issue.path] as Array<string | number>,
         message: issue.message,
       }));
@@ -114,9 +111,8 @@ api.onError((error, context) => {
     return problemJson(context, 409, 'Idempotency conflict', error.message);
   }
   if (error instanceof ContentionError) {
-    // Transient capacity signal, not a server fault. The Retry-After header
-    // tells a well-behaved client to retry; the value is a short fixed hint
-    // (contention on a hot name_part resolves in milliseconds in practice).
+    // Transient capacity signal, not a server fault — the Retry-After header
+    // tells a well-behaved client to retry.
     const response = problemJson(context, 503, 'Service temporarily unavailable', error.message);
     response.headers.set('Retry-After', String(RETRY_AFTER_SECONDS));
     return response;

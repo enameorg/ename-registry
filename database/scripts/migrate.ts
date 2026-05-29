@@ -5,24 +5,21 @@ import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
-// Forward-only migration runner. Adopts the sqlx-cli on-disk format
-// (<unix_ts>_<name>.up.sql / .down.sql) from day one, so the Rust phase can
-// point sqlx-cli at database/migrations/ without any transformation.
+// Forward-only migration runner, using the sqlx-cli on-disk format
+// (<unix_ts>_<name>.up.sql / .down.sql) so the Rust phase can point sqlx-cli at
+// database/migrations/ unchanged.
 //
-// Invariants enforced:
-//   1. pg_advisory_lock around the whole run — prevents concurrent runners
-//      (CI + app boot race).
-//   2. schema_migrations stores a SHA-256 of each file content — detects
-//      post-hoc edits to applied migrations (silent drift killer).
-//   3. Each migration runs inside its own transaction, unless its file starts
-//      with a `-- migrate:no-transaction` header (needed for statements like
-//      CREATE INDEX CONCURRENTLY that cannot run in a transaction).
-//   4. Lexicographic ordering on filename. The Unix-timestamp prefix gives a
-//      total order that is stable across machines.
-//   5. Single connection, sequential application — no parallelism.
-//   6. No `down` command exposed: this script applies up migrations only.
-//      `.down.sql` files exist for sqlx parity and manual rollback, never as
-//      a production command.
+// Invariants:
+//   1. pg_advisory_lock around the run — prevents concurrent runners.
+//   2. schema_migrations stores a SHA-256 of each file — detects edits to
+//      already-applied migrations.
+//   3. One transaction per migration, unless the file starts with
+//      `-- migrate:no-transaction` (e.g. CREATE INDEX CONCURRENTLY).
+//   4. Lexicographic order on filename (the Unix-timestamp prefix is stable
+//      across machines).
+//   5. Single connection, sequential — no parallelism.
+//   6. No `down` command: up migrations only. `.down.sql` exists for sqlx
+//      parity and manual rollback, never in production.
 
 const ADVISORY_LOCK_KEY = 9_876_543_210n;
 

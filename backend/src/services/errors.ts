@@ -1,11 +1,6 @@
-// Domain-level errors raised by the Service Layer.
-// The Service Layer throws these without knowing anything about HTTP; the API
-// Layer catches them in its onError handler and maps each to a Problem Details
-// response (cf. src/api/problem.ts).
-//
-// Kept as discriminated classes (not a tagged union) so `instanceof` works in
-// the handler — direct port to Rust enums later, where the same mapping lives
-// on the axum error handler.
+// Domain errors raised by the Service layer, which knows nothing about HTTP; the
+// API layer's onError maps each to a Problem Details response (see api/problem.ts).
+// Discriminated classes (not a tagged union) so instanceof works in the handler.
 
 export class DomainError extends Error {
   public override readonly name: string = 'DomainError';
@@ -34,13 +29,11 @@ export class IdempotencyConflictError extends DomainError {
   }
 }
 
-// Raised when an optimistic-retry budget is exhausted under concurrent
-// contention (currently: number_part allocation on a hot name_part, cf.
-// insertEnameWithNextNumber). The condition is transient and the request is
-// valid — the same operation will succeed on retry once the burst subsides.
-// The API layer maps it to 503 + Retry-After, NOT 500: it is a temporary
-// capacity signal, not a server fault, and the distinction matters for client
-// retry behavior and for 5xx-based alerting.
+// Raised when an optimistic-retry budget is exhausted under contention
+// (currently number_part allocation on a hot name_part). Transient and the
+// request is valid — it succeeds on retry. The API maps it to 503 + Retry-After,
+// not 500: a capacity signal, not a server fault (matters for client retries
+// and 5xx alerting).
 export class ContentionError extends DomainError {
   public override readonly name = 'ContentionError';
 

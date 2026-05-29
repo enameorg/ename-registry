@@ -10,11 +10,9 @@ const HealthResponseSchema = z
   })
   .openapi('HealthResponse');
 
-// Forward declaration: the 503 branch is part of the contract from day one so
-// external monitoring can be wired against the documented response shape, but
-// `health()` currently has no failure path (returns `true` unconditionally).
-// Real liveness signals — DB ping, dependency checks — will populate the 503
-// path; the response shape will stay the same.
+// The 503 branch is in the contract from day one so monitoring can wire against
+// it, but health() has no failure path yet (returns true). Real liveness checks
+// (DB ping, dependencies) will populate the 503 path later.
 export const healthRoute = createRoute({
   method: 'get',
   path: '/health',

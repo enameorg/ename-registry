@@ -8,13 +8,11 @@ import { UUIDV7_REGEX } from '../uuid.ts';
 
 const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
 
-// Sentinel raised by `insertEvent` when the UNIQUE constraint on
-// `events.idempotency_key` fires — signals to the caller that another
-// transaction won the idempotency race between the preliminary lookup and
-// this INSERT. Not a `DomainError`: it is an internal control-flow sentinel
-// caught by the service that owns the use case (e.g. `registerSubject`),
-// which then rolls back the surrounding transaction and reconciles from
-// the winner's row. Must never reach the API layer.
+// Sentinel raised by insertEvent when the events.idempotency_key UNIQUE
+// constraint fires: another transaction won the idempotency race. Not a
+// DomainError — it's internal control flow, caught by the use case (e.g.
+// registerSubject) to roll back and reconcile from the winner's row. Never
+// reaches the API layer.
 export class IdempotencyRaceError extends Error {
   public override readonly name = 'IdempotencyRaceError';
   constructor() {
@@ -22,31 +20,17 @@ export class IdempotencyRaceError extends Error {
   }
 }
 
-// Domain-shaped Event. Mirrors the `events` table — single source of truth of
-// the registry per the event-sourcing model (cf. ename-internals.md § Registry
-// architecture as a verifiable event log).
+// Domain-shaped Event, mirroring the events table (the registry's source of
+// truth; see ename-internals.md).
 //
-// `request` and `outcome` are intentionally `unknown`: the table holds
-// heterogeneous event kinds (v1: `subject.registered`; future:
-// `subject.ename_added`, key rotation, recovery, etc.), each with its own
-// pair of schemas. Callers narrow by `kind` and parse each column with the
-// schema specific to that kind — for example the service for
-// `subject.registered` parses with `SubjectRegisteredRequestSchema` and
-// `SubjectRegisteredOutcomeSchema`.
+// request and outcome are typed `unknown`: the table holds heterogeneous kinds
+// (subject.registered, future subject.ename_added, key rotation, …), each with
+// its own pair of schemas. Callers narrow by kind and parse each column
+// accordingly (e.g. SubjectRegistered{Request,Outcome}Schema).
 //
-// The split between `request` and `outcome` reflects two distinct cryptographic
-// scopes (cf. ename-internals.md § events table): `request` is what the actor
-// submitted and what the future layer-1 signature will cover; `outcome` is
-// what the server allocated, covered separately by the layer-2 signed tree
-// head. Keeping them in different columns means the signed canonical bytes
-// will be derivable from `request` alone, with no contamination by
-// server-side allocations.
-//
-// `idempotencyKey` is included here for service-internal use (replay lookup,
-// race reconciliation) and operator/admin reads. Per ename-internals.md § events
-// table, it is transport metadata, not part of the event's semantic content —
-// the future public log endpoint will project it out. That filtering is the
-// API layer's responsibility, not this type's.
+// idempotencyKey is exposed for service-internal use (replay lookup, race
+// reconciliation) and admin reads; it is transport metadata, projected out of
+// the future public log endpoint by the API layer.
 export const EventSchema = z.object({
   sequence: z.coerce.number().int().min(1),
   idempotencyKey: z.string().regex(UUIDV7_REGEX),
@@ -70,8 +54,8 @@ export async function getEventByIdempotencyKey(idempotencyKey: string): Promise<
   return rows[0];
 }
 
-// Returns events ordered by `sequence` — the canonical order of the log. The
-// same order will surface on the future public transparency-log endpoint.
+// Ordered by sequence — the canonical log order, same as the future public
+// transparency-log endpoint.
 export async function findEvents(): Promise<Event[]> {
   return await queryRows(
     pool,
@@ -81,9 +65,8 @@ export async function findEvents(): Promise<Event[]> {
   );
 }
 
-// INSERT one event row. On UNIQUE collision on `idempotency_key`, throws
-// `IdempotencyRaceError` so the caller can rollback the surrounding
-// transaction and reconcile from the winner's row.
+// INSERT one event row. On a UNIQUE collision on idempotency_key, throws
+// IdempotencyRaceError so the caller can roll back and reconcile from the winner.
 export async function insertEvent(
   client: PoolClient,
   params: {

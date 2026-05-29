@@ -68,7 +68,7 @@ This directory is the backend package of the Ename monorepo. The repository root
 ```
 backend/
 ├── src/
-│   ├── api/                       # API Layer (HTTP surface)
+│   ├── api/                       # API layer (HTTP surface)
 │   │   ├── application.ts         # /health route, handler, and its Zod schema (inline)
 │   │   ├── application.test.ts    # HTTP-level test
 │   │   ├── index.ts               # v1 sub-app assembly: middleware, routes, defaultHook, onError
@@ -81,7 +81,7 @@ backend/
 │   │   ├── pool.ts                # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)
 │   │   ├── query.ts               # queryRows() + withTransaction() helpers, camelize at boundary
 │   │   └── reset-for-tests.ts     # TRUNCATE all public tables; refuses to run outside NODE_ENV=test
-│   ├── services/                  # Service Layer (business logic, no HTTP)
+│   ├── services/                  # Service layer (business logic, no HTTP)
 │   │   ├── application.ts         # health()
 │   │   ├── application.test.ts
 │   │   ├── errors.ts              # Domain error classes (DomainError, ValidationError, IdempotencyConflictError)
@@ -100,7 +100,7 @@ backend/
 └── README.md
 ```
 
-The split between `src/database/` and `src/services/` is intentional: `database/` holds **stateless DB plumbing** (the pool singleton, generic helpers, the test-only reset utility) consumed by the Service Layer; `services/` holds the **business use cases** themselves (subject registration, future key rotation, etc.). Both belong conceptually to the Service Layer (cf. `docs/ename-internals.md` § Two-layer application architecture) — the API Layer never imports from either directly.
+The split between `src/database/` and `src/services/` is intentional: `database/` holds **stateless DB plumbing** (the pool singleton, generic helpers, the test-only reset utility) consumed by the Service layer; `services/` holds the **business use cases** themselves (subject registration, future key rotation, etc.). Both belong conceptually to the Service layer (cf. `docs/ename-internals.md`) — the API layer never imports from either directly.
 
 Note: the in-repo `src/database/` directory above is **runtime DB plumbing** consumed by the backend service; do not confuse it with the sibling [`database/`](../database/) **package**, which owns the schema, migrations, the migration runner, and the local PostgreSQL cluster.
 

@@ -1,11 +1,7 @@
-// Helpers for narrowing `pg` driver errors.
-//
-// The `pg` driver throws errors with `code` (5-char SQLSTATE) and `constraint`
-// (the violated constraint's name) populated on integrity violations. Matching
-// both is the canonical pattern for distinguishing one UNIQUE collision from
-// another in code paths that race on multiple constraints (e.g. a service
-// that catches a 23505 on `events.idempotency_key` separately from a 23505
-// on `enames.name_part_number_part_key`).
+// Helpers for narrowing pg driver errors. On integrity violations pg populates
+// `code` (SQLSTATE) and `constraint` (the violated constraint's name); matching
+// both distinguishes one UNIQUE collision from another when a path can race on
+// several (e.g. events.idempotency_key vs enames.name_part_number_part_key).
 
 export function isUniqueViolation(error: unknown, constraint: string): boolean {
   if (!(error instanceof Error)) return false;

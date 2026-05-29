@@ -2,14 +2,9 @@ import { strict as assert } from 'node:assert';
 import { beforeEach, test } from 'node:test';
 
 // API tests assert the HTTP contract only — status codes, headers, response
-// shape, Problem Details bodies. They do not inspect persistent state: every
-// invariant about what gets written to `subjects`, `enames` or `events` lives
-// in `src/services/subject.test.ts`.
-//
-// `resetTestDb` is the only import from `../database/*`: the service the API
-// calls writes to the database, so successive tests would otherwise share
-// state. No direct database access (`pool`, `pool.query`) appears anywhere
-// in this file.
+// shape, Problem Details. Persistence invariants live in
+// services/subject.test.ts. resetTestDb is the only ../database import; no raw
+// pool access here. Test doctrine: ename-internals.md.
 import { resetTestDb } from '../database/reset-for-tests.ts';
 import { app } from '../index.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../uuid.ts';
@@ -30,9 +25,7 @@ async function postSubject(body: unknown): Promise<Response> {
   );
 }
 
-// Convenience: build a valid nested request body. Each call site can override
-// only what it cares about — keeps the test bodies focused on what's being
-// asserted, not on boilerplate.
+// Build a valid nested body; each call overrides only what it asserts on.
 function makeBody(overrides: {
   idempotencyKey?: string;
   kind?: string;
@@ -258,14 +251,11 @@ test('X-Request-Id is also present on validation error responses', async () => {
 // Contention under concurrency (number_part allocation retry budget)
 // ---------------------------------------------------------------------------
 
-// A burst of concurrent registrations on the SAME namePart all contend for the
-// next number_part. Beyond the allocation retry budget, the loser surfaces a
-// transient ContentionError, which the API must map to 503 + Retry-After (a
-// retryable signal) — never to an opaque 500 (a server fault). At 40 concurrent
-// requests the budget is reliably exceeded by at least one request, so the 503
-// path is exercised; the rest succeed with 201. No status outside {201, 503}
-// may appear, and every 503 must carry a well-formed Problem Details body and a
-// Retry-After header so a well-behaved client knows to retry.
+// A burst on the SAME namePart contends for the next number_part. Beyond the
+// retry budget the loser surfaces a transient ContentionError → 503 +
+// Retry-After, never a 500. At 40 concurrent requests the budget is reliably
+// exceeded, so the 503 path is exercised while the rest get 201; every 503 must
+// carry a Problem Details body and a Retry-After header.
 test('contention: a burst on one namePart yields retryable 503s (never 500), rest 201', async () => {
   const concurrency = 40;
   const responses = await Promise.all(
