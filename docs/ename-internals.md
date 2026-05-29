@@ -69,15 +69,15 @@ Code organization favors **global symmetry across the codebase** over per-module
 
 **Two layers, no Repository.** The **API layer** (`src/api/`) is the HTTP surface — routing, input/output validation, serialization, status codes — and holds no business logic. The **Service layer** (`src/services/`) holds all business logic and accesses the database directly. Low-level DB plumbing (the pool, the query and transaction helpers) lives in `src/database/` and is consumed only by the Service layer. Within the Service layer, pure business-rule functions (testable without a database) are kept separate from use-case functions (orchestration). Service modules are singular (`subject.ts`, `ename.ts`); plural is reserved for SQL tables and REST routes.
 
-**Per-layer visibility.** A resource appears only at the layer that consumes it: the pool, the SQL helpers and transactions stay in the Service layer; the Hono `Context` carries only what the API layer needs at request time.
+**Per-layer visibility.** A resource appears only at the layer that consumes it: the pool, the SQL helpers and transactions stay in the Service layer; the API layer's `ApiContext` (Hono's request context) carries only what it needs at request time.
 
 **Dependency propagation.**
 
 - Stateless functions: direct import, `(input) → output`.
 - Process-lifetime resources (config, root logger, pool): module singletons, frozen after init, imported by their consumers; the pool lives in a Service-layer module and is invisible to the API layer.
-- Request-scoped values (requestId, child logger): carried on the Hono `Context` via `c.var.*`, populated by middleware.
+- Request-scoped values (requestId, child logger): carried on the API layer's `ApiContext` via `context.var.*`, populated by middleware.
 
-A request-scoped value the Service layer needs is read from the `Context` by the handler and passed as an explicit argument (`ServiceContext`); the Service layer never touches the `Context`. A `PoolClient` opened for a transaction flows the same way — an explicit argument between service functions, never up to the `Context`.
+A request-scoped value the Service layer needs is read from the `ApiContext` by the handler and passed as an explicit argument (`ServiceContext`); the Service layer never touches the `ApiContext`. A `PoolClient` opened for a transaction flows the same way — an explicit argument between service functions, never up to the `ApiContext`.
 
 **Domain errors and HTTP mapping.** The Service layer throws semantic errors (`DomainError` and its subclasses `ValidationError`, `IdempotencyConflictError`, `ContentionError`) and knows nothing about HTTP. The single mapping lives in the API's `onError`: `ValidationError` → 422, `IdempotencyConflictError` → 409, `ContentionError` → 503 + `Retry-After`, anything else → 500. Error messages are written for the client (generic, no internal vocabulary); the specifics go to the logs, correlatable by `requestId`.
 

@@ -2,7 +2,7 @@ import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
 
 import { health } from '../services/application.ts';
 
-import type { RequestContextVariables } from './middleware.ts';
+import type { HonoEnv } from './context.ts';
 
 const HealthResponseSchema = z
   .object({
@@ -35,10 +35,7 @@ export const healthRoute = createRoute({
   },
 });
 
-export const healthHandler: RouteHandler<
-  typeof healthRoute,
-  { Variables: RequestContextVariables }
-> = (context) => {
+export const healthHandler: RouteHandler<typeof healthRoute, HonoEnv> = (context) => {
   return health()
     ? context.json({ status: 'ok' as const }, 200)
     : context.json({ status: 'unhealthy' as const }, 503);

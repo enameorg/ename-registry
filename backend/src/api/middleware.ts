@@ -1,27 +1,16 @@
 import type { MiddlewareHandler } from 'hono';
-import type { Logger } from 'pino';
 
 import { logger as rootLogger } from '../logger.ts';
 import { generateUUIDv7 } from '../uuid.ts';
 
-// Hono Variables set by the request-context middleware.
-//   - requestId: per-HTTP-request id (UUIDv7), echoed in X-Request-Id and bound
-//     to the child logger. Distinct from idempotencyKey (a write-body field).
-//   - logger: Pino child logger bound to { requestId }. Services receive it as
-//     an explicit argument, never the Hono context.
-export type RequestContextVariables = {
-  requestId: string;
-  logger: Logger;
-};
+import type { HonoEnv } from './context.ts';
 
 const REQUEST_ID_HEADER = 'X-Request-Id';
 
 // Generates requestId, binds a child logger, sets the response header, logs
 // entrance and exit. A client-provided header is deliberately NOT trusted —
 // it would let any caller poison the logs.
-export const requestContext: MiddlewareHandler<{
-  Variables: RequestContextVariables;
-}> = async (context, next) => {
+export const requestContext: MiddlewareHandler<HonoEnv> = async (context, next) => {
   const requestId = generateUUIDv7();
   const childLogger = rootLogger.child({ requestId });
 

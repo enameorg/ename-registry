@@ -1,17 +1,15 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { Scalar } from '@scalar/hono-api-reference';
-import type { Context } from 'hono';
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
 
 import { ContentionError, IdempotencyConflictError, ValidationError } from '../services/errors.ts';
 
 import { healthHandler, healthRoute } from './application.ts';
-import { requestContext, type RequestContextVariables } from './middleware.ts';
+import type { ApiContext, HonoEnv } from './context.ts';
+import { requestContext } from './middleware.ts';
 import { openApiMetadata } from './openapi-metadata.ts';
 import { PROBLEM_CONTENT_TYPE, type ProblemDetails } from './problem.ts';
 import { registerSubjectHandler, registerSubjectRoute } from './subject.ts';
-
-type ApiContext = Context<{ Variables: RequestContextVariables }>;
 
 // Retry-After hint (seconds) sent with 503 ContentionError responses. Kept
 // short: number_part allocation contention on a single name_part clears in
@@ -38,7 +36,7 @@ function problemJson(
   return context.json(body, status, { 'Content-Type': PROBLEM_CONTENT_TYPE });
 }
 
-export const api = new OpenAPIHono<{ Variables: RequestContextVariables }>({
+export const api = new OpenAPIHono<HonoEnv>({
   // Maps Zod request-validation failures to an RFC 9457 422 before the handler
   // runs. Without this hook @hono/zod-openapi emits its own shape, drifting
   // from our contract.

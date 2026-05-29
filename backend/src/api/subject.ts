@@ -9,7 +9,7 @@ import {
 import { registerSubject, type RegisterSubjectResult } from '../services/subject.ts';
 import { UUIDV7_REGEX } from '../uuid.ts';
 
-import type { RequestContextVariables } from './middleware.ts';
+import type { HonoEnv } from './context.ts';
 import { problemResponse } from './problem.ts';
 
 // ---------------------------------------------------------------------------
@@ -133,10 +133,9 @@ function resultToResponse(result: RegisterSubjectResult) {
   };
 }
 
-export const registerSubjectHandler: RouteHandler<
-  typeof registerSubjectRoute,
-  { Variables: RequestContextVariables }
-> = async (context) => {
+export const registerSubjectHandler: RouteHandler<typeof registerSubjectRoute, HonoEnv> = async (
+  context,
+) => {
   const input = context.req.valid('json');
   const logger = context.var.logger;
 

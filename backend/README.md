@@ -71,6 +71,7 @@ backend/
 │   ├── api/                       # API layer (HTTP surface)
 │   │   ├── application.ts         # /health route, handler, and its Zod schema (inline)
 │   │   ├── application.test.ts    # HTTP-level test
+│   │   ├── context.ts             # API request-context types: RequestVariables, HonoEnv, ApiContext
 │   │   ├── index.ts               # v1 sub-app assembly: middleware, routes, defaultHook, onError
 │   │   ├── middleware.ts          # requestId (UUIDv7) + Pino child logger + entrance/exit logs
 │   │   ├── openapi-metadata.ts    # OpenAPI info object
