@@ -3,7 +3,7 @@ import { Scalar } from '@scalar/hono-api-reference';
 import type { Context } from 'hono';
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
 
-import { IdempotencyConflictError, ValidationError } from '../services/errors.ts';
+import { ContentionError, IdempotencyConflictError, ValidationError } from '../services/errors.ts';
 
 import { healthHandler, healthRoute } from './application.ts';
 import { requestContext, type RequestContextVariables } from './middleware.ts';
@@ -12,6 +12,11 @@ import { PROBLEM_CONTENT_TYPE, type ProblemDetails } from './problem.ts';
 import { registerSubjectHandler, registerSubjectRoute } from './subject.ts';
 
 type ApiContext = Context<{ Variables: RequestContextVariables }>;
+
+// Retry-After hint (seconds) sent with 503 ContentionError responses. Kept
+// short: number_part allocation contention on a single name_part clears in
+// milliseconds, so a 1-second floor is already generous.
+const RETRY_AFTER_SECONDS = 1;
 
 // Single Problem Details builder. Centralizes the shape and the
 // Content-Type header so no handler can drift accidentally.
@@ -107,6 +112,14 @@ api.onError((error, context) => {
   }
   if (error instanceof IdempotencyConflictError) {
     return problemJson(context, 409, 'Idempotency conflict', error.message);
+  }
+  if (error instanceof ContentionError) {
+    // Transient capacity signal, not a server fault. The Retry-After header
+    // tells a well-behaved client to retry; the value is a short fixed hint
+    // (contention on a hot name_part resolves in milliseconds in practice).
+    const response = problemJson(context, 503, 'Service temporarily unavailable', error.message);
+    response.headers.set('Retry-After', String(RETRY_AFTER_SECONDS));
+    return response;
   }
   // Unexpected: log with the pino err serializer (stack + cause) and
   // return an opaque 500. The requestId in the body lets us find the

@@ -253,3 +253,51 @@ test('X-Request-Id is also present on validation error responses', async () => {
   const body = (await response.json()) as { requestId: string };
   assert.equal(body.requestId, requestId);
 });
+
+// ---------------------------------------------------------------------------
+// Contention under concurrency (number_part allocation retry budget)
+// ---------------------------------------------------------------------------
+
+// A burst of concurrent registrations on the SAME namePart all contend for the
+// next number_part. Beyond the allocation retry budget, the loser surfaces a
+// transient ContentionError, which the API must map to 503 + Retry-After (a
+// retryable signal) — never to an opaque 500 (a server fault). At 40 concurrent
+// requests the budget is reliably exceeded by at least one request, so the 503
+// path is exercised; the rest succeed with 201. No status outside {201, 503}
+// may appear, and every 503 must carry a well-formed Problem Details body and a
+// Retry-After header so a well-behaved client knows to retry.
+test('contention: a burst on one namePart yields retryable 503s (never 500), rest 201', async () => {
+  const concurrency = 40;
+  const responses = await Promise.all(
+    Array.from({ length: concurrency }, () => postSubject(makeBody({ namePart: 'martin' }))),
+  );
+
+  const statuses = responses.map((response) => response.status);
+  assert.ok(
+    statuses.every((status) => status === 201 || status === 503),
+    `every response must be 201 or 503, got [${[...new Set(statuses)].join(', ')}]`,
+  );
+  assert.ok(statuses.includes(201), 'at least one registration must succeed under the burst');
+  assert.ok(
+    statuses.includes(503),
+    'the contention path must be exercised at this concurrency (expected ≥1 503)',
+  );
+
+  for (const response of responses) {
+    if (response.status !== 503) continue;
+    assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
+    const retryAfter = response.headers.get('Retry-After');
+    assert.ok(retryAfter, 'a 503 must carry a Retry-After header');
+    assert.ok(Number.isInteger(Number(retryAfter)) && Number(retryAfter) >= 1);
+
+    const body = (await response.json()) as {
+      type: string;
+      title: string;
+      status: number;
+      requestId: string;
+    };
+    assert.equal(body.status, 503);
+    assert.equal(body.title, 'Service temporarily unavailable');
+    assert.match(body.requestId, UUIDV7_REGEX);
+  }
+});

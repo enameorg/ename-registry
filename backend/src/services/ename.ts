@@ -7,7 +7,7 @@ import { pool } from '../database/pool.ts';
 import { queryRows } from '../database/query.ts';
 import { UUIDV7_REGEX } from '../uuid.ts';
 
-import { ValidationError } from './errors.ts';
+import { ContentionError, ValidationError } from './errors.ts';
 
 // ---------------------------------------------------------------------------
 // Ename format constants and shared regex
@@ -176,8 +176,17 @@ export async function insertEnameWithNextNumber(
       throw error;
     }
   }
-  throw new Error(
-    `failed to allocate number_part for namePart=${params.namePart} after ${MAX_NUMBER_PART_RETRIES} attempts`,
+  // Budget exhausted: more concurrent inserts collided on this name_part than
+  // the retry loop can absorb. This is a transient capacity condition, not a
+  // server fault — surface it as a retryable ContentionError (→ 503) rather
+  // than a raw Error (→ opaque 500). Internal specifics go to the log,
+  // correlatable by requestId; the thrown message stays client-safe.
+  logger.warn(
+    { namePart: params.namePart, attempts: MAX_NUMBER_PART_RETRIES },
+    'number_part allocation retry budget exhausted under contention',
+  );
+  throw new ContentionError(
+    'too many concurrent registrations for this name right now; please retry shortly',
   );
 }
 

@@ -116,6 +116,9 @@ export const registerSubjectRoute = createRoute({
       `Request body failed validation, or the resulting ename exceeds ${MAX_ENAME_LENGTH} characters`,
     ),
     500: problemResponse('Unexpected error'),
+    503: problemResponse(
+      'Too many concurrent registrations for this name; transient — retry after the delay in the Retry-After header',
+    ),
   },
 });
 

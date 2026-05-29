@@ -295,6 +295,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Too many concurrent registrations for this name; transient — retry after the delay in the Retry-After header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
