@@ -1,6 +1,4 @@
-// Public surface of the `event` concept (see ename-internals.md: the barrel is
-// the concept's encapsulation boundary). Intra-folder code imports ./event.ts
-// directly; other folders import through here.
+// Public surface of the `event` concept
 export {
   EventSchema,
   findEvents,

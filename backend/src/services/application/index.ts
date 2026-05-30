@@ -1,3 +1,2 @@
-// Public surface of the `application` concept (service health and other
-// service-wide concerns). See ename-internals.md.
+// Public surface of the `application` concept
 export { health } from './application.ts';
