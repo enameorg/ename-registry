@@ -13,3 +13,7 @@ _private
 
 /docs/*
 !/docs/ename-internals.md
+
+# Claude Code — local/transient files (machine-specific, runtime state)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
