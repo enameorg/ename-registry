@@ -72,7 +72,7 @@ backend/
 │   │   ├── application/              # service-wide endpoints
 │   │   │   ├── health.ts             # GET /health route, handler, and its Zod schema
 │   │   │   └── health.test.ts        # HTTP-level test
-│   │   ├── subjects/                 # endpoints rooted at /subjects (one file per route)
+│   │   ├── subject/                  # endpoints rooted at /subjects (one file per route)
 │   │   │   ├── register-subject.ts   # POST /subjects route, handler, and inline Zod schemas
 │   │   │   └── register-subject.test.ts  # HTTP-level integration tests
 │   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, ApiContext

@@ -9,7 +9,7 @@ import type { ApiContext, HonoEnv } from './context.ts';
 import { requestContext } from './middleware.ts';
 import { openApiMetadata } from './openapi-metadata.ts';
 import { PROBLEM_CONTENT_TYPE, type ProblemDetails } from './problem.ts';
-import { registerSubjectHandler, registerSubjectRoute } from './subjects/register-subject.ts';
+import { registerSubjectHandler, registerSubjectRoute } from './subject/register-subject.ts';
 
 // Retry-After hint (seconds) sent with 503 ContentionError responses. Kept
 // short: number_part allocation contention on a single name_part clears in
