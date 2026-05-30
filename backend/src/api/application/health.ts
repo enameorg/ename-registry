@@ -3,11 +3,19 @@ import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
 import { health } from '../../services/application/index.ts';
 import type { HonoEnv } from '../context.ts';
 
+// ---------------------------------------------------------------------------
+// Response schema
+// ---------------------------------------------------------------------------
+
 const HealthResponseSchema = z
   .object({
     status: z.enum(['ok', 'unhealthy']).openapi({ example: 'ok' }),
   })
   .openapi('HealthResponse');
+
+// ---------------------------------------------------------------------------
+// Route definition
+// ---------------------------------------------------------------------------
 
 // The 503 branch is in the contract from day one so monitoring can wire against
 // it, but health() has no failure path yet (returns true). Real liveness checks
@@ -33,6 +41,10 @@ export const healthRoute = createRoute({
     },
   },
 });
+
+// ---------------------------------------------------------------------------
+// Handler
+// ---------------------------------------------------------------------------
 
 export const healthHandler: RouteHandler<typeof healthRoute, HonoEnv> = (context) => {
   return health()

@@ -11,14 +11,7 @@ import type { HonoEnv } from '../context.ts';
 import { problemResponse } from '../problem.ts';
 
 // ---------------------------------------------------------------------------
-// Request and response schemas, inline with the route (see ename-internals.md).
-// Both are nested by entity block (subject, ename) — same shape as the event's
-// request/outcome and the service input/result, so wire body, service
-// signature, log entry and HTTP response all read the same way.
-//
-// The ename-format rules (NAME_PART_REGEX, MAX_NAME_PART_LENGTH,
-// MAX_NUMBER_PART) come from the ename service: they describe the domain, and
-// any future ename-creating endpoint must agree on the same shape.
+// Request and response schemas
 // ---------------------------------------------------------------------------
 
 const RegisterSubjectRequestSchema = z
