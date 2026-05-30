@@ -23,6 +23,24 @@ import {
 import { insertSubject } from './subject.ts';
 
 // ---------------------------------------------------------------------------
+// registerSubject — public types
+// ---------------------------------------------------------------------------
+
+// Entity blocks (subject, ename) mirror the event's request shape and the API
+// body. The body minus idempotencyKey is exactly what lands in events.request.
+export type RegisterSubjectInput = {
+  idempotencyKey: string;
+  subject: { kind: 'person' };
+  ename: { namePart: string };
+};
+
+export type RegisterSubjectResult = {
+  createdAt: Date;
+  subject: { id: string; kind: 'person' };
+  ename: { id: string; namePart: string; numberPart: number };
+};
+
+// ---------------------------------------------------------------------------
 // `subject.registered` event request + outcome schemas
 // ---------------------------------------------------------------------------
 
@@ -56,24 +74,6 @@ export const SubjectRegisteredOutcomeSchema = z.object({
 
 type SubjectRegisteredRequest = z.infer<typeof SubjectRegisteredRequestSchema>;
 type SubjectRegisteredOutcome = z.infer<typeof SubjectRegisteredOutcomeSchema>;
-
-// ---------------------------------------------------------------------------
-// registerSubject — public types
-// ---------------------------------------------------------------------------
-
-// Entity blocks (subject, ename) mirror the event's request shape and the API
-// body. The body minus idempotencyKey is exactly what lands in events.request.
-export type RegisterSubjectInput = {
-  idempotencyKey: string;
-  subject: { kind: 'person' };
-  ename: { namePart: string };
-};
-
-export type RegisterSubjectResult = {
-  createdAt: Date;
-  subject: { id: string; kind: 'person' };
-  ename: { id: string; namePart: string; numberPart: number };
-};
 
 // ---------------------------------------------------------------------------
 // registerSubject — public use case
