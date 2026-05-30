@@ -5,6 +5,10 @@ import { pool } from '../../database/pool.ts';
 import { queryRows } from '../../database/query.ts';
 import { UUIDV7_REGEX } from '../../uuid.ts';
 
+// ---------------------------------------------------------------------------
+// Subject domain type and lookups
+// ---------------------------------------------------------------------------
+
 // Domain-shaped Subject. Mirrors the `subjects` projection table.
 export const SubjectSchema = z.object({
   id: z.string().regex(UUIDV7_REGEX),
@@ -36,6 +40,10 @@ export async function findSubjects(): Promise<Subject[]> {
     SubjectSchema,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Insertion helper
+// ---------------------------------------------------------------------------
 
 // Thin wrapper for symmetry with insertEnameWithNextNumber / insertEvent:
 // each table's write lives in the concept that owns it, even when trivial.

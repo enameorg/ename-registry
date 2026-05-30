@@ -6,19 +6,9 @@ import { pool } from '../../database/pool.ts';
 import { queryRows } from '../../database/query.ts';
 import { UUIDV7_REGEX } from '../../uuid.ts';
 
-const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
-
-// Sentinel raised by insertEvent when the events.idempotency_key UNIQUE
-// constraint fires: another transaction won the idempotency race. Not a
-// DomainError — it's internal control flow, caught by the use case (e.g.
-// registerSubject) to roll back and reconcile from the winner's row. Never
-// reaches the API layer.
-export class IdempotencyRaceError extends Error {
-  public override readonly name = 'IdempotencyRaceError';
-  constructor() {
-    super('idempotency race');
-  }
-}
+// ---------------------------------------------------------------------------
+// Event domain type and lookups
+// ---------------------------------------------------------------------------
 
 // Domain-shaped Event, mirroring the events table (the registry's source of
 // truth; see ename-internals.md).
@@ -65,6 +55,12 @@ export async function findEvents(): Promise<Event[]> {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Insertion helper
+// ---------------------------------------------------------------------------
+
+const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
+
 // INSERT one event row. On a UNIQUE collision on idempotency_key, throws
 // IdempotencyRaceError so the caller can roll back and reconcile from the winner.
 export async function insertEvent(
@@ -88,5 +84,17 @@ export async function insertEvent(
       throw new IdempotencyRaceError();
     }
     throw error;
+  }
+}
+
+// Sentinel raised by insertEvent when the events.idempotency_key UNIQUE
+// constraint fires: another transaction won the idempotency race. Not a
+// DomainError — it's internal control flow, caught by the use case (e.g.
+// registerSubject) to roll back and reconcile from the winner's row. Never
+// reaches the API layer.
+export class IdempotencyRaceError extends Error {
+  public override readonly name = 'IdempotencyRaceError';
+  constructor() {
+    super('idempotency race');
   }
 }
