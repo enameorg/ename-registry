@@ -111,6 +111,16 @@ export const registerSubjectRoute = createRoute({
 // Handler
 // ---------------------------------------------------------------------------
 
+export const registerSubjectHandler: RouteHandler<typeof registerSubjectRoute, HonoEnv> = async (
+  context,
+) => {
+  const input = context.req.valid('json');
+  const logger = context.var.logger;
+
+  const result = await registerSubject(input, { logger });
+  return context.json(resultToResponse(result), 201);
+};
+
 function resultToResponse(result: RegisterSubjectResult) {
   return {
     createdAt: result.createdAt.toISOString(),
@@ -122,13 +132,3 @@ function resultToResponse(result: RegisterSubjectResult) {
     },
   };
 }
-
-export const registerSubjectHandler: RouteHandler<typeof registerSubjectRoute, HonoEnv> = async (
-  context,
-) => {
-  const input = context.req.valid('json');
-  const logger = context.var.logger;
-
-  const result = await registerSubject(input, { logger });
-  return context.json(resultToResponse(result), 201);
-};

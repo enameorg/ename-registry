@@ -40,40 +40,6 @@ interface AppliedRow {
   hash: string;
 }
 
-async function loadMigrations(): Promise<Migration[]> {
-  let entries: string[];
-  try {
-    entries = await readdir(migrationsDir);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw error;
-  }
-
-  const upFiles = entries.filter((entry) => entry.endsWith('.up.sql')).sort();
-  const migrations: Migration[] = [];
-
-  for (const filename of upFiles) {
-    const version = filename.slice(0, -'.up.sql'.length);
-    const underscoreIdx = version.indexOf('_');
-    const name = underscoreIdx === -1 ? version : version.slice(underscoreIdx + 1);
-    const sql = await readFile(resolve(migrationsDir, filename), 'utf-8');
-    const hash = createHash('sha256').update(sql).digest('hex');
-    const noTransaction = /^\s*--\s*migrate:no-transaction\b/m.test(sql);
-    migrations.push({ version, name, sql, hash, noTransaction });
-  }
-
-  return migrations;
-}
-
-function resolveTargetUrl(target: string): string {
-  const envVar = target === 'test' ? 'TEST_DATABASE_URL' : 'DATABASE_URL';
-  const url = process.env[envVar];
-  if (!url) {
-    throw new Error(`${envVar} is not set (target: ${target})`);
-  }
-  return url;
-}
-
 async function run(target: string): Promise<void> {
   const url = resolveTargetUrl(target);
   const client = new pg.Client({ connectionString: url, application_name: 'ename-migrate' });
@@ -148,6 +114,40 @@ async function run(target: string): Promise<void> {
       await client.end();
     }
   }
+}
+
+function resolveTargetUrl(target: string): string {
+  const envVar = target === 'test' ? 'TEST_DATABASE_URL' : 'DATABASE_URL';
+  const url = process.env[envVar];
+  if (!url) {
+    throw new Error(`${envVar} is not set (target: ${target})`);
+  }
+  return url;
+}
+
+async function loadMigrations(): Promise<Migration[]> {
+  let entries: string[];
+  try {
+    entries = await readdir(migrationsDir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
+
+  const upFiles = entries.filter((entry) => entry.endsWith('.up.sql')).sort();
+  const migrations: Migration[] = [];
+
+  for (const filename of upFiles) {
+    const version = filename.slice(0, -'.up.sql'.length);
+    const underscoreIdx = version.indexOf('_');
+    const name = underscoreIdx === -1 ? version : version.slice(underscoreIdx + 1);
+    const sql = await readFile(resolve(migrationsDir, filename), 'utf-8');
+    const hash = createHash('sha256').update(sql).digest('hex');
+    const noTransaction = /^\s*--\s*migrate:no-transaction\b/m.test(sql);
+    migrations.push({ version, name, sql, hash, noTransaction });
+  }
+
+  return migrations;
 }
 
 const target = process.argv[2] ?? 'dev';

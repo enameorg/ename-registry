@@ -2,18 +2,6 @@ import type { Pool, PoolClient } from 'pg';
 import type { Logger } from 'pino';
 import type { z } from 'zod';
 
-// Convert snake_case keys (DB convention) to camelCase (JS/TS convention) at the
-// boundary, so service code never sees snake_case. No reverse conversion: pg
-// passes parameters positionally ($1, $2), so column names only appear in raw SQL.
-function camelize(row: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const key of Object.keys(row)) {
-    const camelKey = key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
-    out[camelKey] = row[key];
-  }
-  return out;
-}
-
 export async function queryRows<T>(
   db: Pool | PoolClient,
   sql: string,
@@ -56,4 +44,16 @@ export async function withTransaction<T>(
   } finally {
     client.release();
   }
+}
+
+// Convert snake_case keys (DB convention) to camelCase (JS/TS convention) at the
+// boundary, so service code never sees snake_case. No reverse conversion: pg
+// passes parameters positionally ($1, $2), so column names only appear in raw SQL.
+function camelize(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(row)) {
+    const camelKey = key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+    out[camelKey] = row[key];
+  }
+  return out;
 }

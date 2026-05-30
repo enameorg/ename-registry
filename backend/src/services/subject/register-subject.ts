@@ -76,65 +76,6 @@ export type RegisterSubjectResult = {
 };
 
 // ---------------------------------------------------------------------------
-// registerSubject — internals
-// ---------------------------------------------------------------------------
-
-// Build the public result from a request + outcome pair — used both on a fresh
-// registration (built in-memory) and on replay (re-parsed from the event row).
-function buildResult(
-  request: SubjectRegisteredRequest,
-  outcome: SubjectRegisteredOutcome,
-  createdAt: Date,
-): RegisterSubjectResult {
-  return {
-    createdAt,
-    subject: { id: outcome.subject.id, kind: request.subject.kind },
-    ename: {
-      id: outcome.ename.id,
-      namePart: request.ename.namePart,
-      numberPart: outcome.ename.numberPart,
-    },
-  };
-}
-
-// Map a found event to a replay result (same operation) or an
-// IdempotencyConflictError (different operation, → 409). Conflict is a
-// structural deep-equal between the submitted body (minus idempotencyKey) and
-// the stored request. Messages stay generic for the client; the specifics
-// (which kind, which field differed) go to the log, correlatable by requestId.
-function reconcileReplay(
-  existing: Event,
-  input: RegisterSubjectInput,
-  logger: Logger,
-): RegisterSubjectResult {
-  if (existing.kind !== 'subject.registered') {
-    logger.info(
-      { existingKind: existing.kind, expectedKind: 'subject.registered' },
-      'idempotency conflict: existing event has a different kind',
-    );
-    throw new IdempotencyConflictError(
-      'This idempotency key has already been used for a different operation.',
-    );
-  }
-  const request = SubjectRegisteredRequestSchema.parse(existing.request);
-  const outcome = SubjectRegisteredOutcomeSchema.parse(existing.outcome);
-  const submittedRequest: SubjectRegisteredRequest = {
-    subject: input.subject,
-    ename: input.ename,
-  };
-  if (!isDeepStrictEqual(submittedRequest, request)) {
-    logger.info(
-      { existing: request, requested: submittedRequest },
-      'idempotency conflict: existing event has a different request body',
-    );
-    throw new IdempotencyConflictError(
-      'This idempotency key has already been used with a different request body.',
-    );
-  }
-  return buildResult(request, outcome, existing.createdAt);
-}
-
-// ---------------------------------------------------------------------------
 // registerSubject — public use case
 // ---------------------------------------------------------------------------
 
@@ -226,4 +167,63 @@ export async function registerSubject(
     }
     throw error;
   }
+}
+
+// ---------------------------------------------------------------------------
+// registerSubject — internals
+// ---------------------------------------------------------------------------
+
+// Map a found event to a replay result (same operation) or an
+// IdempotencyConflictError (different operation, → 409). Conflict is a
+// structural deep-equal between the submitted body (minus idempotencyKey) and
+// the stored request. Messages stay generic for the client; the specifics
+// (which kind, which field differed) go to the log, correlatable by requestId.
+function reconcileReplay(
+  existing: Event,
+  input: RegisterSubjectInput,
+  logger: Logger,
+): RegisterSubjectResult {
+  if (existing.kind !== 'subject.registered') {
+    logger.info(
+      { existingKind: existing.kind, expectedKind: 'subject.registered' },
+      'idempotency conflict: existing event has a different kind',
+    );
+    throw new IdempotencyConflictError(
+      'This idempotency key has already been used for a different operation.',
+    );
+  }
+  const request = SubjectRegisteredRequestSchema.parse(existing.request);
+  const outcome = SubjectRegisteredOutcomeSchema.parse(existing.outcome);
+  const submittedRequest: SubjectRegisteredRequest = {
+    subject: input.subject,
+    ename: input.ename,
+  };
+  if (!isDeepStrictEqual(submittedRequest, request)) {
+    logger.info(
+      { existing: request, requested: submittedRequest },
+      'idempotency conflict: existing event has a different request body',
+    );
+    throw new IdempotencyConflictError(
+      'This idempotency key has already been used with a different request body.',
+    );
+  }
+  return buildResult(request, outcome, existing.createdAt);
+}
+
+// Build the public result from a request + outcome pair — used both on a fresh
+// registration (built in-memory) and on replay (re-parsed from the event row).
+function buildResult(
+  request: SubjectRegisteredRequest,
+  outcome: SubjectRegisteredOutcome,
+  createdAt: Date,
+): RegisterSubjectResult {
+  return {
+    createdAt,
+    subject: { id: outcome.subject.id, kind: request.subject.kind },
+    ename: {
+      id: outcome.ename.id,
+      namePart: request.ename.namePart,
+      numberPart: outcome.ename.numberPart,
+    },
+  };
 }
