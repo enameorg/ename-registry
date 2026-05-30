@@ -52,7 +52,7 @@ export async function withTransaction<T>(
 function camelize(row: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of Object.keys(row)) {
-    const camelKey = key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+    const camelKey = key.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase());
     out[camelKey] = row[key];
   }
   return out;
