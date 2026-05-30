@@ -6,11 +6,6 @@ export class DomainError extends Error {
   public override readonly name: string = 'DomainError';
 }
 
-export type ValidationIssue = {
-  path: Array<string | number>;
-  message: string;
-};
-
 export class ValidationError extends DomainError {
   public override readonly name = 'ValidationError';
   public readonly errors: ValidationIssue[];
@@ -20,6 +15,11 @@ export class ValidationError extends DomainError {
     this.errors = errors;
   }
 }
+
+export type ValidationIssue = {
+  path: Array<string | number>;
+  message: string;
+};
 
 export class IdempotencyConflictError extends DomainError {
   public override readonly name = 'IdempotencyConflictError';
