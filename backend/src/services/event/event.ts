@@ -1,10 +1,10 @@
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
 
-import { isUniqueViolation } from '../database/errors.ts';
-import { pool } from '../database/pool.ts';
-import { queryRows } from '../database/query.ts';
-import { UUIDV7_REGEX } from '../uuid.ts';
+import { isUniqueViolation } from '../../database/errors.ts';
+import { pool } from '../../database/pool.ts';
+import { queryRows } from '../../database/query.ts';
+import { UUIDV7_REGEX } from '../../uuid.ts';
 
 const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
 

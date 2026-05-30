@@ -68,40 +68,61 @@ This directory is the backend package of the Ename monorepo. The repository root
 ```
 backend/
 ├── src/
-│   ├── api/                       # API layer (HTTP surface)
-│   │   ├── application.ts         # /health route, handler, and its Zod schema (inline)
-│   │   ├── application.test.ts    # HTTP-level test
-│   │   ├── context.ts             # API request-context types: RequestVariables, HonoEnv, ApiContext
-│   │   ├── index.ts               # v1 sub-app assembly: middleware, routes, defaultHook, onError
-│   │   ├── middleware.ts          # requestId (UUIDv7) + Pino child logger + entrance/exit logs
-│   │   ├── openapi-metadata.ts    # OpenAPI info object
-│   │   ├── problem.ts             # RFC 9457 Problem Details schema + helpers (shared error shape)
-│   │   ├── subject.ts             # POST /subjects route, handler, and inline Zod schemas
-│   │   └── subject.test.ts        # HTTP-level integration tests
-│   ├── database/                  # Low-level DB plumbing (singletons + helpers consumed by services)
-│   │   ├── pool.ts                # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)
-│   │   ├── query.ts               # queryRows() + withTransaction() helpers, camelize at boundary
-│   │   └── reset-for-tests.ts     # TRUNCATE all public tables; refuses to run outside NODE_ENV=test
-│   ├── services/                  # Service layer (business logic, no HTTP)
-│   │   ├── application.ts         # health()
-│   │   ├── application.test.ts
-│   │   ├── errors.ts              # Domain error classes (DomainError, ValidationError, IdempotencyConflictError)
-│   │   ├── subject.ts             # registerSubject() use case
-│   │   └── subject.test.ts        # Service-level tests (concurrency)
-│   ├── config.ts                  # Environment-driven configuration (Zod-validated)
-│   ├── index.ts                   # Top-level app assembly (mounts /api/v1)
-│   ├── logger.ts                  # Pino root logger
-│   └── server.ts                  # Node runtime entry: serve + graceful shutdown
+│   ├── api/                          # API layer (HTTP surface)
+│   │   ├── application/              # service-wide endpoints
+│   │   │   ├── health.ts             # GET /health route, handler, and its Zod schema
+│   │   │   └── health.test.ts        # HTTP-level test
+│   │   ├── subjects/                 # endpoints rooted at /subjects (one file per route)
+│   │   │   ├── register-subject.ts   # POST /subjects route, handler, and inline Zod schemas
+│   │   │   └── register-subject.test.ts  # HTTP-level integration tests
+│   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, ApiContext
+│   │   ├── index.ts                  # v1 sub-app assembly: middleware, routes, defaultHook, onError
+│   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs
+│   │   ├── openapi-metadata.ts       # OpenAPI info object
+│   │   └── problem.ts                # RFC 9457 Problem Details schema + helpers (shared error shape)
+│   ├── database/                     # Low-level DB plumbing (singletons + helpers consumed by services)
+│   │   ├── errors.ts                 # pg driver error narrowing (isUniqueViolation)
+│   │   ├── pool.ts                   # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)
+│   │   ├── query.ts                  # queryRows() + withTransaction() helpers, camelize at boundary
+│   │   └── reset-for-tests.ts        # TRUNCATE all public tables; refuses to run outside NODE_ENV=test
+│   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
+│   │   ├── subject/
+│   │   │   ├── index.ts              # barrel: the concept's public surface
+│   │   │   ├── subject.ts            # Subject type/schema + data-access primitives (get/find/insert)
+│   │   │   ├── subject.test.ts       # primitive round-trip tests
+│   │   │   ├── register-subject.ts   # registerSubject() use case + subject.registered event schemas
+│   │   │   └── register-subject.test.ts  # use-case tests (idempotency, concurrency)
+│   │   ├── ename/
+│   │   │   ├── index.ts
+│   │   │   ├── ename.ts              # Ename type/schema, format constants, pure rules, primitives
+│   │   │   └── ename.test.ts
+│   │   ├── event/
+│   │   │   ├── index.ts
+│   │   │   ├── event.ts              # Event type/schema + primitives (the append-only log)
+│   │   │   └── event.test.ts
+│   │   ├── application/
+│   │   │   ├── index.ts
+│   │   │   ├── application.ts        # health()
+│   │   │   └── application.test.ts
+│   │   ├── context.ts                # ServiceContext (request-scoped values passed from the API layer)
+│   │   └── errors.ts                 # Domain error classes (DomainError, ValidationError, IdempotencyConflictError, ContentionError)
+│   ├── config.ts                     # Environment-driven configuration (Zod-validated)
+│   ├── index.ts                      # Top-level app assembly (mounts /api/v1)
+│   ├── logger.ts                     # Pino root logger
+│   ├── server.ts                     # Node runtime entry: serve + graceful shutdown
+│   └── uuid.ts                       # UUIDv7 generation + validation regex
 ├── scripts/
-│   └── generate-openapi.ts        # Regenerates the canonical OpenAPI spec
-├── openapi.json                   # Canonical OpenAPI spec (versioned source of truth)
+│   └── generate-openapi.ts           # Regenerates the canonical OpenAPI spec
+├── openapi.json                      # Canonical OpenAPI spec (versioned source of truth)
 ├── eslint.config.js
 ├── tsconfig.json
 ├── package.json
 └── README.md
 ```
 
-The split between `src/database/` and `src/services/` is intentional: `database/` holds **stateless DB plumbing** (the pool singleton, generic helpers, the test-only reset utility) consumed by the Service layer; `services/` holds the **business use cases** themselves (subject registration, future key rotation, etc.). Both belong conceptually to the Service layer (cf. `docs/ename-internals.md`) — the API layer never imports from either directly.
+`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel. A concept's `<concept>.ts` holds its domain type/schema and its **data-access primitives** (single-table reads and writes); use cases live in their own operation-named files (`register-subject.ts`). The primitives are the sole holder of schema knowledge — table and column names, SQL, constraint names (see `docs/ename-internals.md`).
+
+The split between `src/database/` and `src/services/` is intentional: `database/` holds **stateless, table-agnostic DB plumbing** (the pool singleton, the `queryRows`/`withTransaction` helpers, the test-only reset utility); `services/` holds the **business logic** — primitives and use cases — that uses it. Both belong conceptually to the Service layer (cf. `docs/ename-internals.md`). The API layer imports only the Service layer's public surface (the concept barrels), never `src/database/` directly.
 
 Note: the in-repo `src/database/` directory above is **runtime DB plumbing** consumed by the backend service; do not confuse it with the sibling [`database/`](../database/) **package**, which owns the schema, migrations, the migration runner, and the local PostgreSQL cluster.
 

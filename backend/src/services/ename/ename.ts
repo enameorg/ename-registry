@@ -2,12 +2,11 @@ import type { PoolClient } from 'pg';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
-import { isUniqueViolation } from '../database/errors.ts';
-import { pool } from '../database/pool.ts';
-import { queryRows } from '../database/query.ts';
-import { UUIDV7_REGEX } from '../uuid.ts';
-
-import { ContentionError, ValidationError } from './errors.ts';
+import { isUniqueViolation } from '../../database/errors.ts';
+import { pool } from '../../database/pool.ts';
+import { queryRows } from '../../database/query.ts';
+import { UUIDV7_REGEX } from '../../uuid.ts';
+import { ContentionError, ValidationError } from '../errors.ts';
 
 // ---------------------------------------------------------------------------
 // Ename format constants and shared regex

@@ -3,11 +3,11 @@ import { beforeEach, test } from 'node:test';
 
 // API tests assert the HTTP contract only — status codes, headers, response
 // shape, Problem Details. Persistence invariants live in
-// services/subject.test.ts. resetTestDb is the only ../database import; no raw
-// pool access here. Test doctrine: ename-internals.md.
-import { resetTestDb } from '../database/reset-for-tests.ts';
-import { app } from '../index.ts';
-import { generateUUIDv7, UUIDV7_REGEX } from '../uuid.ts';
+// services/subject/register-subject.test.ts. resetTestDb is the only
+// ../../database import; no raw pool access here. Test doctrine: ename-internals.md.
+import { resetTestDb } from '../../database/reset-for-tests.ts';
+import { app } from '../../index.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
 
 const ENDPOINT = 'http://localhost/api/v1/subjects';
 

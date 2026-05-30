@@ -1,8 +1,7 @@
 import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
 
-import { health } from '../services/application.ts';
-
-import type { HonoEnv } from './context.ts';
+import { health } from '../../services/application/index.ts';
+import type { HonoEnv } from '../context.ts';
 
 const HealthResponseSchema = z
   .object({

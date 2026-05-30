@@ -4,12 +4,12 @@ import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/ht
 
 import { ContentionError, IdempotencyConflictError, ValidationError } from '../services/errors.ts';
 
-import { healthHandler, healthRoute } from './application.ts';
+import { healthHandler, healthRoute } from './application/health.ts';
 import type { ApiContext, HonoEnv } from './context.ts';
 import { requestContext } from './middleware.ts';
 import { openApiMetadata } from './openapi-metadata.ts';
 import { PROBLEM_CONTENT_TYPE, type ProblemDetails } from './problem.ts';
-import { registerSubjectHandler, registerSubjectRoute } from './subject.ts';
+import { registerSubjectHandler, registerSubjectRoute } from './subjects/register-subject.ts';
 
 // Retry-After hint (seconds) sent with 503 ContentionError responses. Kept
 // short: number_part allocation contention on a single name_part clears in
@@ -18,7 +18,7 @@ const RETRY_AFTER_SECONDS = 1;
 
 // Single Problem Details builder. Centralizes the shape and the
 // Content-Type header so no handler can drift accidentally.
-function problemJson(
+function buildProblemJson(
   context: ApiContext,
   status: ClientErrorStatusCode | ServerErrorStatusCode,
   title: string,
@@ -50,7 +50,7 @@ export const api = new OpenAPIHono<HonoEnv>({
         message: issue.message,
       }));
       const issueCount = issues.length;
-      return problemJson(
+      return buildProblemJson(
         context,
         422,
         'Validation failed',
@@ -103,15 +103,20 @@ api.get(
 // not in the service — services don't know about HTTP status codes.
 api.onError((error, context) => {
   if (error instanceof ValidationError) {
-    return problemJson(context, 422, 'Validation failed', error.message, error.errors);
+    return buildProblemJson(context, 422, 'Validation failed', error.message, error.errors);
   }
   if (error instanceof IdempotencyConflictError) {
-    return problemJson(context, 409, 'Idempotency conflict', error.message);
+    return buildProblemJson(context, 409, 'Idempotency conflict', error.message);
   }
   if (error instanceof ContentionError) {
     // Transient capacity signal, not a server fault — the Retry-After header
     // tells a well-behaved client to retry.
-    const response = problemJson(context, 503, 'Service temporarily unavailable', error.message);
+    const response = buildProblemJson(
+      context,
+      503,
+      'Service temporarily unavailable',
+      error.message,
+    );
     response.headers.set('Retry-After', String(RETRY_AFTER_SECONDS));
     return response;
   }
@@ -119,7 +124,7 @@ api.onError((error, context) => {
   // return an opaque 500. The requestId in the body lets us find the
   // matching log entry.
   context.var.logger.error({ err: error }, 'unhandled error in request');
-  return problemJson(
+  return buildProblemJson(
     context,
     500,
     'Internal server error',

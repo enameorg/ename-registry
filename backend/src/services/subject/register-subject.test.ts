@@ -5,20 +5,21 @@ import { pino } from 'pino';
 
 // Service integration tests: assert the return value and the persisted state
 // read back through the Service's own functions (findSubjects, findEnames,
-// findEvents, getEventByIdempotencyKey) — no raw pool/SQL. resetTestDb is the
-// only ../database import. Test doctrine: ename-internals.md.
-import { resetTestDb } from '../database/reset-for-tests.ts';
-import { generateUUIDv7, UUIDV7_REGEX } from '../uuid.ts';
+// findEvents, getEventByIdempotencyKey) — no raw pool/SQL. Those read primitives
+// are themselves covered by their concept's *.test.ts, so reading state through
+// them here is not circular. Test doctrine: ename-internals.md.
+import { resetTestDb } from '../../database/reset-for-tests.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
+import { findEnames } from '../ename/index.ts';
+import { IdempotencyConflictError, ValidationError } from '../errors.ts';
+import { findEvents, getEventByIdempotencyKey } from '../event/index.ts';
 
-import { findEnames } from './ename.ts';
-import { IdempotencyConflictError, ValidationError } from './errors.ts';
-import { findEvents, getEventByIdempotencyKey } from './event.ts';
 import {
-  findSubjects,
   registerSubject,
   SubjectRegisteredOutcomeSchema,
   SubjectRegisteredRequestSchema,
-} from './subject.ts';
+} from './register-subject.ts';
+import { findSubjects } from './subject.ts';
 
 // Silent logger: these tests assert behavior, not log output. Keeping the
 // test runner output clean while still exercising the logger plumbing in the

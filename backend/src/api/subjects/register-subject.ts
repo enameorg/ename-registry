@@ -5,12 +5,11 @@ import {
   MAX_NAME_PART_LENGTH,
   MAX_NUMBER_PART,
   NAME_PART_REGEX,
-} from '../services/ename.ts';
-import { registerSubject, type RegisterSubjectResult } from '../services/subject.ts';
-import { UUIDV7_REGEX } from '../uuid.ts';
-
-import type { HonoEnv } from './context.ts';
-import { problemResponse } from './problem.ts';
+} from '../../services/ename/index.ts';
+import { registerSubject, type RegisterSubjectResult } from '../../services/subject/index.ts';
+import { UUIDV7_REGEX } from '../../uuid.ts';
+import type { HonoEnv } from '../context.ts';
+import { problemResponse } from '../problem.ts';
 
 // ---------------------------------------------------------------------------
 // Request and response schemas, inline with the route (see ename-internals.md).
