@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 
 import { config } from './config.ts';
+import { closePool } from './database/pool.ts';
 import { app } from './index.ts';
 import { logger } from './logger.ts';
 
@@ -18,15 +19,39 @@ function shutdown(signal: NodeJS.Signals): void {
     process.exit(1);
   }, SHUTDOWN_TIMEOUT_MS);
 
+  // Drain in-flight HTTP requests first, then release the DB pool, so no handler
+  // loses its connection mid-query.
   httpServer.close((error) => {
-    clearTimeout(timeout);
-    if (error) {
-      logger.error({ err: error }, 'http server close failed');
-      process.exit(1);
-    }
-    logger.info('shutdown complete');
-    process.exit(0);
+    void closeResources(error, timeout);
   });
+}
+
+async function closeResources(
+  httpError: Error | undefined,
+  timeout: NodeJS.Timeout,
+): Promise<void> {
+  let failed = false;
+
+  if (httpError) {
+    logger.error({ err: httpError }, 'http server close failed');
+    failed = true;
+  }
+
+  try {
+    await closePool();
+  } catch (error) {
+    logger.error({ err: error }, 'database pool close failed');
+    failed = true;
+  }
+
+  clearTimeout(timeout);
+
+  if (failed) {
+    process.exit(1);
+  }
+
+  logger.info('shutdown complete');
+  process.exit(0);
 }
 
 process.on('SIGTERM', () => {

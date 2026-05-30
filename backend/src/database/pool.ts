@@ -15,3 +15,10 @@ export const pool = new pg.Pool({
   idleTimeoutMillis: 10_000,
   max: 10,
 });
+
+// Named lifecycle seam for graceful shutdown: drains in-flight queries and closes
+// every pooled connection. Called once by the runtime entry, after the HTTP server
+// has stopped accepting requests; keeps pg's end() mechanics confined to src/database.
+export async function closePool(): Promise<void> {
+  await pool.end();
+}
