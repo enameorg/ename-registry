@@ -161,7 +161,7 @@ export async function insertEnameWithNextNumber(
     'number_part allocation retry budget exhausted under contention',
   );
   throw new ContentionError(
-    'too many concurrent registrations for this name right now; please retry shortly',
+    'Too many concurrent registrations for this name right now; please retry shortly.',
   );
 }
 
@@ -187,7 +187,7 @@ export function enforceMaxEnameLength(
       `${MAX_ENAME_LENGTH}-char overflow on ename creation`,
     );
     throw new ValidationError(
-      `the resulting ename would exceed the ${MAX_ENAME_LENGTH}-character limit; choose a shorter namePart`,
+      `The resulting ename would exceed the ${MAX_ENAME_LENGTH}-character limit; choose a shorter namePart.`,
       [
         {
           path: ['ename', 'namePart'],

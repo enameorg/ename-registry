@@ -266,6 +266,16 @@
               }
             }
           },
+          "400": {
+            "description": "Request body could not be read properly",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "409": {
             "description": "Idempotency key already used for a different operation",
             "content": {
@@ -277,7 +287,7 @@
             }
           },
           "422": {
-            "description": "Request body failed validation, or the resulting ename exceeds 52 characters",
+            "description": "Request body failed validation",
             "content": {
               "application/problem+json": {
                 "schema": {

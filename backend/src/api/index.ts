@@ -1,5 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { Scalar } from '@scalar/hono-api-reference';
+import { HTTPException } from 'hono/http-exception';
+import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
 
 import { ContentionError, IdempotencyConflictError, ValidationError } from '../services/errors.ts';
 
@@ -14,6 +16,15 @@ import { registerSubjectHandler, registerSubjectRoute } from './subject/register
 // short: number_part allocation contention on a single name_part clears in
 // milliseconds, so a 1-second floor is already generous.
 const RETRY_AFTER_SECONDS = 1;
+
+// Problem Details (title + client-facing detail) for the HTTP statuses Hono
+// raises as an HTTPException before a handler runs. Today the only such case is
+// a 400 from the json validator on a request body that is not valid JSON. We
+// phrase the detail ourselves rather than surface Hono's internal message, so
+// the public contract stays stable across the framework (and the Rust port).
+const HTTP_EXCEPTION_PROBLEMS: Record<number, { title: string; detail: string }> = {
+  400: { title: 'Bad request', detail: 'The request body is not valid JSON.' },
+};
 
 export const api = new OpenAPIHono<HonoEnv>({
   // Maps Zod request-validation failures to an RFC 9457 422 before the handler
@@ -33,7 +44,7 @@ export const api = new OpenAPIHono<HonoEnv>({
         context,
         422,
         'Validation failed',
-        `${issueCount} validation error${issueCount === 1 ? '' : 's'}`,
+        `${issueCount} validation error${issueCount === 1 ? '' : 's'}.`,
         issues,
       );
     }
@@ -99,6 +110,26 @@ api.onError((error, context) => {
     response.headers.set('Retry-After', String(RETRY_AFTER_SECONDS));
     return response;
   }
+  // A request body that is not valid JSON makes the json validator throw a Hono
+  // HTTPException(400) before the handler runs. Surface its status as Problem
+  // Details instead of letting it fall through to the opaque 500 below.
+  if (error instanceof HTTPException) {
+    const status = error.status as ClientErrorStatusCode | ServerErrorStatusCode;
+    const problem = HTTP_EXCEPTION_PROBLEMS[status];
+    if (problem) {
+      return buildProblemJson(context, status, problem.title, problem.detail);
+    }
+    // An HTTPException with a status we don't explicitly own: log it (its
+    // message may carry framework-internal vocabulary) and return a generic
+    // problem rather than leaking the raw message to the client.
+    context.var.logger.error({ err: error }, 'unmapped HTTPException in request');
+    return buildProblemJson(
+      context,
+      status,
+      'Request error',
+      'The request could not be processed.',
+    );
+  }
   // Unexpected: log with the pino err serializer (stack + cause) and
   // return an opaque 500. The requestId in the body lets us find the
   // matching log entry.
@@ -107,6 +138,6 @@ api.onError((error, context) => {
     context,
     500,
     'Internal server error',
-    'an unexpected error occurred; the requestId can be used to correlate with server logs',
+    'An unexpected error occurred; the requestId can be used to correlate with server logs.',
   );
 });

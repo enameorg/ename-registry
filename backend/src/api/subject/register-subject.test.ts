@@ -121,7 +121,42 @@ test('idempotency conflict: same idempotencyKey with a different body returns 40
   assert.equal(body.type, 'about:blank');
   assert.equal(body.status, 409);
   assert.equal(body.title, 'Idempotency conflict');
-  assert.match(body.detail, /idempotency key/i);
+  assert.equal(
+    body.detail,
+    'This idempotency key has already been used with a different request body.',
+  );
+  assert.match(body.requestId, UUIDV7_REGEX);
+});
+
+// ---------------------------------------------------------------------------
+// Malformed request body (not valid JSON → 400, before Zod validation)
+// ---------------------------------------------------------------------------
+
+test('malformed JSON body returns 400 problem+json, not 500', async () => {
+  const response = await app.fetch(
+    new Request(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'hey',
+    }),
+  );
+
+  assert.equal(response.status, 400);
+  assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
+
+  const body = (await response.json()) as {
+    type: string;
+    title: string;
+    status: number;
+    detail: string;
+    requestId: string;
+  };
+  assert.equal(body.type, 'about:blank');
+  assert.equal(body.status, 400);
+  assert.equal(body.title, 'Bad request');
+  // detail is our own phrasing, not Hono's internal "Malformed JSON…" message —
+  // the public contract must not leak the framework's wording.
+  assert.equal(body.detail, 'The request body is not valid JSON.');
   assert.match(body.requestId, UUIDV7_REGEX);
 });
 

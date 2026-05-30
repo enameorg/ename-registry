@@ -113,7 +113,7 @@ function reconcileReplay(
       'idempotency conflict: existing event has a different kind',
     );
     throw new IdempotencyConflictError(
-      'this idempotency key has already been used for a different operation',
+      'This idempotency key has already been used for a different operation.',
     );
   }
   const request = SubjectRegisteredRequestSchema.parse(existing.request);
@@ -128,7 +128,7 @@ function reconcileReplay(
       'idempotency conflict: existing event has a different request body',
     );
     throw new IdempotencyConflictError(
-      'this idempotency key has already been used with a different request body',
+      'This idempotency key has already been used with a different request body.',
     );
   }
   return buildResult(request, outcome, existing.createdAt);

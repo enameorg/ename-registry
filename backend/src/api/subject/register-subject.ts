@@ -1,7 +1,6 @@
 import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
 
 import {
-  MAX_ENAME_LENGTH,
   MAX_NAME_PART_LENGTH,
   MAX_NUMBER_PART,
   NAME_PART_REGEX,
@@ -105,10 +104,9 @@ export const registerSubjectRoute = createRoute({
         'application/json': { schema: RegisterSubjectResponseSchema },
       },
     },
+    400: problemResponse('Request body could not be read properly'),
     409: problemResponse('Idempotency key already used for a different operation'),
-    422: problemResponse(
-      `Request body failed validation, or the resulting ename exceeds ${MAX_ENAME_LENGTH} characters`,
-    ),
+    422: problemResponse('Request body failed validation'),
     500: problemResponse('Unexpected error'),
     503: problemResponse(
       'Too many concurrent registrations for this name; transient — retry after the delay in the Retry-After header',
