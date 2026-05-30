@@ -1,40 +1,19 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { Scalar } from '@scalar/hono-api-reference';
-import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
 
 import { ContentionError, IdempotencyConflictError, ValidationError } from '../services/errors.ts';
 
 import { healthHandler, healthRoute } from './application/health.ts';
-import type { ApiContext, HonoEnv } from './context.ts';
+import type { HonoEnv } from './context.ts';
 import { requestContext } from './middleware.ts';
 import { openApiMetadata } from './openapi-metadata.ts';
-import { PROBLEM_CONTENT_TYPE, type ProblemDetails } from './problem.ts';
+import { buildProblemJson } from './problem.ts';
 import { registerSubjectHandler, registerSubjectRoute } from './subject/register-subject.ts';
 
 // Retry-After hint (seconds) sent with 503 ContentionError responses. Kept
 // short: number_part allocation contention on a single name_part clears in
 // milliseconds, so a 1-second floor is already generous.
 const RETRY_AFTER_SECONDS = 1;
-
-// Single Problem Details builder. Centralizes the shape and the
-// Content-Type header so no handler can drift accidentally.
-function buildProblemJson(
-  context: ApiContext,
-  status: ClientErrorStatusCode | ServerErrorStatusCode,
-  title: string,
-  detail: string,
-  errors?: ProblemDetails['errors'],
-): Response {
-  const body: ProblemDetails = {
-    type: 'about:blank',
-    title,
-    status,
-    detail,
-    requestId: context.var.requestId,
-    ...(errors !== undefined ? { errors } : {}),
-  };
-  return context.json(body, status, { 'Content-Type': PROBLEM_CONTENT_TYPE });
-}
 
 export const api = new OpenAPIHono<HonoEnv>({
   // Maps Zod request-validation failures to an RFC 9457 422 before the handler

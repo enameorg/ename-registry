@@ -1,6 +1,9 @@
 import { z } from '@hono/zod-openapi';
+import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
 
 import { UUIDV7_REGEX } from '../uuid.ts';
+
+import type { ApiContext } from './context.ts';
 
 // RFC 9457 Problem Details — the single shape for every 4xx/5xx response, served
 // as application/problem+json. Extensions beyond the RFC base: requestId (the
@@ -43,4 +46,25 @@ export function problemResponse(description: string) {
       [PROBLEM_CONTENT_TYPE]: { schema: ProblemDetailsSchema },
     },
   };
+}
+
+// Single Problem Details builder. Centralizes the shape and the
+// Content-Type header so no handler can drift accidentally. The caller
+// (api/index.ts onError) owns the error → status/title mapping.
+export function buildProblemJson(
+  context: ApiContext,
+  status: ClientErrorStatusCode | ServerErrorStatusCode,
+  title: string,
+  detail: string,
+  errors?: ProblemDetails['errors'],
+): Response {
+  const body: ProblemDetails = {
+    type: 'about:blank',
+    title,
+    status,
+    detail,
+    requestId: context.var.requestId,
+    ...(errors !== undefined ? { errors } : {}),
+  };
+  return context.json(body, status, { 'Content-Type': PROBLEM_CONTENT_TYPE });
 }
