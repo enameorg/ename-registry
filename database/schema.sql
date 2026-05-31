@@ -100,6 +100,14 @@ ALTER TABLE ONLY public.enames
 
 
 --
+-- Name: enames enames_subject_id_name_part_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enames
+    ADD CONSTRAINT enames_subject_id_name_part_key UNIQUE (subject_id, name_part);
+
+
+--
 -- Name: enames enames_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -140,13 +148,6 @@ ALTER TABLE ONLY public.subjects
 
 
 --
--- Name: enames_subject_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX enames_subject_id_idx ON public.enames USING btree (subject_id);
-
-
---
 -- Name: enames enames_subject_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -159,4 +160,3 @@ ALTER TABLE ONLY public.enames
 --
 
 \unrestrict enameschemadump
-

@@ -3,7 +3,7 @@ export {
   enforceMaxEnameLength,
   EnameSchema,
   findEnames,
-  getEname,
+  getEnameByNamePartAndNumberPart,
   insertEnameWithNextNumber,
   MAX_ENAME_LENGTH,
   MAX_NAME_PART_LENGTH,

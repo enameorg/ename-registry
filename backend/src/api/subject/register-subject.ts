@@ -102,7 +102,7 @@ export const registerSubjectRoute = createRoute({
     422: problemResponse('Request body failed validation'),
     500: problemResponse('Unexpected error'),
     503: problemResponse(
-      'Too many concurrent registrations for this name; transient — retry after the delay in the Retry-After header',
+      'Too many concurrent ename creations for this name; transient — retry after the delay in the Retry-After header',
     ),
   },
 });

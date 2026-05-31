@@ -2,11 +2,11 @@ import type { PoolClient } from 'pg';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
-import { isUniqueViolation } from '../../database/errors.ts';
+import { isForeignKeyViolation, isUniqueViolation } from '../../database/errors.ts';
 import { pool } from '../../database/pool.ts';
 import { queryRows } from '../../database/query.ts';
 import { UUIDV7_REGEX } from '../../uuid.ts';
-import { ContentionError, ValidationError } from '../errors.ts';
+import { ConflictError, ContentionError, NotFoundError, ValidationError } from '../errors.ts';
 
 // ---------------------------------------------------------------------------
 // Ename format constants and shared regex
@@ -47,6 +47,8 @@ export const MAX_ENAME_LENGTH = 52;
 const MAX_NUMBER_PART_RETRIES = 20;
 
 const ENAMES_NUMBER_PART_CONSTRAINT = 'enames_name_part_number_part_key';
+const ENAMES_SUBJECT_NAME_PART_CONSTRAINT = 'enames_subject_id_name_part_key';
+const ENAMES_SUBJECT_ID_CONSTRAINT = 'enames_subject_id_fkey';
 
 // ---------------------------------------------------------------------------
 // Ename domain type and lookups
@@ -66,11 +68,14 @@ export type Ename = z.infer<typeof EnameSchema>;
 
 const SELECT_ENAME_COLUMNS = 'id, subject_id, name_part, number_part, created_at';
 
-export async function getEname(namePart: string, numberPart: number): Promise<Ename | undefined> {
+export async function getEnameByNamePartAndNumberPart(params: {
+  namePart: string;
+  numberPart: number;
+}): Promise<Ename | undefined> {
   const rows = await queryRows(
     pool,
     `SELECT ${SELECT_ENAME_COLUMNS} FROM enames WHERE name_part = $1 AND number_part = $2`,
-    [namePart, numberPart],
+    [params.namePart, params.numberPart],
     EnameSchema,
   );
   return rows[0];
@@ -150,6 +155,17 @@ export async function insertEnameWithNextNumber(
         );
         continue;
       }
+      if (isUniqueViolation(error, ENAMES_SUBJECT_NAME_PART_CONSTRAINT)) {
+        logger.info(
+          { subjectId: params.subjectId, namePart: params.namePart },
+          'subject already has an ename with this name_part',
+        );
+        throw new ConflictError('This subject already has an ename with this namePart.');
+      }
+      if (isForeignKeyViolation(error, ENAMES_SUBJECT_ID_CONSTRAINT)) {
+        logger.info({ subjectId: params.subjectId }, 'subject not found while inserting ename');
+        throw new NotFoundError('Subject not found.');
+      }
       throw error;
     }
   }
@@ -161,7 +177,7 @@ export async function insertEnameWithNextNumber(
     'number_part allocation retry budget exhausted under contention',
   );
   throw new ContentionError(
-    'Too many concurrent registrations for this name right now; please retry shortly.',
+    'Too many concurrent ename creations for this name right now; please retry shortly.',
   );
 }
 

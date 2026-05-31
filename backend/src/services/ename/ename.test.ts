@@ -7,10 +7,15 @@ import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
 import { resetTestDb } from '../../database/reset-for-tests.ts';
 import { generateUUIDv7 } from '../../uuid.ts';
-import { ValidationError } from '../errors.ts';
+import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
 import { insertSubject } from '../subject/index.ts';
 
-import { enforceMaxEnameLength, findEnames, getEname, insertEnameWithNextNumber } from './ename.ts';
+import {
+  enforceMaxEnameLength,
+  findEnames,
+  getEnameByNamePartAndNumberPart,
+  insertEnameWithNextNumber,
+} from './ename.ts';
 
 // Direct tests of the ename data-access primitives and the pure post-allocation
 // rule (see ename-internals.md). insertEnameWithNextNumber requires an existing
@@ -32,7 +37,7 @@ async function seedSubject(): Promise<string> {
   return subjectId;
 }
 
-test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEname/findEnames', async () => {
+test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEnameByNamePartAndNumberPart/findEnames', async () => {
   const subjectId = await seedSubject();
   const enameId = generateUUIDv7();
   const createdAt = new Date();
@@ -49,7 +54,10 @@ test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEn
   );
   assert.equal(numberPart, 1);
 
-  const found = await getEname('jean-dupont', 1);
+  const found = await getEnameByNamePartAndNumberPart({
+    namePart: 'jean-dupont',
+    numberPart: 1,
+  });
   assert.ok(found);
   assert.equal(found.id, enameId);
   assert.equal(found.subjectId, subjectId);
@@ -61,7 +69,8 @@ test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEn
 });
 
 test('insertEnameWithNextNumber allocates consecutive numberParts per namePart', async () => {
-  const subjectId = await seedSubject();
+  const firstSubjectId = await seedSubject();
+  const secondSubjectId = await seedSubject();
   const namePart = 'marie-curie';
 
   const first = await withTransaction(
@@ -69,7 +78,7 @@ test('insertEnameWithNextNumber allocates consecutive numberParts per namePart',
     (client) =>
       insertEnameWithNextNumber(
         client,
-        { enameId: generateUUIDv7(), subjectId, namePart, createdAt: new Date() },
+        { enameId: generateUUIDv7(), subjectId: firstSubjectId, namePart, createdAt: new Date() },
         logger,
       ),
     logger,
@@ -79,7 +88,12 @@ test('insertEnameWithNextNumber allocates consecutive numberParts per namePart',
     (client) =>
       insertEnameWithNextNumber(
         client,
-        { enameId: generateUUIDv7(), subjectId, namePart, createdAt: new Date() },
+        {
+          enameId: generateUUIDv7(),
+          subjectId: secondSubjectId,
+          namePart,
+          createdAt: new Date(),
+        },
         logger,
       ),
     logger,
@@ -89,8 +103,66 @@ test('insertEnameWithNextNumber allocates consecutive numberParts per namePart',
   assert.equal(second, 2);
 });
 
-test('getEname returns undefined for an unknown ename', async () => {
-  assert.equal(await getEname('nobody', 1), undefined);
+test('insertEnameWithNextNumber rejects a duplicate namePart for the same subject', async () => {
+  const subjectId = await seedSubject();
+  const namePart = 'marie-curie';
+
+  await withTransaction(
+    pool,
+    (client) =>
+      insertEnameWithNextNumber(
+        client,
+        { enameId: generateUUIDv7(), subjectId, namePart, createdAt: new Date() },
+        logger,
+      ),
+    logger,
+  );
+
+  await assert.rejects(
+    () =>
+      withTransaction(
+        pool,
+        (client) =>
+          insertEnameWithNextNumber(
+            client,
+            { enameId: generateUUIDv7(), subjectId, namePart, createdAt: new Date() },
+            logger,
+          ),
+        logger,
+      ),
+    (error: unknown) =>
+      error instanceof ConflictError &&
+      error.message === 'This subject already has an ename with this namePart.',
+  );
+});
+
+test('insertEnameWithNextNumber rejects an unknown subjectId', async () => {
+  await assert.rejects(
+    () =>
+      withTransaction(
+        pool,
+        (client) =>
+          insertEnameWithNextNumber(
+            client,
+            {
+              enameId: generateUUIDv7(),
+              subjectId: generateUUIDv7(),
+              namePart: 'jean-dupont',
+              createdAt: new Date(),
+            },
+            logger,
+          ),
+        logger,
+      ),
+    (error: unknown) => error instanceof NotFoundError && error.message === 'Subject not found.',
+  );
+});
+
+test('getEnameByNamePartAndNumberPart returns undefined for an unknown ename', async () => {
+  assert.equal(
+    await getEnameByNamePartAndNumberPart({ namePart: 'nobody', numberPart: 1 }),
+    undefined,
+  );
 });
 
 // enforceMaxEnameLength is a pure rule (no DB) — testable in isolation.

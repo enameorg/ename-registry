@@ -21,6 +21,22 @@ export type ValidationIssue = {
   message: string;
 };
 
+export class NotFoundError extends DomainError {
+  public override readonly name = 'NotFoundError';
+
+  constructor(detail: string) {
+    super(detail);
+  }
+}
+
+export class ConflictError extends DomainError {
+  public override readonly name = 'ConflictError';
+
+  constructor(detail: string) {
+    super(detail);
+  }
+}
+
 export class IdempotencyConflictError extends DomainError {
   public override readonly name = 'IdempotencyConflictError';
 

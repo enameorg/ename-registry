@@ -8,3 +8,9 @@ export function isUniqueViolation(error: unknown, constraint: string): boolean {
   const candidate = error as { code?: unknown; constraint?: unknown };
   return candidate.code === '23505' && candidate.constraint === constraint;
 }
+
+export function isForeignKeyViolation(error: unknown, constraint: string): boolean {
+  if (!(error instanceof Error)) return false;
+  const candidate = error as { code?: unknown; constraint?: unknown };
+  return candidate.code === '23503' && candidate.constraint === constraint;
+}

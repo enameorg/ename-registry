@@ -3,13 +3,23 @@ import { Scalar } from '@scalar/hono-api-reference';
 import { HTTPException } from 'hono/http-exception';
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
 
-import { ContentionError, IdempotencyConflictError, ValidationError } from '../services/errors.ts';
+import {
+  ConflictError,
+  ContentionError,
+  IdempotencyConflictError,
+  NotFoundError,
+  ValidationError,
+} from '../services/errors.ts';
 
 import { healthHandler, healthRoute } from './application/health.ts';
 import type { HonoEnv } from './context.ts';
 import { requestContext } from './middleware.ts';
 import { openApiMetadata } from './openapi-metadata.ts';
 import { buildProblemJson } from './problem.ts';
+import {
+  addEnameToSubjectHandler,
+  addEnameToSubjectRoute,
+} from './subject/add-ename-to-subject.ts';
 import { registerSubjectHandler, registerSubjectRoute } from './subject/register-subject.ts';
 
 // Retry-After hint (seconds) sent with 503 ContentionError responses. Kept
@@ -61,6 +71,7 @@ api.use('*', requestContext);
 
 api.openapi(healthRoute, healthHandler);
 api.openapi(registerSubjectRoute, registerSubjectHandler);
+api.openapi(addEnameToSubjectRoute, addEnameToSubjectHandler);
 
 // Expose the live spec at /api/v1/openapi.json (relative to the v1 mount point).
 // The `servers` field makes the spec self-describing: paths declared as `/health`
@@ -97,6 +108,12 @@ api.onError((error, context) => {
   }
   if (error instanceof IdempotencyConflictError) {
     return buildProblemJson(context, 409, 'Idempotency conflict', error.message);
+  }
+  if (error instanceof ConflictError) {
+    return buildProblemJson(context, 409, 'Conflict', error.message);
+  }
+  if (error instanceof NotFoundError) {
+    return buildProblemJson(context, 404, 'Not found', error.message);
   }
   if (error instanceof ContentionError) {
     // Transient capacity signal, not a server fault — the Retry-After header

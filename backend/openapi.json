@@ -208,6 +208,97 @@
         "required": [
           "namePart"
         ]
+      },
+      "AddEnameToSubjectResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-05-30T14:32:11.123Z"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/AddEnameToSubjectResponseSubject"
+          },
+          "ename": {
+            "$ref": "#/components/schemas/AddEnameToSubjectResponseEname"
+          }
+        },
+        "required": [
+          "createdAt",
+          "subject",
+          "ename"
+        ]
+      },
+      "AddEnameToSubjectResponseSubject": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "AddEnameToSubjectResponseEname": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e10"
+          },
+          "namePart": {
+            "type": "string",
+            "example": "marie-curie"
+          },
+          "numberPart": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999999999999,
+            "example": 2
+          }
+        },
+        "required": [
+          "id",
+          "namePart",
+          "numberPart"
+        ]
+      },
+      "AddEnameToSubjectRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
+          },
+          "ename": {
+            "$ref": "#/components/schemas/AddEnameToSubjectRequestEname"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "ename"
+        ]
+      },
+      "AddEnameToSubjectRequestEname": {
+        "type": "object",
+        "properties": {
+          "namePart": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^[a-z]+(-[a-z]+)*$",
+            "example": "marie-curie"
+          }
+        },
+        "required": [
+          "namePart"
+        ]
       }
     },
     "parameters": {}
@@ -307,7 +398,107 @@
             }
           },
           "503": {
-            "description": "Too many concurrent registrations for this name; transient — retry after the delay in the Retry-After header",
+            "description": "Too many concurrent ename creations for this name; transient — retry after the delay in the Retry-After header",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/subjects/{id}/enames": {
+      "post": {
+        "summary": "Add an ename to an existing subject",
+        "description": "Adds one ename to an existing subject without replacing its previous enames. Emits one `subject.ename_added` event in the registry log. A subject cannot hold two enames with the same `namePart`; reusing the same `namePart` for the same subject returns `409 Conflict`. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key with a different path or body returns `409 Conflict`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddEnameToSubjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ename added to subject (or idempotent replay of a prior success)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddEnameToSubjectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body could not be read properly",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Subject not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency key conflict or subject already has this namePart",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Path parameter or request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Too many concurrent ename creations for this name; transient — retry after the delay in the Retry-After header",
             "content": {
               "application/problem+json": {
                 "schema": {

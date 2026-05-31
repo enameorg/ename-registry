@@ -52,12 +52,13 @@ Schema, migration, and local cluster commands (`db:up`, `db:migrate`, `db:new`, 
 
 ## Endpoints
 
-| Method | Path                   | Description                                                                                                                                |
-| ------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST` | `/api/v1/subjects`     | Register a new subject together with its first ename atomically. Idempotent via `idempotencyKey`. Produces one `subject.registered` event. |
-| `GET`  | `/api/v1/health`       | Service health check. Returns 200 + `{"status":"ok"}` or 503 + `{"status":"unhealthy"}`.                                                   |
-| `GET`  | `/api/v1/openapi.json` | OpenAPI 3.1 specification of the v1 contract.                                                                                              |
-| `GET`  | `/api/v1/docs`         | Interactive API reference and client (Scalar UI), reading the live spec.                                                                   |
+| Method | Path                          | Description                                                                                                                                |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST` | `/api/v1/subjects`            | Register a new subject together with its first ename atomically. Idempotent via `idempotencyKey`. Produces one `subject.registered` event. |
+| `POST` | `/api/v1/subjects/:id/enames` | Add one ename to an existing subject. Idempotent via `idempotencyKey`. Produces one `subject.ename_added` event.                           |
+| `GET`  | `/api/v1/health`              | Service health check. Returns 200 + `{"status":"ok"}` or 503 + `{"status":"unhealthy"}`.                                                   |
+| `GET`  | `/api/v1/openapi.json`        | OpenAPI 3.1 specification of the v1 contract.                                                                                              |
+| `GET`  | `/api/v1/docs`                | Interactive API reference and client (Scalar UI), reading the live spec.                                                                   |
 
 After `npm run dev`, open <http://localhost:3000/api/v1/docs> in a browser to browse the endpoints, send requests, and store variables and environments locally. The page fetches `openapi.json` live at each load, so it always reflects the running code — no import or duplication step.
 
@@ -74,7 +75,8 @@ backend/
 │   │   │   └── health.test.ts        # HTTP-level test
 │   │   ├── subject/                  # endpoints rooted at /subjects (one file per route)
 │   │   │   ├── register-subject.ts   # POST /subjects route, handler, and inline Zod schemas
-│   │   │   └── register-subject.test.ts  # HTTP-level integration tests
+│   │   │   ├── add-ename-to-subject.ts # POST /subjects/:id/enames route, handler, and schemas
+│   │   │   └── *.test.ts             # HTTP-level integration tests
 │   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, ApiContext
 │   │   ├── index.ts                  # v1 sub-app assembly: middleware, routes, defaultHook, onError
 │   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs
@@ -91,7 +93,8 @@ backend/
 │   │   │   ├── subject.ts            # Subject type/schema + data-access primitives (get/find/insert)
 │   │   │   ├── subject.test.ts       # primitive round-trip tests
 │   │   │   ├── register-subject.ts   # registerSubject() use case + subject.registered event schemas
-│   │   │   └── register-subject.test.ts  # use-case tests (idempotency, concurrency)
+│   │   │   ├── add-ename-to-subject.ts # addEnameToSubject() use case + subject.ename_added schemas
+│   │   │   └── *.test.ts             # use-case tests (idempotency, concurrency)
 │   │   ├── ename/
 │   │   │   ├── index.ts
 │   │   │   ├── ename.ts              # Ename type/schema, format constants, pure rules, primitives
