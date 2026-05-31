@@ -1,4 +1,4 @@
-# Ename registry internals
+# Ename — Registry Internals
 
 ## Preamble
 

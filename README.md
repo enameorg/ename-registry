@@ -4,7 +4,7 @@ Ename is a public registry of verified human identifiers (format `<name>#<number
 
 The registry is the trust anchor of the Ename ecosystem: it binds each ename to a public cryptographic key, records key rotations in an append-only verifiable log, and exposes a stable, language-agnostic public API consumed by ecosystem operators.
 
-For a complete project synthesis, see [`docs/ename-synthesis.md`](./docs/ename-synthesis.md). For the internal mechanics of the registry implementation, see [`docs/ename-internals.md`](./docs/ename-internals.md).
+For the reference synthesis, see [Ename — Reference Synthesis](./docs/ename-synthesis.md). For the internal mechanics of the registry implementation, see [Ename — Registry Internals](./docs/ename-internals.md).
 
 ## Repository layout
 

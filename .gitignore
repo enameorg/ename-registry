@@ -12,6 +12,7 @@ AGENTS.local.md
 _private
 
 /docs/*
+!/docs/ename-synthesis.md
 !/docs/ename-internals.md
 
 # Claude Code — local/transient files (machine-specific, runtime state)
