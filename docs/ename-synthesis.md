@@ -4,7 +4,7 @@
 
 This document is the internal source of truth for the **Ename** project: the human digital identity registry and the organization that maintains it. Its primary reader is the AI assistant, which uses it to produce derivative materials (public documents, technical documents, governance documents, operator-facing communications), check the consistency of new decisions, and preserve vocabulary stability. The text therefore favors terminological stability and explicit density over marketing readability.
 
-This document is about the **Ename registry**. It describes operators as an institutional category accredited by the registry, not as individual projects. The technical format of enames is described in `ename-format-v0.7-fr.md`; the association bylaws in `ename-statuts-v0.2-fr.md`; the registry's internal implementation decisions (stack, hosting, schema) in `ename-internals.md`. This synthesis does not restate those contents, but may refer to them.
+This document is about the **Ename registry**. It describes operators as an institutional category accredited by the registry, not as individual projects. The technical format of enames is described in [Ename — Format](./ename-format.md); the association bylaws in `ename-statuts-v0.2-fr.md`; the registry's internal implementation decisions (stack, hosting, schema) in `ename-internals.md`. This synthesis does not restate those contents, but may refer to them.
 
 Conventions:
 - **Concept-based headings**, not numbered headings, so anchors survive reordering.
@@ -49,7 +49,7 @@ The project addresses a fundamental double gap in digital life that no general m
 Decisions:
 - **Constitutive properties of the Ename identifier**: human (usable in daily life: easy to dictate, memorable), verified (attached to a person whose identity has been established), carrying a cryptographic key (to sign what that person produces), governed as a commons (neither private property nor state instrument). The four properties are inseparable; removing one breaks the model. `[settled]`
 - **Project scope**: foundation, not applications. Ename builds the substrate — registry + keys + standards — and leaves accredited operators to build above it (user services, viewers, features). `[settled]`
-- **Identifier format**: `<name>#<number>`, defined in `ename-format-v0.7-fr.md`. This document does not restate the syntax rules. `[settled]`
+- **Identifier format**: `<name>#<number>`, defined in [Ename — Format](./ename-format.md). This document does not restate the syntax rules. `[settled]`
 - **Scaling horizon**: universal human identity — billions of users, not millions. Every architecture and governance decision is validated against that horizon. `[settled]`
 - **Reference positioning sentence** (for internal terminological consistency, not for public quotation): Ename is the public registry of verified human digital identity, governed as a commons by a non-profit association. `[settled]`
 
@@ -147,7 +147,7 @@ These principles are not independent: they form a structural whole. Durability r
 
 ### Identifier Format and Evolutions
 
-The ename format (syntax, structure, transliteration rules, length, name changes) is defined in `ename-format-v0.7-fr.md` and is not restated here. Structurally:
+The ename format (syntax, structure, transliteration rules, length, name changes) is defined in [Ename — Format](./ename-format.md) and is not restated here. Structurally:
 
 - **General form `<name>#<number>`**, readable, easy to dictate, stable. `[settled]`
 - **Definitive person <-> ename link**: once assigned, an ename remains definitively linked to the same person, even if that person changes name (they then obtain a new ename; the old one remains linked to them). `[settled]`

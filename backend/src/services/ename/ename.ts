@@ -12,7 +12,7 @@ import { ConflictError, ContentionError, NotFoundError, ValidationError } from '
 // Ename format constants and shared regex
 // ---------------------------------------------------------------------------
 
-// namePart grammar per ename-format v0.7: lowercase letters and single hyphens,
+// namePart grammar per docs/ename-format.md: lowercase letters and single hyphens,
 // no leading/trailing/consecutive hyphens, at least one letter. Shared across
 // layers so API validation and any future ename-creating endpoint agree.
 //
@@ -20,7 +20,7 @@ import { ConflictError, ContentionError, NotFoundError, ValidationError } from '
 // leaking flag delimiters into the generated JSON Schema.
 export const NAME_PART_REGEX = /^[a-z]+(-[a-z]+)*$/;
 
-// namePart length cap per ename-format v0.7.
+// namePart length cap per docs/ename-format.md.
 export const MAX_NAME_PART_LENGTH = 50;
 
 // Upper bound for numberPart, mirroring the enames_number_part_range CHECK

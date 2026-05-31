@@ -6,7 +6,7 @@ This document is the source of truth for the **internal architecture, convention
 
 Primary reader: the AI assistant that maintains the codebase. Secondary: the human team. Updates are delegated to the AI and land in the same change as the code decision they record (cf. `AGENTS.md`).
 
-Scope: internal implementation decisions, **unilaterally revisable** by the registry's technical team. Out of scope: the public technical standards the registry publishes (ename format, signature algorithms, inter-operator transfers — see `ename-format-*`, modifiable only through public consultation per `ename-synthesis.md`), and the mission, governance and institutional model (`ename-synthesis.md`).
+Scope: internal implementation decisions, **unilaterally revisable** by the registry's technical team. Out of scope: the public technical standards the registry publishes (ename format, signature algorithms, inter-operator transfers — see [Ename — Format](./ename-format.md), modifiable only through public consultation per `ename-synthesis.md`), and the mission, governance and institutional model (`ename-synthesis.md`).
 
 Status markers: unmarked text is **implemented and current**; `(working hypothesis)` is current and relied on by the code but may be revised; `(target)` is decided and shapes current code but is not yet built. Unresolved questions live in § Open questions under stable `[Q-XXX]` ids shared across the corpus.
 
