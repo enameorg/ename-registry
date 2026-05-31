@@ -1,11 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import { pino } from 'pino';
 
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
-import { resetTestDb } from '../../database/reset-for-tests.ts';
+import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../uuid.ts';
 
 import {
@@ -21,9 +21,7 @@ import {
 // result — see ename-internals.md.
 const logger = pino({ level: 'silent' });
 
-beforeEach(async () => {
-  await resetTestDb();
-});
+useTestDb();
 
 test('insertEvent then read back round-trips kind, request, outcome, idempotencyKey and createdAt', async () => {
   const idempotencyKey = generateUUIDv7();

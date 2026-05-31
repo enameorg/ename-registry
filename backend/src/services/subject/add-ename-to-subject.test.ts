@@ -1,9 +1,9 @@
 import { strict as assert } from 'node:assert';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import { pino } from 'pino';
 
-import { resetTestDb } from '../../database/reset-for-tests.ts';
+import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ConflictError, IdempotencyConflictError, NotFoundError } from '../errors.ts';
@@ -20,9 +20,7 @@ import { findSubjects } from './subject.ts';
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
-beforeEach(async () => {
-  await resetTestDb();
-});
+useTestDb();
 
 test('happy path: adds one ename to an existing subject and emits subject.ename_added', async () => {
   const registered = await registerSubject(

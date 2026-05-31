@@ -1,6 +1,21 @@
+import { after, beforeEach } from 'node:test';
+
 import { config } from '../config.ts';
 
-import { pool } from './pool.ts';
+import { closePool, pool } from './pool.ts';
+
+// Register the full test DB lifecycle for one test file: reset projections and
+// event log before each test, then release the singleton pool so node:test can
+// exit without waiting for idle client timeout.
+export function useTestDb(): void {
+  beforeEach(async () => {
+    await resetTestDb();
+  });
+
+  after(async () => {
+    await closePool();
+  });
+}
 
 // TRUNCATE all user tables in the public schema (RESTART IDENTITY resets
 // sequences, CASCADE follows foreign keys).
@@ -8,9 +23,9 @@ import { pool } from './pool.ts';
 // Safety net: refuse to run unless NODE_ENV=test — the second guard (after the
 // two distinct .env URLs) between a misconfigured test runner and the dev DB.
 //
-// Uses the singleton pool directly: this helper only runs from tests, and a
-// parameter-free signature keeps `pool` out of higher-layer test files.
-export async function resetTestDb(): Promise<void> {
+// Uses the singleton pool directly: this helper only runs from tests, and the
+// enclosing lifecycle helper keeps `pool` out of higher-layer test files.
+async function resetTestDb(): Promise<void> {
   if (config.nodeEnv !== 'test') {
     throw new Error(`resetTestDb() called with NODE_ENV=${config.nodeEnv}; only allowed in 'test'`);
   }

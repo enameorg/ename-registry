@@ -1,11 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import { pino } from 'pino';
 
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
-import { resetTestDb } from '../../database/reset-for-tests.ts';
+import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../uuid.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
 import { insertSubject } from '../subject/index.ts';
@@ -23,9 +23,7 @@ import {
 // subject primitive.
 const logger = pino({ level: 'silent' });
 
-beforeEach(async () => {
-  await resetTestDb();
-});
+useTestDb();
 
 async function seedSubject(): Promise<string> {
   const subjectId = generateUUIDv7();

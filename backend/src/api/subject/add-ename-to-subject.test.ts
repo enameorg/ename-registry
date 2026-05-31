@@ -1,15 +1,13 @@
 import { strict as assert } from 'node:assert';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
-import { resetTestDb } from '../../database/reset-for-tests.ts';
+import { useTestDb } from '../../database/testing.ts';
 import { app } from '../../index.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
 
 const SUBJECTS_ENDPOINT = 'http://localhost/api/v1/subjects';
 
-beforeEach(async () => {
-  await resetTestDb();
-});
+useTestDb();
 
 async function postSubject(body: unknown): Promise<Response> {
   return await app.fetch(

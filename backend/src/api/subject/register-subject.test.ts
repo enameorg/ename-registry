@@ -1,19 +1,17 @@
 import { strict as assert } from 'node:assert';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 // API tests assert the HTTP contract only — status codes, headers, response
 // shape, Problem Details. Persistence invariants live in
-// services/subject/register-subject.test.ts. resetTestDb is the only
+// services/subject/register-subject.test.ts. useTestDb is the only
 // ../../database import; no raw pool access here. Test doctrine: ename-internals.md.
-import { resetTestDb } from '../../database/reset-for-tests.ts';
+import { useTestDb } from '../../database/testing.ts';
 import { app } from '../../index.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
 
 const ENDPOINT = 'http://localhost/api/v1/subjects';
 
-beforeEach(async () => {
-  await resetTestDb();
-});
+useTestDb();
 
 async function postSubject(body: unknown): Promise<Response> {
   return await app.fetch(

@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { beforeEach, test } from 'node:test';
+import { test } from 'node:test';
 
 import { pino } from 'pino';
 
@@ -8,7 +8,7 @@ import { pino } from 'pino';
 // findEvents, getEventByIdempotencyKey) — no raw pool/SQL. Those read primitives
 // are themselves covered by their concept's *.test.ts, so reading state through
 // them here is not circular. Test doctrine: ename-internals.md.
-import { resetTestDb } from '../../database/reset-for-tests.ts';
+import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { IdempotencyConflictError, ValidationError } from '../errors.ts';
@@ -27,9 +27,7 @@ import { findSubjects } from './subject.ts';
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
-beforeEach(async () => {
-  await resetTestDb();
-});
+useTestDb();
 
 // ---------------------------------------------------------------------------
 // Happy path: full inspection of projections and event log

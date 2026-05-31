@@ -86,7 +86,7 @@ backend/
 │   │   ├── errors.ts                 # pg driver error narrowing (isUniqueViolation)
 │   │   ├── pool.ts                   # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)
 │   │   ├── query.ts                  # queryRows() + withTransaction() helpers, camelize at boundary
-│   │   └── reset-for-tests.ts        # TRUNCATE all public tables; refuses to run outside NODE_ENV=test
+│   │   └── testing.ts                # Test DB reset + pool shutdown; refuses reset outside NODE_ENV=test
 │   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
 │   │   ├── subject/
 │   │   │   ├── index.ts              # barrel: the concept's public surface
