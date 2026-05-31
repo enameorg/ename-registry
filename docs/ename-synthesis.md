@@ -4,7 +4,7 @@
 
 This document is the internal source of truth for the **Ename** project: the human digital identity registry and the organization that maintains it. Its primary reader is the AI assistant, which uses it to produce derivative materials (public documents, technical documents, governance documents, operator-facing communications), check the consistency of new decisions, and preserve vocabulary stability. The text therefore favors terminological stability and explicit density over marketing readability.
 
-This document is about the **Ename registry**. It describes operators as an institutional category accredited by the registry, not as individual projects. The technical format of enames is described in [Ename — Format](./ename-format.md); the association bylaws in `ename-statuts-v0.2-fr.md`; the registry's internal implementation decisions (stack, hosting, schema) in `ename-internals.md`. This synthesis does not restate those contents, but may refer to them.
+This document is about the **Ename registry**. It describes operators as an institutional category accredited by the registry, not as individual projects. The technical format of enames is described in [Ename — Format](./ename-format.md); the registry's internal implementation decisions (stack, hosting, schema) in [Ename — Registry Internals](./ename-internals.md). This synthesis does not restate those contents, but may refer to them.
 
 Conventions:
 - **Concept-based headings**, not numbered headings, so anchors survive reordering.
@@ -106,7 +106,7 @@ Decisions:
 
 ### Governance
 
-The Ename organization is a non-profit association. The adopted bylaws (cf. `ename-statuts-v0.2-fr.md`) set the legal framework; this section restates the structural decisions underlying them.
+The Ename organization is a non-profit association. The adopted bylaws set the legal framework; this section restates the structural decisions underlying them.
 
 Decisions:
 - **Legal form**: non-profit association. Chosen to align governance and mission (no profit distribution, neutrality by construction). `[settled]`
