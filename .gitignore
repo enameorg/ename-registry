@@ -11,11 +11,6 @@ AGENTS.local.md
 
 _private
 
-/docs/*
-!/docs/ename-synthesis.md
-!/docs/ename-internals.md
-!/docs/ename-format.md
-
 # Claude Code — local/transient files (machine-specific, runtime state)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
