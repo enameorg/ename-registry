@@ -21,4 +21,5 @@ Reference docs:
 @README.md
 @backend/README.md
 @database/README.md
+@docs/ename-synthesis.md
 @docs/ename-internals.md
