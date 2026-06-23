@@ -12,13 +12,13 @@ Conventions:
 - **Stable Q-IDs** for open topics (`[Q-XXX]`), referenced from the body.
 - **No external-communication wording here**: no user promises, no pitches, no ornate prose. Dense, explicit text.
 - **Registry / operator distinction**: this document describes the registry. When an operator-side decision is mentioned, it is as a registry expectation (what the operator must do), not as operator-internal architecture.
-- **Ename / registry naming convention**: "Ename" by default means the organization (the non-profit association); "the registry" by default means the public database it maintains. Both terms may be used metonymically for either meaning (the organization is the registry, and vice versa), and are used interchangeably when context disambiguates. On the equivalent institutional role (ICANN model), see glossary entry *Registry*.
+- **Ename / registry naming convention**: "Ename" by default means the organization (the nonprofit); "the registry" by default means the public database it maintains. Both terms may be used metonymically for either meaning (the organization is the registry, and vice versa), and are used interchangeably when context disambiguates. On the equivalent institutional role (ICANN model), see glossary entry *Registry*.
 
 ---
 
 ## Glossary
 
-- **Ename**: human digital identity registry and the non-profit association that maintains it. Maintains verified identifiers (`<name>#<number>`), their associated public keys, the current home operator, and ecosystem standards. Refers equally to the organization and to the registry it maintains.
+- **Ename**: human digital identity registry and the nonprofit organization that maintains it. Maintains verified identifiers (`<name>#<number>`), their associated public keys, the current home operator, and ecosystem standards. Refers equally to the organization and to the registry it maintains.
 - **ename** (lowercase): identifier in `<name>#<number>` format (e.g. `john-doe#1`). The central case and only current operational case is a verified natural person. Variants are planned but their operational framework remains to be defined: unverified enames (distinctive prefix, cf. [Q-NONVERIF]), organization enames (cf. [Q-ORG]), secondary/alias enames (cf. [Q-ALIAS]). See also *verified ename*, *unverified ename*.
 - **Verified ename**: ename issued for a person whose identity has been verified by an accredited operator under the rules defined by Ename. Central case and only operational case at this stage.
 - **Unverified ename**: purely declarative ename, planned for uses compatible with anonymity (gaming, forums, social pseudonymity). Visually distinguished (prefix). Operational framework to define — cf. [Q-NONVERIF].
@@ -51,13 +51,13 @@ Decisions:
 - **Project scope**: foundation, not applications. Ename builds the substrate — registry + keys + standards — and leaves accredited operators to build above it (user services, viewers, features). `[settled]`
 - **Identifier format**: `<name>#<number>`, defined in [Ename — Format](./ename-format.md). This document does not restate the syntax rules. `[settled]`
 - **Scaling horizon**: universal human identity — billions of users, not millions. Every architecture and governance decision is validated against that horizon. `[settled]`
-- **Reference positioning sentence** (for internal terminological consistency, not for public quotation): Ename is the public registry of verified human digital identity, governed as a commons by a non-profit association. `[settled]`
+- **Reference positioning sentence** (for internal terminological consistency, not for public quotation): Ename is the public registry of verified human digital identity, governed as a commons by a nonprofit organization. `[settled]`
 
 Rejected alternatives: see dedicated section.
 
 ### Mission and Boundary
 
-The association pursues a single mission: **maintaining the public registry of enames and operating the infrastructure that makes it a useful commons for the ecosystem**. This mission breaks down into five operational objectives, which form an indivisible whole (each supports the others).
+The organization pursues a single mission: **maintaining the public registry of enames and operating the infrastructure that makes it a useful commons for the ecosystem**. This mission breaks down into five operational objectives, which form an indivisible whole (each supports the others).
 
 Decisions:
 - **Five registry objectives**: (1) maintain the registry of enames, associated public keys, and home operator; (2) define and evolve identity rules (format, syntax, eligibility, attribution, cryptographic mechanisms); (3) define and evolve interoperability standards that operators implement; (4) serve as the ecosystem's trusted cryptographic anchor; (5) accredit and supervise operators. `[settled]`
@@ -106,10 +106,10 @@ Decisions:
 
 ### Governance
 
-The Ename organization is a non-profit association. The adopted bylaws set the legal framework; this section restates the structural decisions underlying them.
+The Ename organization is a nonprofit. The adopted bylaws set the legal framework; this section restates the structural decisions underlying them.
 
 Decisions:
-- **Legal form**: non-profit association. Chosen to align governance and mission (no profit distribution, neutrality by construction). `[settled]`
+- **Legal form**: nonprofit organization. Chosen to align governance and mission (no profit distribution, neutrality by construction). `[settled]`
 - **Board composition — four colleges**: (1) accredited operators, elected by their peers; (2) civil society (digital-rights associations, commons actors, consumer organizations); (3) technical experts (digital identity, security, Internet governance); (4) founding members, whose share decreases progressively over time. `[settled]`
 - **Initial board size**: twelve members, three seats per college (cf. bylaws art. 12). This size makes renewal by thirds legible (four outgoing members per term). `[settled]`
 - **Non-domination rule**: no college alone holds a majority. Guarantees the pluralistic nature of governance and registry neutrality. `[settled]`

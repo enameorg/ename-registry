@@ -2,7 +2,7 @@
 
 ## Context
 
-Ename is a public registry of verified human identifiers (format `<name>#<number>`) designed to last for centuries, operated by a non-profit association. To learn more about Ename, you can consult the document [Ename — Reference Synthesis](./docs/ename-synthesis.md). For the registry's internal architecture, conventions and code guidelines — from the event-sourced data model and the two-layer backend to the API contract, code conventions, tooling and infrastructure — see [Ename — Registry Internals](./docs/ename-internals.md).
+Ename is a public registry of verified human identifiers (format `<name>#<number>`) designed to last for centuries, operated by a nonprofit organization. To learn more about Ename, you can consult the document [Ename — Reference Synthesis](./docs/ename-synthesis.md). For the registry's internal architecture, conventions and code guidelines — from the event-sourced data model and the two-layer backend to the API contract, code conventions, tooling and infrastructure — see [Ename — Registry Internals](./docs/ename-internals.md).
 
 ## Documentation discipline
 

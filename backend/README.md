@@ -1,6 +1,6 @@
 # Ename Registry — Backend
 
-Backend service for the [Ename](https://ename.ngo) registry, a public registry of verified human identifiers operated by a non-profit association.
+Backend service for the [Ename](https://ename.ngo) registry, a public registry of verified human identifiers operated by a nonprofit organization.
 
 This codebase is the **Node phase** of the implementation. A future Rust port (axum + sqlx) is planned once a dedicated team is recruited; see [`docs/ename-internals.md`](../docs/ename-internals.md) for the rationale and the long-term architecture invariants.
 
