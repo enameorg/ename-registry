@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ename</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="data:," />
+
+    <!-- Privacy-friendly analytics by Plausible -->
+    <script async src="https://plausible.io/js/pa-NWFuzA3_hWw7CS_EfwUxR.js"></script>
+    <script>
+      ((window.plausible =
+        window.plausible ||
+        function () {
+          (plausible.q = plausible.q || []).push(arguments);
+        }),
+        (plausible.init =
+          plausible.init ||
+          function (i) {
+            plausible.o = i || {};
+          }));
+      plausible.init();
+    </script>
+
+    <script>
+      const storedTheme = localStorage.getItem('theme');
+      if (storedTheme === 'light' || storedTheme === 'dark') {
+        document.documentElement.dataset.theme = storedTheme;
+      }
+    </script>
+
+    <style>
+      :root {
+        color-scheme: light dark;
+        --background: light-dark(#faf6f0, #1e1b18);
+        --text: light-dark(#383530, #d8d1c6);
+        --heading: light-dark(#282621, #ece6dc);
+        --selection: light-dark(#ecdcc4, #4a4036);
+        --link: light-dark(#884000, #ffc796);
+      }
+
+      :root[data-theme='light'] {
+        color-scheme: light;
+      }
+
+      :root[data-theme='dark'] {
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--text);
+        font-family: 'Hanken Grotesk', system-ui, sans-serif;
+        transition:
+          background-color 0.25s ease,
+          color 0.25s ease;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      main {
+        max-width: calc(700px + 3rem);
+        margin-inline: auto;
+        padding: clamp(2.5rem, 10vw, 5rem) 1.5rem 5rem;
+      }
+
+      h1 {
+        font-size: 44px;
+        line-height: 50px;
+        font-weight: 700;
+        color: var(--heading);
+        text-wrap: balance;
+        margin: 0 0 0.75em;
+      }
+
+      h2 {
+        font-size: 28px;
+        line-height: 31px;
+        font-weight: 600;
+        color: var(--heading);
+        text-wrap: balance;
+        margin: 1.25em 0 0.6em;
+      }
+
+      p {
+        font-size: 20px;
+        line-height: 30px;
+        text-wrap: pretty;
+        margin: 0 0 1.2em;
+      }
+
+      hr {
+        height: 1px;
+        border: 0;
+        background: color-mix(in srgb, var(--text) 25%, transparent);
+        margin: 2.5em 0;
+      }
+
+      a {
+        color: var(--link);
+        text-decoration-color: color-mix(in srgb, var(--link) 45%, transparent);
+        text-underline-offset: 0.15em;
+      }
+
+      a:hover {
+        text-decoration-color: var(--link);
+      }
+
+      code {
+        font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+      }
+
+      figure {
+        margin: 0 0 1.2em;
+      }
+
+      figure svg {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin-inline: auto;
+      }
+
+      #theme-toggle,
+      #language-toggle {
+        position: fixed;
+        top: 1.25rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+        border-radius: 50%;
+        background: var(--background);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      #theme-toggle {
+        right: 1.25rem;
+      }
+
+      #language-toggle {
+        right: 4.25rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        text-decoration: none;
+      }
+
+      #theme-toggle svg {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+
+      #theme-toggle .icon-sun {
+        display: none;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) #theme-toggle .icon-sun {
+          display: block;
+        }
+        :root:not([data-theme='light']) #theme-toggle .icon-moon {
+          display: none;
+        }
+      }
+
+      :root[data-theme='dark'] #theme-toggle .icon-sun {
+        display: block;
+      }
+
+      :root[data-theme='dark'] #theme-toggle .icon-moon {
+        display: none;
+      }
+
+      #theme-toggle:hover,
+      #language-toggle:hover {
+        border-color: var(--text);
+      }
+
+      @media (max-width: 980px) {
+        #theme-toggle,
+        #language-toggle {
+          position: absolute;
+        }
+
+        main {
+          padding-top: 5rem;
+        }
+      }
+
+      @media (max-width: 600px) {
+        h1 {
+          font-size: 34px;
+          line-height: 38px;
+        }
+
+        h2 {
+          font-size: 23px;
+          line-height: 27px;
+        }
+
+        p {
+          font-size: 17px;
+          line-height: 26px;
+        }
+      }
+
+      ::selection {
+        background: var(--selection);
+      }
+    </style>
+  </head>
+
+  <body>
+    <a id="language-toggle" href="ename-explainer.en.html" hreflang="en" rel="alternate">en</a>
+    <button id="theme-toggle" type="button" aria-label="Changer de thème">
+      <svg
+        class="icon-sun"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path
+          d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
+        />
+      </svg>
+      <svg
+        class="icon-moon"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    </button>
+
+    <main>
+      <h1>Ename</h1>
+      <p><em>Registre public d&#39;identités humaines vérifiées, tenu par une organisation à but non lucratif : la couche d&#39;identité commune sous les plateformes, celle qui permet de changer de plateforme sans rien perdre.</em></p>
+      <p>En ligne, un nom n&#39;appartient pas vraiment à la personne qui le porte : il réside dans la base de données d&#39;une entreprise privée, libre de le suspendre, de le réattribuer ou de disparaître avec lui. Il ne prouve pas non plus qui a écrit un message ou pris une photo, une lacune devenue critique maintenant que des machines produisent textes et images comme des humains. Le monde physique a comblé ces deux manques de longue date, avec l&#39;état civil et la signature ; le numérique n&#39;a construit ni l&#39;un ni l&#39;autre. Ename comble cet écart en sortant l&#39;identité de chaque plateforme pour la placer en dessous, commune à toutes.</p>
+      <h2>L&#39;ename</h2>
+      <p>Un ename est un identifiant lisible, qui se dicte à voix haute, par exemple <code>jean-dupont#1</code>. Derrière lui se trouve une personne dont l&#39;identité a été vérifiée. À l&#39;intérieur, une clé cryptographique permet à cette personne de signer ce qu&#39;elle produit, reliant un contenu à son auteur.</p>
+      <p>Une vie tient rarement dans un seul nom. Quand le nom légal change, après un mariage ou une adoption, la personne reçoit un nouvel ename, et l&#39;ancien n&#39;est pas recyclé : il continue de la désigner. Elle peut aussi faire vivre plusieurs noms à la fois : un créateur affiche <code>mr-beast#1</code> en public, adossé au <code>jimmy-donaldson#1</code> vérifié qui en répond, et ce nom reste pleinement authentique parce qu&#39;il tient à cette racine.</p>
+      <p>Un ename ne désigne pas qu&#39;un individu. Les organisations que les humains forment (une société, une association, un organisme) en reçoivent un sur le même principe, <code>durand-sas#1</code>, avec une identité vérifiée comme celle d&#39;une personne. Elles aussi changent de nom au fil du temps, et adossent leurs marques ou leurs produits à leur racine comme autant d&#39;enames. Agir au nom de l&#39;une d&#39;elles s&#39;écrit <code>jean-dupont#1@durand-sas#1</code>, à la manière d&#39;une adresse e-mail, l&#39;organisation attestant le lien.</p>
+      <p>La vérification est le cas central, mais il existe aussi des enames non-vérifiés. Sur un forum, dans un jeu, sur un réseau social, on ne souhaite pas toujours dire qui l&#39;on est ; pour un défenseur des droits ou un dissident, le taire peut être nécessaire. Ces enames sont purement déclaratifs : aucune identité établie ne se tient derrière eux. Un point les précède, <code>.pixel-cat#12</code>, pour qu&#39;ils se distinguent clairement des enames vérifiés.</p>
+      <h2>Le registre</h2>
+      <p>Le registre contient très peu de chose : pour chaque ename, une clé publique et le nom de la plateforme dont il relève. Rien d&#39;autre : ni les données, ni les messages, ni les relations, et surtout pas les clés privées, qui restent entre les mains de leur titulaire. Ce qu&#39;un registre ne détient pas, il ne peut ni le perdre, ni le vendre, ni être contraint de le livrer.</p>
+      <h2>Les plateformes</h2>
+      <p>Les plateformes, non le registre, sont la porte d&#39;entrée : ce sont elles qui délivrent les enames et rendent les services du quotidien. Cette position semble leur donner un pouvoir ; en pratique, presque aucun. Ce qu&#39;une personne produit, elle le signe elle-même, jamais la plateforme à sa place. Chaque signature se vérifie contre les clés publiées par Ename, quelle que soit la plateforme qui l&#39;a transportée. Au pire, une plateforme peut rendre quelqu&#39;un invisible ; elle ne peut pas parler en son nom. Elle ne peut pas non plus retenir ses utilisateurs : qui la quitte emporte son identité et ses données, dans des formats que toute plateforme sait lire, parce que l&#39;architecture l&#39;impose et non par faveur commerciale.</p>
+      <h2>Les standards</h2>
+      <p>Des plateformes indépendantes ne forment un ensemble cohérent que si elles se comprennent. C&#39;est le rôle des standards d&#39;Ename : des formats communs que toute plateforme accréditée sait lire et écrire. Ils rendent possibles deux choses que les plateformes fermées interdisent. L&#39;interopérabilité d&#39;abord : on écrit à quelqu&#39;un, ou on lit ce qu&#39;il publie, même s&#39;il est sur une autre plateforme. La portabilité ensuite : le jour où l&#39;on s&#39;en va, l&#39;identité et les données se retrouvent intactes chez un concurrent, l&#39;une rendue par le registre, l&#39;autre par la plateforme. Sans ces formats partagés, les deux ne seraient que des promesses.</p>
+      <p>Une plateforme peut aussi inventer ses propres formats, là où aucun standard n&#39;existe encore : c&#39;est ainsi qu&#39;apparaissent les nouveaux usages. Le risque ne surgit que si l&#39;un de ces formats s&#39;impose largement en restant lisible par elle seule, car ce qu&#39;on y crée se retrouve alors enfermé. Ename y répond par une règle : dès qu&#39;un format propriétaire se répand et touche à des données qu&#39;on ne peut se permettre de perdre, il doit devenir un standard ouvert, soumis à Ename et adoptable par tous. Le succès d&#39;une bonne idée enrichit alors le bien commun au lieu de le verrouiller.</p>
+      <h2>La gouvernance</h2>
+      <p>Reste à savoir ce qui empêche le registre lui-même de devenir le maître. Il est tenu par Ename, une organisation à but non lucratif. Elle est gouvernée par plusieurs groupes (les plateformes, la société civile, des experts techniques, les membres fondateurs), dont aucun ne détient à lui seul la majorité ; le poids des fondateurs, lui, est appelé à décroître. Son financement écarte les leviers d&#39;abus habituels : ni publicité, ni revente de données, ni mécène unique, ni État, mais les plateformes qu&#39;elle accrédite, ce qui aligne son intérêt sur la durée, non sur ce qu&#39;elle pourrait soutirer à court terme. Enfin, toute règle touchant au format des enames, à l&#39;accréditation des plateformes ou aux droits des personnes passe par une consultation publique.</p>
+      <h2>L&#39;horizon</h2>
+      <p>L&#39;horizon se mesure en siècles. Un ename créé aujourd&#39;hui doit rester valide et vérifiable longtemps après la mort de celui qui le porte ; quand une plateforme disparaît, les enames, eux, demeurent. L&#39;ambition n&#39;est pas un service de plus pour quelques millions d&#39;initiés, mais une identité ouverte à tout humain qui en veut une.</p>
+      <hr>
+      <p><em>Nous écrire : <a href="mailto:contact@ename.ngo">contact@ename.ngo</a></em></p>
+    </main>
+
+    <script>
+      const STRINGS = {
+        fr: {
+          themeLight: 'Activer le mode clair',
+          themeDark: 'Activer le mode sombre',
+          languageToggle: 'View this page in English',
+        },
+        en: {
+          themeLight: 'Switch to light mode',
+          themeDark: 'Switch to dark mode',
+          languageToggle: 'Voir cette page en français',
+        },
+      };
+      const strings = STRINGS[document.documentElement.lang] ?? STRINGS.fr;
+
+      const themeToggle = document.querySelector('#theme-toggle');
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+      function effectiveTheme() {
+        return document.documentElement.dataset.theme ?? (systemDark.matches ? 'dark' : 'light');
+      }
+
+      function renderThemeToggle() {
+        const isDark = effectiveTheme() === 'dark';
+        themeToggle.setAttribute('aria-label', isDark ? strings.themeLight : strings.themeDark);
+      }
+
+      themeToggle.addEventListener('click', () => {
+        const next = effectiveTheme() === 'dark' ? 'light' : 'dark';
+        const system = systemDark.matches ? 'dark' : 'light';
+        if (next === system) {
+          delete document.documentElement.dataset.theme;
+          localStorage.removeItem('theme');
+        } else {
+          document.documentElement.dataset.theme = next;
+          localStorage.setItem('theme', next);
+        }
+        renderThemeToggle();
+      });
+
+      systemDark.addEventListener('change', renderThemeToggle);
+      renderThemeToggle();
+
+      const languageToggle = document.querySelector('#language-toggle');
+      if (languageToggle) {
+        languageToggle.setAttribute('aria-label', strings.languageToggle);
+      }
+    </script>
+  </body>
+</html>

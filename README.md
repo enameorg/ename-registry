@@ -1,4 +1,4 @@
-# Ename
+# Ename registry
 
 Ename is a public registry of verified human identifiers (format `<name>#<number>`) designed to last for centuries, operated by a nonprofit organization.
 
@@ -13,6 +13,7 @@ This repository is a monorepo. Each top-level package is built and versioned ind
 - **[`database/`](./database/)** — Schema, migrations, local PostgreSQL cluster, and the migration runner. Consumed today by the Node backend; the same on-disk layout will feed the Rust phase via `sqlx-cli`. See [`database/README.md`](./database/README.md) for setup and usage.
 - **[`backend/`](./backend/)** — Registry backend service. Phase 1 is Node.js + TypeScript; a Rust port (axum + sqlx) is planned for phase 2 once a dedicated team is recruited. See [`backend/README.md`](./backend/README.md) for setup and usage.
 - **`frontend/`** — Planned. Web UI for end users (registration, key rotation, lookup). Not yet started.
+- **[`website/`](./website/)** — Static institutional site served at [www.ename.ngo](https://www.ename.ngo), hosted on Scaleway Object Storage. See [`website/README.md`](./website/README.md) for setup and deployment.
 
 ## Documentation
 
