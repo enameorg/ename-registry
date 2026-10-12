@@ -133,8 +133,9 @@ api.get('/openapi.json', (context) => {
   });
 });
 
-// Interactive API reference + client, reading the live spec at each load.
-// No duplication, no import step: the page is always in sync with the running app.
+// Interactive API reference + client, reading the live spec at each load, so the
+// page is always in sync with the running app. Interim: the reference page moves
+// to the frontend and this route goes away (cf. ename-internals.md).
 api.get(
   '/docs',
   Scalar({
