@@ -1,6 +1,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { Scalar } from '@scalar/hono-api-reference';
 import { HTTPException } from 'hono/http-exception';
+import { methodNotAllowed } from 'hono/method-not-allowed';
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
 
 import {
@@ -75,6 +76,27 @@ export const api = new OpenAPIHono<HonoEnv>({
 // `/openapi.json` and `/docs` so a failed spec fetch is still traceable.
 api.use('*', requestContext);
 
+// A known path with an unsupported method answers 405 with an Allow header, as
+// a Problem Details like every other 4xx. The middleware is mount-aware (it
+// strips the mount prefix before matching this version's routes) and leaves a
+// 404 that came through onError alone (an unknown subject stays a 404).
+api.use(
+  '*',
+  methodNotAllowed({
+    app: api,
+    onMethodNotAllowed: (context, methods) => {
+      const response = buildProblemJson(
+        context,
+        405,
+        'Method not allowed',
+        'This method is not allowed at this path; the Allow header lists the allowed methods.',
+      );
+      response.headers.set('Allow', methods.join(', '));
+      return response;
+    },
+  }),
+);
+
 api.openapi(healthRoute, healthHandler);
 api.openapi(registerSubjectRoute, registerSubjectHandler);
 api.openapi(addEnameToSubjectRoute, addEnameToSubjectHandler);
@@ -103,6 +125,14 @@ api.get(
     url: '/api/v1/openapi.json',
     pageTitle: 'Ename Registry API',
   }),
+);
+
+// An unmatched path under this version answers a Problem Details 404, not
+// Hono's text/plain default. app.route() does not carry a sub-app's notFound()
+// over, hence a terminal route, registered last so every real route wins first.
+// Paths outside the version prefix are the root's concern, not this sub-app's.
+api.all('*', (context) =>
+  buildProblemJson(context, 404, 'Not found', 'No resource exists at this path.'),
 );
 
 // Maps uncaught errors thrown by handlers (and by services they call) to
