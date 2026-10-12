@@ -1,6 +1,7 @@
 import pg from 'pg';
 
 import { config } from '../config.ts';
+import { logger } from '../logger.ts';
 
 // Singleton Pool initialized at module load. Same configuration in dev and prod —
 // statement_timeout / query_timeout are intentionally identical so slow queries
@@ -14,6 +15,14 @@ export const pool = new pg.Pool({
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 10_000,
   max: 10,
+});
+
+// pg emits 'error' on the pool when an idle client loses its connection (server
+// restart, PgBouncer recycle, network drop). Without a listener Node treats it
+// as an uncaught exception and kills the process. The pool has already evicted
+// the client by the time this fires, so logging is all that is left to do.
+pool.on('error', (error) => {
+  logger.error({ err: error }, 'idle database client lost its connection');
 });
 
 // Named lifecycle seam for graceful shutdown: drains in-flight queries and closes

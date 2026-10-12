@@ -85,6 +85,7 @@ backend/
 │   ├── database/                     # Low-level DB plumbing (singletons + helpers consumed by services)
 │   │   ├── errors.ts                 # pg driver error narrowing (isUniqueViolation)
 │   │   ├── pool.ts                   # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)
+│   │   ├── pool.test.ts              # Idle-client connection loss is logged, never fatal
 │   │   ├── query.ts                  # queryRows() + withTransaction() helpers, camelize at boundary
 │   │   └── testing.ts                # Test DB reset + pool shutdown; refuses reset outside NODE_ENV=test
 │   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
