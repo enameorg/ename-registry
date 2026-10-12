@@ -68,7 +68,7 @@ async function run(target: string): Promise<void> {
       const appliedRow = applied.get(migration.version);
       if (appliedRow && appliedRow.hash !== migration.hash) {
         throw new Error(
-          `Migration ${migration.version} (${migration.name}) was modified after being applied ` +
+          `Migration ${migration.version} was modified after being applied ` +
             `(hash on disk: ${migration.hash.slice(0, 12)}…, hash in DB: ${appliedRow.hash.slice(0, 12)}…). ` +
             `Migrations are immutable once applied — create a new migration instead.`,
         );
@@ -83,7 +83,7 @@ async function run(target: string): Promise<void> {
     }
 
     for (const migration of pending) {
-      console.log(`[migrate:${target}] applying ${migration.version}_${migration.name}…`);
+      console.log(`[migrate:${target}] applying ${migration.version}…`);
       if (migration.noTransaction) {
         await client.query(migration.sql);
         await client.query(
@@ -139,8 +139,8 @@ async function loadMigrations(): Promise<Migration[]> {
 
   for (const filename of upFiles) {
     const version = filename.slice(0, -'.up.sql'.length);
-    const underscoreIdx = version.indexOf('_');
-    const name = underscoreIdx === -1 ? version : version.slice(underscoreIdx + 1);
+    const separatorIndex = version.indexOf('_');
+    const name = separatorIndex === -1 ? version : version.slice(separatorIndex + 1);
     const sql = await readFile(resolve(migrationsDir, filename), 'utf-8');
     const hash = createHash('sha256').update(sql).digest('hex');
     const noTransaction = /^\s*--\s*migrate:no-transaction\b/m.test(sql);
