@@ -99,6 +99,7 @@ export const registerSubjectRoute = createRoute({
     },
     400: problemResponse('Request body could not be read properly'),
     409: problemResponse('Idempotency key already used for a different operation'),
+    415: problemResponse('Request body media type is not supported'),
     422: problemResponse('Request body failed validation'),
     500: problemResponse('Unexpected error'),
     503: problemResponse(

@@ -158,6 +158,45 @@ test('malformed JSON body returns 400 problem+json, not 500', async () => {
   assert.match(body.requestId, UUIDV7_REGEX);
 });
 
+test('non-JSON Content-Type returns 415 problem+json, not 500', async () => {
+  const response = await app.fetch(
+    new Request(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(makeBody({})),
+    }),
+  );
+
+  assert.equal(response.status, 415);
+  assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
+
+  const body = (await response.json()) as {
+    type: string;
+    title: string;
+    status: number;
+    detail: string;
+    requestId: string;
+  };
+  assert.equal(body.type, 'about:blank');
+  assert.equal(body.status, 415);
+  assert.equal(body.title, 'Unsupported media type');
+  // Our own phrasing, not the framework's "Unsupported Media Type" message.
+  assert.equal(body.detail, 'The request body must be sent as application/json.');
+  assert.match(body.requestId, UUIDV7_REGEX);
+});
+
+test('Content-Type with a charset parameter is still accepted (201)', async () => {
+  const response = await app.fetch(
+    new Request(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(makeBody({})),
+    }),
+  );
+
+  assert.equal(response.status, 201);
+});
+
 // ---------------------------------------------------------------------------
 // Zod validation failures (all → 422 problem+json)
 // ---------------------------------------------------------------------------

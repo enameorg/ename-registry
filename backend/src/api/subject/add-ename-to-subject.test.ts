@@ -200,6 +200,20 @@ test('malformed JSON body returns 400 problem+json', async () => {
   assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
 });
 
+test('non-JSON Content-Type returns 415 problem+json', async () => {
+  const subject = await seedSubject();
+  const response = await app.fetch(
+    new Request(`${SUBJECTS_ENDPOINT}/${subject.id}/enames`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(makeAddBody({})),
+    }),
+  );
+
+  assert.equal(response.status, 415);
+  assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
+});
+
 for (const scenario of [
   {
     name: 'missing ename block entirely',

@@ -27,13 +27,19 @@ import { registerSubjectHandler, registerSubjectRoute } from './subject/register
 // milliseconds, so a 1-second floor is already generous.
 const RETRY_AFTER_SECONDS = 1;
 
-// Problem Details (title + client-facing detail) for the HTTP statuses Hono
-// raises as an HTTPException before a handler runs. Today the only such case is
-// a 400 from the json validator on a request body that is not valid JSON. We
-// phrase the detail ourselves rather than surface Hono's internal message, so
-// the public contract stays stable across the framework (and the Rust port).
+// Problem Details (title + client-facing detail) for the HTTP statuses the
+// framework raises as an HTTPException before a handler runs: 400 from the json
+// validator on a body that is not valid JSON, 415 from @hono/zod-openapi's
+// media-type gate on a body whose Content-Type is not the declared
+// application/json. We phrase the detail ourselves rather than surface the
+// framework's message, so the public contract stays stable across the framework
+// (and the Rust port).
 const HTTP_EXCEPTION_PROBLEMS: Record<number, { title: string; detail: string }> = {
   400: { title: 'Bad request', detail: 'The request body is not valid JSON.' },
+  415: {
+    title: 'Unsupported media type',
+    detail: 'The request body must be sent as application/json.',
+  },
 };
 
 export const api = new OpenAPIHono<HonoEnv>({
@@ -127,9 +133,10 @@ api.onError((error, context) => {
     response.headers.set('Retry-After', String(RETRY_AFTER_SECONDS));
     return response;
   }
-  // A request body that is not valid JSON makes the json validator throw a Hono
-  // HTTPException(400) before the handler runs. Surface its status as Problem
-  // Details instead of letting it fall through to the opaque 500 below.
+  // The framework throws an HTTPException before the handler runs for a body
+  // that is not valid JSON (400) or not application/json (415). Surface the
+  // status as Problem Details instead of letting it fall through to the opaque
+  // 500 below.
   if (error instanceof HTTPException) {
     const status = error.status as ClientErrorStatusCode | ServerErrorStatusCode;
     const problem = HTTP_EXCEPTION_PROBLEMS[status];

@@ -102,6 +102,7 @@ export const addEnameToSubjectRoute = createRoute({
     400: problemResponse('Request body could not be read properly'),
     404: problemResponse('Subject not found'),
     409: problemResponse('Idempotency key conflict or subject already has this namePart'),
+    415: problemResponse('Request body media type is not supported'),
     422: problemResponse('Path parameter or request body failed validation'),
     500: problemResponse('Unexpected error'),
     503: problemResponse(
