@@ -1,6 +1,6 @@
 # Local development infrastructure for the database. Single PostgreSQL cluster
 # with two logical databases (ename_dev created via POSTGRES_DB, ename_test
-# created by the init script). Match Scaleway Serverless SQL (PG 16) to avoid
+# created by the init script). Match Scaleway Serverless SQL (PG 18) to avoid
 # version-skew bugs.
 #
 # `name: ename` makes the project name independent of the launch directory:
@@ -12,7 +12,7 @@ name: ename
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: ename-db
     restart: unless-stopped
     environment:
@@ -24,7 +24,11 @@ services:
       # outside the host, even on a hostile network.
       - '127.0.0.1:5432:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PostgreSQL 18+ images keep a version-specific PGDATA under
+      # /var/lib/postgresql/<major>/docker, so the volume mounts the parent
+      # directory (mounting .../data no longer persists anything). This layout
+      # also allows `pg_upgrade --link` on a future major bump.
+      - pgdata:/var/lib/postgresql
       - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d ename_dev']

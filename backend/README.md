@@ -30,7 +30,7 @@ cp .env.example .env
 npm run openapi:generate
 ```
 
-The local database is managed by the [`database/`](../database/) package: a single PostgreSQL 16 cluster (matching Scaleway Serverless SQL) hosting two logical databases — `ename_dev` (used by the app) and `ename_test` (used by the test runner).
+The local database is managed by the [`database/`](../database/) package: a single PostgreSQL 18 cluster (matching Scaleway Serverless SQL) hosting two logical databases — `ename_dev` (used by the app) and `ename_test` (used by the test runner).
 
 ## Common commands
 

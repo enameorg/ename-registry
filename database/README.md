@@ -28,7 +28,7 @@ cp .env.example .env
 npm run db:up
 ```
 
-The local database is a single PostgreSQL 16 cluster (matching Scaleway Serverless SQL) hosting two logical databases: `ename_dev` (used by the app) and `ename_test` (used by the test runner). The cluster is defined in this package's [`compose.yml`](./compose.yml) and pulled into the repo-root [`compose.yml`](../compose.yml) via `include:`, so it can be brought up standalone from here (`npm run db:up`) or as part of the whole stack from the repo root (`docker compose up`). Both launch sites share the same project name (`ename`) and therefore the same data volume.
+The local database is a single PostgreSQL 18 cluster (matching Scaleway Serverless SQL) hosting two logical databases: `ename_dev` (used by the app) and `ename_test` (used by the test runner). The cluster is defined in this package's [`compose.yml`](./compose.yml) and pulled into the repo-root [`compose.yml`](../compose.yml) via `include:`, so it can be brought up standalone from here (`npm run db:up`) or as part of the whole stack from the repo root (`docker compose up`). Both launch sites share the same project name (`ename`) and therefore the same data volume.
 
 ## Common commands
 

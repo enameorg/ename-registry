@@ -4,12 +4,13 @@
 
 \restrict enameschemadump
 
--- Dumped from database version 16.14
--- Dumped by pg_dump version 16.14
+-- Dumped from database version 18.6
+-- Dumped by pg_dump version 18.6
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -100,19 +101,19 @@ ALTER TABLE ONLY public.enames
 
 
 --
--- Name: enames enames_subject_id_name_part_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.enames
-    ADD CONSTRAINT enames_subject_id_name_part_key UNIQUE (subject_id, name_part);
-
-
---
 -- Name: enames enames_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.enames
     ADD CONSTRAINT enames_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: enames enames_subject_id_name_part_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.enames
+    ADD CONSTRAINT enames_subject_id_name_part_key UNIQUE (subject_id, name_part);
 
 
 --
@@ -160,3 +161,4 @@ ALTER TABLE ONLY public.enames
 --
 
 \unrestrict enameschemadump
+
