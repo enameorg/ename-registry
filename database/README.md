@@ -7,13 +7,17 @@ This package is intentionally separated from `backend/` so the same migration co
 ## Requirements
 
 - **Node.js ≥ 26**: relies on native TypeScript execution (no build step).
-- **npm ≥ 11.10**: configured via `.npmrc` for supply-chain hardening (3-day release cooldown, lifecycle scripts disabled by default).
+- **npm ≥ 12**: configured via `.npmrc` for supply-chain hardening (3-day release cooldown, dependency install scripts blocked unless allowlisted in `package.json`).
 - **Docker** (Desktop, OrbStack, or compatible): runs the local PostgreSQL via this package's [`compose.yml`](./compose.yml).
+
+Both versions are pinned in `mise.toml` for [mise](https://mise.jdx.dev) users.
 
 ## Setup
 
 ```bash
-# Install dependencies (lifecycle scripts are blocked by default).
+# Install dependencies. A dependency whose install scripts are not yet covered
+# by "allowScripts" in package.json fails the install: review it, then run
+# `npm install-scripts approve <pkg>` or `npm install-scripts deny <pkg>`.
 npm install
 
 # Copy the local environment file and adjust if needed.

@@ -5,7 +5,8 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=26"
+    "node": ">=26",
+    "npm": ">=12"
   },
   "scripts": {
     "typecheck": "tsc",
@@ -13,7 +14,6 @@
     "lint:fix": "eslint --fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "rebuild:trusted": "npm rebuild --ignore-scripts=false",
     "db:up": "docker compose up -d --wait db && npm run db:migrate && npm run db:migrate:test",
     "db:down": "docker compose down",
     "db:nuke": "docker compose down -v",
@@ -38,5 +38,8 @@
     "prettier": "^3.8.3",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.4"
+  },
+  "allowScripts": {
+    "unrs-resolver": false
   }
 }

@@ -131,7 +131,7 @@ A request-scoped value the Service layer needs is read from the `ApiContext` by 
 
 ## Tooling and supply chain
 
-**Package manager** `(working hypothesis)`. npm 11.10+ with a versioned `.npmrc`: `min-release-age=3` (days), `ignore-scripts=true`, `engine-strict=true`. Packages allowed to run lifecycle scripts are listed in the `rebuild:trusted` script and reviewed through its diff. `lockfile-lint` and a CI check that `.npmrc` still disables scripts are `(target)` (no CI yet). The bet is reassessed at the npm 12 release; if its security defaults do not land, switch to pnpm.
+**Package manager.** npm 12+ with a versioned `.npmrc`: `min-release-age=3` (days), `strict-allow-scripts=true`, `engine-strict=true`. Dependency install scripts run only when the `allowScripts` field of the package's `package.json` allows them; a dependency not covered fails the install, so every script is reviewed explicitly (`npm install-scripts approve|deny`, version-pinned by default) and the review is committed. `ignore-scripts` is never set: it overrides `allowScripts` and would silently disable the policy. `allow-git` and `allow-remote` keep npm's `none` default. `lockfile-lint` and a CI check that `.npmrc` still enforces the policy are `(target)` (no CI yet).
 
 **Dependencies.** Prefer the platform (`node:` built-ins, native runtime features) over a third-party package; weigh a dependency's maintenance health and supply-chain surface before adding one.
 

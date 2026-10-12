@@ -7,18 +7,18 @@ This codebase is the **Node phase** of the implementation. A future Rust port (a
 ## Requirements
 
 - **Node.js ≥ 26**: relies on native TypeScript execution (no build step) and stable `node:test`.
-- **npm ≥ 11.10**: configured via `.npmrc` for supply-chain hardening (3-day release cooldown, lifecycle scripts disabled by default).
+- **npm ≥ 12**: configured via `.npmrc` for supply-chain hardening (3-day release cooldown, dependency install scripts blocked unless allowlisted in `package.json`).
 - A running local PostgreSQL: provisioned and migrated by the sibling [`database/`](../database/) package.
+
+Both versions are pinned in `mise.toml` for [mise](https://mise.jdx.dev) users.
 
 ## Setup
 
 ```bash
-# Install dependencies (lifecycle scripts are blocked by default).
+# Install dependencies. A dependency whose install scripts are not yet covered
+# by "allowScripts" in package.json fails the install: review it, then run
+# `npm install-scripts approve <pkg>` or `npm install-scripts deny <pkg>`.
 npm install
-
-# If a dependency legitimately needs to run its install scripts, allowlist it
-# explicitly (no allowlisted package at this point):
-# npm run rebuild:trusted
 
 # Copy the local environment file and adjust if needed.
 cp .env.example .env
