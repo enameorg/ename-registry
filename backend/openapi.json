@@ -377,6 +377,16 @@
               }
             }
           },
+          "413": {
+            "description": "Request body exceeds the size limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "415": {
             "description": "Request body media type is not supported",
             "content": {
@@ -479,6 +489,16 @@
           },
           "409": {
             "description": "Idempotency key conflict or subject already has this namePart",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the size limit",
             "content": {
               "application/problem+json": {
                 "schema": {

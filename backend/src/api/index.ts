@@ -1,5 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { Scalar } from '@scalar/hono-api-reference';
+import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
 import { methodNotAllowed } from 'hono/method-not-allowed';
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
@@ -28,15 +29,25 @@ import { registerSubjectHandler, registerSubjectRoute } from './subject/register
 // milliseconds, so a 1-second floor is already generous.
 const RETRY_AFTER_SECONDS = 1;
 
+// Cap on any request body, enforced by the body-limit middleware before routing.
+// Far above every legitimate v1 body (a registration is about 150 bytes), so no
+// well-formed client meets it. An internal protection, not a contract value
+// (cf. ename-internals.md): revisable without a contract change.
+export const MAX_BODY_BYTES = 64 * 1024;
+
 // Problem Details (title + client-facing detail) for the HTTP statuses the
 // framework raises as an HTTPException before a handler runs: 400 from the json
-// validator on a body that is not valid JSON, 415 from @hono/zod-openapi's
-// media-type gate on a body whose Content-Type is not the declared
-// application/json. We phrase the detail ourselves rather than surface the
-// framework's message, so the public contract stays stable across the framework
-// (and the Rust port).
+// validator on a body that is not valid JSON, 413 from the body-limit middleware
+// on a body over MAX_BODY_BYTES, 415 from @hono/zod-openapi's media-type gate on
+// a body whose Content-Type is not the declared application/json. We phrase the
+// detail ourselves rather than surface the framework's message, so the public
+// contract stays stable across the framework (and the Rust port).
 const HTTP_EXCEPTION_PROBLEMS: Record<number, { title: string; detail: string }> = {
   400: { title: 'Bad request', detail: 'The request body is not valid JSON.' },
+  413: {
+    title: 'Content too large',
+    detail: `The request body must not exceed ${MAX_BODY_BYTES} bytes.`,
+  },
   415: {
     title: 'Unsupported media type',
     detail: 'The request body must be sent as application/json.',
@@ -75,6 +86,11 @@ export const api = new OpenAPIHono<HonoEnv>({
 // entrance/exit. Applied to every route inside the v1 sub-app — including
 // `/openapi.json` and `/docs` so a failed spec fetch is still traceable.
 api.use('*', requestContext);
+
+// Refuse an oversized body before routing: on Content-Length alone when the
+// client announces it, otherwise by cutting the stream at the limit. Raises an
+// HTTPException(413), mapped in onError like the other framework statuses.
+api.use('*', bodyLimit({ maxSize: MAX_BODY_BYTES }));
 
 // A known path with an unsupported method answers 405 with an Allow header, as
 // a Problem Details like every other 4xx. The middleware is mount-aware (it
@@ -164,9 +180,9 @@ api.onError((error, context) => {
     return response;
   }
   // The framework throws an HTTPException before the handler runs for a body
-  // that is not valid JSON (400) or not application/json (415). Surface the
-  // status as Problem Details instead of letting it fall through to the opaque
-  // 500 below.
+  // that is not valid JSON (400), over the size cap (413) or not application/json
+  // (415). Surface the status as Problem Details instead of letting it fall
+  // through to the opaque 500 below.
   if (error instanceof HTTPException) {
     const status = error.status as ClientErrorStatusCode | ServerErrorStatusCode;
     const problem = HTTP_EXCEPTION_PROBLEMS[status];

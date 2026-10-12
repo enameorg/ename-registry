@@ -78,8 +78,8 @@ backend/
 │   │   │   ├── add-ename-to-subject.ts # POST /subjects/:id/enames route, handler, and schemas
 │   │   │   └── *.test.ts             # HTTP-level integration tests
 │   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, ApiContext
-│   │   ├── index.ts                  # v1 sub-app assembly: middleware, routes, 404/405 fallbacks, defaultHook, onError
-│   │   ├── index.test.ts             # Contract of the v1 fallbacks (404 catch-all, 405 with Allow)
+│   │   ├── index.ts                  # v1 sub-app assembly: middleware, body limit, routes, 404/405 fallbacks, defaultHook, onError
+│   │   ├── index.test.ts             # Contract of the v1 gates and fallbacks (body limit, 404 catch-all, 405 with Allow)
 │   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs
 │   │   ├── openapi-metadata.ts       # OpenAPI info object
 │   │   └── problem.ts                # RFC 9457 Problem Details schema + helpers (shared error shape)
