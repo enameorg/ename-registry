@@ -24,14 +24,14 @@ if (!slug) {
   process.exit(1);
 }
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const migrationsDir = resolve(scriptDir, '..', 'migrations');
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+const migrationsDirectory = resolve(scriptDirectory, '..', 'migrations');
 const timestamp = Math.floor(Date.now() / 1000).toString();
 const base = `${timestamp}_${slug}`;
-const upPath = resolve(migrationsDir, `${base}.up.sql`);
-const downPath = resolve(migrationsDir, `${base}.down.sql`);
+const upPath = resolve(migrationsDirectory, `${base}.up.sql`);
+const downPath = resolve(migrationsDirectory, `${base}.down.sql`);
 
-await mkdir(migrationsDir, { recursive: true });
+await mkdir(migrationsDirectory, { recursive: true });
 await writeFile(upPath, `-- ${base} (up)\n\n`, { flag: 'wx' });
 await writeFile(downPath, `-- ${base} (down)\n\n`, { flag: 'wx' });
 

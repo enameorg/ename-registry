@@ -23,8 +23,8 @@ import pg from 'pg';
 
 const ADVISORY_LOCK_KEY = 9_876_543_210n;
 
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const migrationsDir = resolve(scriptDir, '..', 'migrations');
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
+const migrationsDirectory = resolve(scriptDirectory, '..', 'migrations');
 
 interface Migration {
   version: string;
@@ -128,7 +128,7 @@ function resolveTargetUrl(target: string): string {
 async function loadMigrations(): Promise<Migration[]> {
   let entries: string[];
   try {
-    entries = await readdir(migrationsDir);
+    entries = await readdir(migrationsDirectory);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw error;
@@ -141,7 +141,7 @@ async function loadMigrations(): Promise<Migration[]> {
     const version = filename.slice(0, -'.up.sql'.length);
     const separatorIndex = version.indexOf('_');
     const name = separatorIndex === -1 ? version : version.slice(separatorIndex + 1);
-    const sql = await readFile(resolve(migrationsDir, filename), 'utf-8');
+    const sql = await readFile(resolve(migrationsDirectory, filename), 'utf-8');
     const hash = createHash('sha256').update(sql).digest('hex');
     const noTransaction = /^\s*--\s*migrate:no-transaction\b/m.test(sql);
     migrations.push({ version, name, sql, hash, noTransaction });

@@ -17,13 +17,13 @@ export async function queryRows<T>(
 
 export async function withTransaction<T>(
   pool: Pool,
-  fn: (client: PoolClient) => Promise<T>,
+  work: (client: PoolClient) => Promise<T>,
   logger: Logger,
 ): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const result = await fn(client);
+    const result = await work(client);
     await client.query('COMMIT');
     return result;
   } catch (error) {
