@@ -6,7 +6,7 @@ This codebase is the **Node phase** of the implementation. A future Rust port (a
 
 ## Requirements
 
-- **Node.js ≥ 26**: relies on native TypeScript execution (no build step) and stable `node:test`.
+- **Node.js ≥ 26.1**: relies on native TypeScript execution (no build step), stable `node:test`, and native UUIDv7 generation (`crypto.randomUUIDv7`).
 - **npm ≥ 12**: configured via `.npmrc` for supply-chain hardening (3-day release cooldown, dependency install scripts blocked unless allowlisted in `package.json`).
 - A running local PostgreSQL: provisioned and migrated by the sibling [`database/`](../database/) package.
 
