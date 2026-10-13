@@ -6,7 +6,7 @@ This document is the source of truth for the **internal architecture, convention
 
 Primary reader: the AI assistant that maintains the codebase. Secondary: the human team. Updates are delegated to the AI and land in the same change as the code decision they record (cf. `AGENTS.md`).
 
-Scope: internal implementation decisions, **unilaterally revisable** by the registry's technical team. Out of scope: the public technical standards the registry publishes (ename format, signature algorithms, inter-operator transfers — see [Ename — Format](./ename-format.md), modifiable only through public consultation per `ename-synthesis.md`), and the mission, governance and institutional model (`ename-synthesis.md`).
+Scope: internal implementation decisions, **unilaterally revisable** by the registry's technical team. Out of scope: the public technical standards the registry publishes (ename format, signature algorithms, inter-platform transfers — see [Ename — Format](./ename-format.md), modifiable only through public consultation per `ename-synthesis.md`), and the mission, governance and institutional model (`ename-synthesis.md`).
 
 Status markers: unmarked text is **implemented and current**; `(working hypothesis)` is current and relied on by the code but may be revised; `(target)` is decided and shapes current code but is not yet built. Unresolved questions live in § Open questions under stable `[Q-XXX]` ids shared across the corpus.
 
@@ -22,7 +22,7 @@ Code organization favors **global symmetry across the codebase** over per-module
 
 **Event sourcing.** Every mutation (today: subject registration; later: key rotation, revocation, recovery, deactivation) is recorded as an immutable event. No retroactive modification or deletion. The SQL database is fully reconstructible by replaying the log.
 
-**Registry scope** `(working hypothesis)`. The registry stores only what binding and verification require — the ename and its subject today; the subject's public key, key-transition history, home operator and lifecycle status are `(target)`. Profile data (display name, contacts, anything richer) is the operators' responsibility, never the registry's. This keeps the auditable surface minimal and erasure structurally bounded.
+**Registry scope** `(working hypothesis)`. The registry stores only what binding and verification require — the ename and its subject today; the subject's public key, key-transition history, home platform and lifecycle status are `(target)`. Profile data (display name, contacts, anything richer) is the platforms' responsibility, never the registry's. This keeps the auditable surface minimal and erasure structurally bounded.
 
 **The `events` table.** The v1 embodiment of the log — an append-only journal from which the `subjects` and `enames` projections are derived. Column types and the per-kind JSON shapes live in the migration and the service code; the invariants are:
 
@@ -41,11 +41,11 @@ Code organization favors **global symmetry across the codebase** over per-module
 - Ensure every foreign-key column is indexed by effective coverage, not mechanically. A composite PRIMARY KEY, UNIQUE constraint or index whose leftmost column is the foreign key satisfies this; do not keep a narrower duplicate index unless a measured query plan needs it.
 - `CHECK` constraints are named explicitly (auto-names are illegible in logs); PK/FK/UNIQUE keep PostgreSQL's predictable auto-names.
 
-**Primary keys.** UUIDv7 (RFC 9562), application-generated, stored in the native 16-byte `uuid` type, for every entity table — time-prefixed for B-tree locality and aligned with the ratified standard. Exception: log tables use `BIGINT` IDENTITY (a log entry is a position, not an entity). `subject_id` is exposed publicly as a stable cross-operator reference that survives renames, and is validated by a strict lowercase pattern at every boundary (defined in `src/uuid.ts`).
+**Primary keys.** UUIDv7 (RFC 9562), application-generated, stored in the native 16-byte `uuid` type, for every entity table — time-prefixed for B-tree locality and aligned with the ratified standard. Exception: log tables use `BIGINT` IDENTITY (a log entry is a position, not an entity). `subject_id` is exposed publicly as a reference that is stable across platforms and survives renames, and is validated by a strict lowercase pattern at every boundary (defined in `src/uuid.ts`).
 
 **SQL naming.** snake_case for every identifier (tables, columns, indexes, constraints). Table names are plural, column names singular; a foreign key is `<singular_table>_id` referencing `<plural_table>.id` (e.g. `subject_id` → `subjects.id`). Avoid SQL reserved words even where PostgreSQL accepts them (`account` not `user`, `kind` not `type`).
 
-**Idempotency.** Every write endpoint takes a mandatory `idempotencyKey` (UUIDv7) in the body — not a header, so the future event signature can cover it alongside `request` `(target)`. The server runs the same algorithm for every write use case: a preliminary lookup outside the transaction; the entity INSERTs; a final `INSERT events` whose UNIQUE violation signals a concurrent winner to reconcile against; reconciliation by structural deep-equality between the submitted operation request and the stored `request`. A replay returns the prior result; the same key with a different body or path returns 409. If a projection UNIQUE conflict can happen before the event insert, the use case checks for an idempotency winner before surfacing the conflict. Uniqueness is global in v1 and becomes `(operator_id, idempotency_key)` `(target)` — needed for security isolation between operators, not only collision avoidance.
+**Idempotency.** Every write endpoint takes a mandatory `idempotencyKey` (UUIDv7) in the body — not a header, so the future event signature can cover it alongside `request` `(target)`. The server runs the same algorithm for every write use case: a preliminary lookup outside the transaction; the entity INSERTs; a final `INSERT events` whose UNIQUE violation signals a concurrent winner to reconcile against; reconciliation by structural deep-equality between the submitted operation request and the stored `request`. A replay returns the prior result; the same key with a different body or path returns 409. If a projection UNIQUE conflict can happen before the event insert, the use case checks for an idempotency winner before surfacing the conflict. Uniqueness is global in v1 and becomes `(platform_id, idempotency_key)` `(target)` — needed for security isolation between platforms, not only collision avoidance.
 
 **Group-scoped counters.** A counter unique within a group (today `enames.number_part` per `name_part`) is allocated inside the INSERT via `COALESCE(MAX(...), 0) + 1`, guarded by a `UNIQUE (group, counter)` and retried under a SAVEPOINT on collision. The retry budget bounds the concurrent burst a single group can absorb; exhaustion raises a retryable `ContentionError` (→ 503), never an opaque 500. The escalation lever for a hot group is a dedicated counter table `(target)`; advisory locks are unavailable (see Serverless SQL constraints).
 
@@ -54,18 +54,18 @@ Code organization favors **global symmetry across the codebase** over per-module
 **Cryptographic model** `(target)`. The cryptographic layer is not built yet; it shapes the current schema (the `request`/`outcome` split, the in-body idempotency key), and the commitments it will publish bind the registry long-term — so the scheme must be conservative, portable and crypto-agile (cf. `[Q-LOG-STRUCT]`, `[Q-CRYPTO-AGILITY]`, and `[Q-CRYPTO-IMPL]` in `ename-synthesis.md`).
 
 - *Verifiability.* Events are chained in a Merkle structure; the registry periodically publishes signed tree heads so any third party can verify that an event is in the log and that history has not been rewritten. The whole log is public and downloadable.
-- *Signature taxonomy.* Any event that transfers or modifies **control** of an ename is cryptographically chained to the previous user key, or explicitly labeled a recovery; everything else is log mechanics signed by the operator alone.
+- *Signature taxonomy.* Any event that transfers or modifies **control** of an ename is cryptographically chained to the previous user key, or explicitly labeled a recovery; everything else is log mechanics signed by the platform alone.
 
   | Event | Signed by |
   |---|---|
-  | Initial registration | Operator alone (no prior user key; mis-registration stays detectable by the user) |
+  | Initial registration | Platform alone (no prior user key; mis-registration stays detectable by the user) |
   | Key rotation, user-declared revocation, deactivation | Current user key |
-  | Key recovery | Operator alone, explicitly labeled and publicly visible |
-  | Log mechanics (operator key rotation, checkpoints) | Operator alone |
+  | Key recovery | Platform alone, explicitly labeled and publicly visible |
+  | Log mechanics (platform key rotation, checkpoints) | Platform alone |
 
-- *Recovery.* A key transition not chained to a valid user key is encoded as a labeled, publicly visible recovery event. How the user proved their recovery right is operator-side and external to the registry (`[Q-KEYREC]` in `ename-synthesis.md`). The registry refuses the pure-lockout model (lost key = lost ename), which is untenable at the scale of a universal human identity.
-- *Initial registration.* The operator submits the user's public key with no proof-of-possession required by the registry; a mis-registered key is a visible attack (the user cannot sign under their ename), not a silent one. Proof-of-possession may be added later.
-- *Transition monitoring.* A home operator must watch the log for the enames it serves and alert users on any unsolicited transition; without it the chaining protects only retroactively (cf. `[Q-ACCRED-CRITERES]` in `ename-synthesis.md`).
+- *Recovery.* A key transition not chained to a valid user key is encoded as a labeled, publicly visible recovery event. How the user proved their recovery right is platform-side and external to the registry (`[Q-KEYREC]` in `ename-synthesis.md`). The registry refuses the pure-lockout model (lost key = lost ename), which is untenable at the scale of a universal human identity.
+- *Initial registration.* The platform submits the user's public key with no proof-of-possession required by the registry; a mis-registered key is a visible attack (the user cannot sign under their ename), not a silent one. Proof-of-possession may be added later.
+- *Transition monitoring.* A home platform must watch the log for the enames it serves and alert users on any unsolicited transition; without it the chaining protects only retroactively (cf. `[Q-ACCRED-CRITERES]` in `ename-synthesis.md`).
 
 ## Application architecture
 
@@ -164,10 +164,10 @@ This list ages with the product; reconfirm it periodically against the Scaleway 
 
 ## Open questions
 
-- **[Q-PORT-TRIGGER]** The explicit trigger for the Node → Rust port — calendar, event (second operator, security audit, traffic threshold), or first-of-both. Must be fixed and written down before the v1 release, or the port never self-triggers.
+- **[Q-PORT-TRIGGER]** The explicit trigger for the Node → Rust port — calendar, event (second platform, security audit, traffic threshold), or first-of-both. Must be fixed and written down before the v1 release, or the port never self-triggers.
 - **[Q-LOG-STRUCT]** The exact cryptographic structure of the public log (linear CT/Sigsum-style, sparse Merkle/CONIKS-style, or hybrid), the signed-tree-head scheme, publication frequency, bootstrap snapshots, and any external anchoring. To settle by prototyping during the Node phase; it conditions the log's public format and API surface.
 - **[Q-CRYPTO-AGILITY]** The multi-century crypto-agility plan: SHA-256 and Ed25519 will not last. The format must carry explicit suite versioning from v1 and a re-anchoring mechanism that preserves the commitment chain across a hash or signature change. Joint with [Q-LOG-STRUCT] and [Q-CRYPTO-IMPL].
-- **[Q-OPKEY-MGMT]** Management of the operator signing key (HSM vs cloud KMS, possible k-of-n multi-signature, rotation, succession on loss or jurisdictional transfer). Near-irreversible once the first tree head is signed — settle before the v1 release.
+- **[Q-PLATKEY-MGMT]** Management of the platform signing key (HSM vs cloud KMS, possible k-of-n multi-signature, rotation, succession on loss or jurisdictional transfer). Near-irreversible once the first tree head is signed — settle before the v1 release.
 - **[Q-REVOC-REASONS]** Whether revocations carry a codified reason (compromise, retirement, death) or stay opaque — it changes what a verifier can conclude about a signature made before the revocation. Tie with [Q-REVOC] in `ename-synthesis.md`.
-- **[Q-RECOVERY-PROC]** The institutional framing of operator-mediated recovery as seen from the registry: effectiveness delays, re-verification requirements, contestation channel, audit. Distinct from the user-side [Q-KEYREC]; mostly regulation, with log-encoding implications.
+- **[Q-RECOVERY-PROC]** The institutional framing of platform-mediated recovery as seen from the registry: effectiveness delays, re-verification requirements, contestation channel, audit. Distinct from the user-side [Q-KEYREC]; mostly regulation, with log-encoding implications.
 - **[Q-LEGAL-DEMANDS]** The registry's prepared stance on legal demands for erasure or rectification, given a public append-only log: some are structurally impossible to honor, others (a forced deactivation mark) remain possible. Prepare with legal counsel before the v1 release.

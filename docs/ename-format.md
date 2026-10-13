@@ -1,6 +1,6 @@
 # Ename — Format
 
-> This document describes only the **format** of enames: their syntax, structure, and governing rules. The Ename project's mission, its model of the registry and operators, and its governance principles are described in [Ename — Reference Synthesis](./ename-synthesis.md).
+> This document describes only the **format** of enames: their syntax, structure, and governing rules. The Ename project's mission, its model of the registry and platforms, and its governance principles are described in [Ename — Reference Synthesis](./ename-synthesis.md).
 
 ## Overview (Formal Grammar)
 
