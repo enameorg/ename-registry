@@ -14,19 +14,22 @@ import { problemResponse } from '../problem.ts';
 // Request and response schemas
 // ---------------------------------------------------------------------------
 
+// Strict at every level: an unknown field is a 422 naming the key, never
+// silently dropped, so the validated request is exactly what the client sent
+// (cf. ename-internals.md).
 const RegisterSubjectRequestSchema = z
-  .object({
+  .strictObject({
     idempotencyKey: z
       .string()
       .regex(UUIDV7_REGEX, { message: 'must be a UUIDv7' })
       .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
     subject: z
-      .object({
+      .strictObject({
         kind: z.literal('person').openapi({ example: 'person' }),
       })
       .openapi('RegisterSubjectRequestSubject'),
     ename: z
-      .object({
+      .strictObject({
         namePart: z
           .string()
           .min(1)

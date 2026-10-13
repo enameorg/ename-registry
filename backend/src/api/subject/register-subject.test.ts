@@ -297,6 +297,42 @@ for (const scenario of [
   });
 }
 
+// Strict input: an unknown field is a 422 whose issue names the key and points
+// at the object holding it, never a silent drop (cf. ename-internals.md).
+for (const scenario of [
+  {
+    name: 'unknown top-level field',
+    body: { ...(makeBody({}) as Record<string, unknown>), extra: 1 },
+    key: 'extra',
+    expectedPath: [],
+  },
+  {
+    name: 'unknown field inside subject block',
+    body: {
+      ...(makeBody({}) as Record<string, unknown>),
+      subject: { kind: 'person', hidden: true },
+    },
+    key: 'hidden',
+    expectedPath: ['subject'],
+  },
+]) {
+  test(`validation failure: ${scenario.name} → 422 naming the key`, async () => {
+    const response = await postSubject(scenario.body);
+
+    assert.equal(response.status, 422);
+
+    const body = (await response.json()) as {
+      errors?: Array<{ path: Array<string | number>; message: string }>;
+    };
+    const issue = body.errors?.find((candidate) => candidate.message.includes(`"${scenario.key}"`));
+    assert.ok(
+      issue,
+      `expected an issue naming "${scenario.key}", got ${JSON.stringify(body.errors)}`,
+    );
+    assert.deepEqual(issue.path, scenario.expectedPath);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Headers
 // ---------------------------------------------------------------------------

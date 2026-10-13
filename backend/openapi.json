@@ -182,7 +182,8 @@
           "idempotencyKey",
           "subject",
           "ename"
-        ]
+        ],
+        "additionalProperties": false
       },
       "RegisterSubjectRequestSubject": {
         "type": "object",
@@ -197,7 +198,8 @@
         },
         "required": [
           "kind"
-        ]
+        ],
+        "additionalProperties": false
       },
       "RegisterSubjectRequestEname": {
         "type": "object",
@@ -212,7 +214,8 @@
         },
         "required": [
           "namePart"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AddEnameToSubjectResponse": {
         "type": "object",
@@ -288,7 +291,8 @@
         "required": [
           "idempotencyKey",
           "ename"
-        ]
+        ],
+        "additionalProperties": false
       },
       "AddEnameToSubjectRequestEname": {
         "type": "object",
@@ -303,7 +307,8 @@
         },
         "required": [
           "namePart"
-        ]
+        ],
+        "additionalProperties": false
       }
     },
     "parameters": {}
