@@ -1,2 +1,2 @@
 // Public surface of the `application` concept
-export { health } from './application.ts';
+export { checkDatabase, health } from './application.ts';

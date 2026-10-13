@@ -1,4 +1,4 @@
-import type { Pool, PoolClient } from 'pg';
+import type { Pool, PoolClient, QueryConfig } from 'pg';
 import type { Logger } from 'pino';
 import type { z } from 'zod';
 
@@ -44,6 +44,18 @@ export async function withTransaction<T>(
   } finally {
     client.release();
   }
+}
+
+// Trivial round trip to the database, bounded by a per-query read timeout (pg
+// honors `query_timeout` on a query config at runtime; @types/pg omits it, hence
+// the widened type). Rejects on any failure, the timeout included; the caller
+// decides what that means.
+export async function pingDatabase(db: Pool, timeoutMs: number): Promise<void> {
+  const probe: QueryConfig & { query_timeout: number } = {
+    text: 'SELECT 1',
+    query_timeout: timeoutMs,
+  };
+  await db.query(probe);
 }
 
 // Convert snake_case keys (DB convention) to camelCase (JS/TS convention) at the

@@ -56,7 +56,8 @@ Schema, migration, and local cluster commands (`db:up`, `db:migrate`, `db:new`, 
 | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `POST` | `/api/v1/subjects`            | Register a new subject together with its first ename atomically. Idempotent via `idempotencyKey`. Produces one `subject.registered` event. |
 | `POST` | `/api/v1/subjects/:id/enames` | Add one ename to an existing subject. Idempotent via `idempotencyKey`. Produces one `subject.ename_added` event.                           |
-| `GET`  | `/api/v1/health`              | Service health check. Returns 200 + `{"status":"ok"}` or 503 + `{"status":"unhealthy"}`.                                                   |
+| `GET`  | `/api/v1/health`              | Liveness check: the process answers, nothing else is checked. Returns 200 + `{"status":"ok"}` or 503 + `{"status":"unhealthy"}`.           |
+| `GET`  | `/api/v1/health/deep`         | Deep check: the database must answer a trivial query within 1 s. Same body shape, 200 or 503. For monitoring, never the container probe.   |
 | `GET`  | `/api/v1/openapi.json`        | OpenAPI 3.1 specification of the v1 contract.                                                                                              |
 | `GET`  | `/api/v1/docs`                | Interactive API reference and client (Scalar UI), reading the live spec.                                                                   |
 
@@ -71,8 +72,9 @@ backend/
 ├── src/
 │   ├── api/                          # API layer (HTTP surface)
 │   │   ├── application/              # service-wide endpoints
-│   │   │   ├── health.ts             # GET /health route, handler, and its Zod schema
-│   │   │   └── health.test.ts        # HTTP-level test
+│   │   │   ├── health.ts             # GET /health (liveness) route, handler, and the shared Zod schema
+│   │   │   ├── health-deep.ts        # GET /health/deep (database probe) route and handler
+│   │   │   └── *.test.ts             # HTTP-level tests
 │   │   ├── subject/                  # endpoints rooted at /subjects (one file per route)
 │   │   │   ├── register-subject.ts   # POST /subjects route, handler, and inline Zod schemas
 │   │   │   ├── add-ename-to-subject.ts # POST /subjects/:id/enames route, handler, and schemas
@@ -107,7 +109,7 @@ backend/
 │   │   │   └── event.test.ts
 │   │   ├── application/
 │   │   │   ├── index.ts
-│   │   │   ├── application.ts        # health()
+│   │   │   ├── application.ts        # health(), checkDatabase()
 │   │   │   └── application.test.ts
 │   │   ├── context.ts                # ServiceContext (request-scoped values passed from the API layer)
 │   │   └── errors.ts                 # Domain error classes (DomainError, ValidationError, IdempotencyConflictError, ContentionError)

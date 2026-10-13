@@ -147,6 +147,8 @@ A request-scoped value the Service layer needs is read from the `ApiContext` by 
 
 **Hosting.** Scaleway, serverless: a Serverless Container for the backend (language-agnostic across Node and Rust) and Serverless SQL for the database. Node's cold start is higher than Rust's — plan a minimum instance count above zero once traffic is regular.
 
+**Health probes.** `/health` is liveness: the process answers, nothing else is checked, and it is the path of the Serverless Container's HTTP probe, which takes a failing instance out of rotation without restarting it. A database outage therefore degrades the API (writes answer 503 Problem Details) instead of taking every instance out of rotation at once. `/health/deep` checks that the database answers a trivial query within a short bound; it serves monitoring, smoke tests and alerting, and is never wired to the orchestrator.
+
 **Serverless SQL constraints.** Serverless SQL fronts each database with a PgBouncer in transaction mode and disables a set of PostgreSQL features. These are not reproducible on the local PostgreSQL, so the discipline is to avoid them by construction:
 
 - Session state via `SET`/`RESET`/`DISCARD` is unreliable (connections are multiplexed between transactions) — set `statement_timeout` and the like through the driver's startup parameters, never a post-connection `SET`.

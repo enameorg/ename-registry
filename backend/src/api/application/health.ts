@@ -7,7 +7,7 @@ import type { HonoEnv } from '../context.ts';
 // Response schema
 // ---------------------------------------------------------------------------
 
-const HealthResponseSchema = z
+export const HealthResponseSchema = z
   .object({
     status: z.enum(['ok', 'unhealthy']).openapi({ example: 'ok' }),
   })
@@ -17,9 +17,11 @@ const HealthResponseSchema = z
 // Route definition
 // ---------------------------------------------------------------------------
 
-// The 503 branch is in the contract from day one so monitoring can wire against
-// it, but health() has no failure path yet (returns true). Real liveness checks
-// (DB ping, dependencies) will populate the 503 path later.
+// Liveness: the process answers and nothing else is checked, so a database
+// outage degrades the API (writes answer 503 Problem Details) instead of taking
+// every instance out of rotation through the container's probe. The 503 branch
+// stays declared for a future shutdown signal; dependencies are checked by
+// /health/deep (cf. ename-internals.md).
 export const healthRoute = createRoute({
   method: 'get',
   path: '/health',

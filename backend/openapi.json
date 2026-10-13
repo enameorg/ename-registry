@@ -342,6 +342,34 @@
         }
       }
     },
+    "/health/deep": {
+      "get": {
+        "summary": "Deep health check (database)",
+        "description": "Returns 200 with status \"ok\" when the database answers a trivial query within a short bound, 503 with status \"unhealthy\" otherwise. Meant for monitoring and smoke tests, not for the container liveness probe.",
+        "responses": {
+          "200": {
+            "description": "Service and its database are healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unreachable or too slow",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/subjects": {
       "post": {
         "summary": "Register a new subject (with its first ename)",

@@ -13,6 +13,7 @@ import {
   ValidationError,
 } from '../services/errors.ts';
 
+import { healthDeepHandler, healthDeepRoute } from './application/health-deep.ts';
 import { healthHandler, healthRoute } from './application/health.ts';
 import type { HonoEnv } from './context.ts';
 import { requestContext } from './middleware.ts';
@@ -119,6 +120,7 @@ api.use(
 );
 
 api.openapi(healthRoute, healthHandler);
+api.openapi(healthDeepRoute, healthDeepHandler);
 api.openapi(registerSubjectRoute, registerSubjectHandler);
 api.openapi(addEnameToSubjectRoute, addEnameToSubjectHandler);
 
