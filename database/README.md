@@ -39,7 +39,7 @@ The local database is a single PostgreSQL 18 cluster (matching Scaleway Serverle
 | `npm run db:nuke`          | Stop the container **and delete the data volume**. Destructive.                    |
 | `npm run db:migrate`       | Apply pending migrations to `ename_dev`.                                           |
 | `npm run db:migrate:test`  | Apply pending migrations to `ename_test`.                                          |
-| `npm run db:new -- <name>` | Create a new pair of `<unix_ts>_<name>.up.sql` / `.down.sql` in `migrations/`.     |
+| `npm run db:new -- <name>` | Create a new empty `<unix_ts>_<name>.sql` in `migrations/`.                        |
 | `npm run db:reset`         | Drop and recreate `ename_dev`, then re-run migrations. Fast reset without nuking.  |
 | `npm run db:reset:test`    | Same for `ename_test`.                                                             |
 | `npm run db:dump`          | Dump `ename_dev`'s schema to `schema.sql` (versioned).                             |
@@ -57,7 +57,7 @@ The local database is a single PostgreSQL 18 cluster (matching Scaleway Serverle
 database/
 ├── init/
 │   └── 01-create-databases.sql    # Runs once at first container boot — creates ename_test
-├── migrations/                    # <unix_ts>_<name>.up.sql + .down.sql (sqlx-cli compatible)
+├── migrations/                    # <unix_ts>_<name>.sql, forward-only (no down files)
 ├── scripts/
 │   ├── migrate.ts                 # Custom migration runner (content hash + per-migration transaction lock)
 │   └── new-migration.ts           # Scaffolds a new up/down migration pair
@@ -69,7 +69,7 @@ database/
 └── README.md
 ```
 
-The migration runner adopts the `sqlx-cli` on-disk layout from day one, so the Rust phase can point `sqlx-cli` at `migrations/` without any transformation. The runner invariants (SHA-256 content hash, per-migration transaction holding a transaction-level advisory lock, lexicographic ordering, single connection) are documented inline at the top of [`scripts/migrate.ts`](./scripts/migrate.ts) and in [`../docs/ename-internals.md`](../docs/ename-internals.md).
+Migrations are forward-only and have no down files: a local rollback is `npm run db:reset`. The runner invariants (SHA-256 of each file's raw bytes, per-migration transaction holding a transaction-level advisory lock, lexicographic ordering, single connection) are documented inline at the top of [`scripts/migrate.ts`](./scripts/migrate.ts) and in [`../docs/ename-internals.md`](../docs/ename-internals.md); the `schema_migrations` table and the hash are the contract the Rust phase reimplements.
 
 ## License
 

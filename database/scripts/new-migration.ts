@@ -2,9 +2,9 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Create a pair of empty <unix_ts>_<name>.up.sql / .down.sql files in
-// database/migrations/. The Unix-timestamp prefix gives a stable lexicographic order
-// across machines without collisions in normal use.
+// Create an empty <unix_ts>_<name>.sql file in database/migrations/. The
+// Unix-timestamp prefix gives a stable lexicographic order across machines without
+// collisions in normal use.
 
 const rawName = process.argv[2];
 if (!rawName) {
@@ -28,11 +28,9 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const migrationsDirectory = resolve(scriptDirectory, '..', 'migrations');
 const timestamp = Math.floor(Date.now() / 1000).toString();
 const base = `${timestamp}_${slug}`;
-const upPath = resolve(migrationsDirectory, `${base}.up.sql`);
-const downPath = resolve(migrationsDirectory, `${base}.down.sql`);
+const path = resolve(migrationsDirectory, `${base}.sql`);
 
 await mkdir(migrationsDirectory, { recursive: true });
-await writeFile(upPath, `-- ${base} (up)\n\n`, { flag: 'wx' });
-await writeFile(downPath, `-- ${base} (down)\n\n`, { flag: 'wx' });
+await writeFile(path, `-- ${base}\n\n`, { flag: 'wx' });
 
-console.log(`Created:\n  ${upPath}\n  ${downPath}`);
+console.log(`Created: ${path}`);

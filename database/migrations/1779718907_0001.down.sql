@@ -1,4 +1,0 @@
--- 1779718907_0001 (down)
-
-DROP TABLE IF EXISTS enames;
-DROP TABLE IF EXISTS subjects;

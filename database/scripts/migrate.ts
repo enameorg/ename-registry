@@ -5,13 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
-// Forward-only migration runner, using the sqlx-cli on-disk format
-// (<unix_ts>_<name>.up.sql / .down.sql) so the Rust phase can point sqlx-cli at
-// database/migrations/ unchanged.
+// Forward-only migration runner over database/migrations/<unix_ts>_<name>.sql.
+// The schema_migrations table and the hash below are the contract the Rust
+// reimplementation honors (cf. ename-internals.md).
 //
 // Invariants:
-//   1. schema_migrations stores a SHA-256 of each file — detects edits to
-//      already-applied migrations.
+//   1. schema_migrations stores a SHA-256 of each file's raw bytes, comments
+//      included — detects edits to already-applied migrations. No re-hash.
 //   2. One transaction per migration, holding a transaction-level advisory
 //      lock (pg_advisory_xact_lock) under which the migration is re-checked as
 //      still pending: overlapping runners serialize and converge instead of
@@ -27,8 +27,7 @@ import pg from 'pg';
 //   4. Lexicographic order on filename (the Unix-timestamp prefix is stable
 //      across machines).
 //   5. Single connection, sequential — no parallelism.
-//   6. No `down` command: up migrations only. `.down.sql` exists for sqlx
-//      parity and manual rollback, never in production.
+//   6. No `down` command and no down files: a local rollback is a database reset.
 
 const ADVISORY_LOCK_KEY = 9_876_543_210n;
 
@@ -176,11 +175,11 @@ async function loadMigrations(): Promise<Migration[]> {
     throw error;
   }
 
-  const upFiles = entries.filter((entry) => entry.endsWith('.up.sql')).sort();
+  const files = entries.filter((entry) => entry.endsWith('.sql')).sort();
   const migrations: Migration[] = [];
 
-  for (const filename of upFiles) {
-    const version = filename.slice(0, -'.up.sql'.length);
+  for (const filename of files) {
+    const version = filename.slice(0, -'.sql'.length);
     const separatorIndex = version.indexOf('_');
     const name = separatorIndex === -1 ? version : version.slice(separatorIndex + 1);
     const sql = await readFile(resolve(migrationsDirectory, filename), 'utf-8');
