@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
 import { useTestDb } from '../database/testing.ts';
@@ -125,4 +126,24 @@ test('a body exactly at the limit passes the gate and reaches the JSON validator
   });
 
   assert.equal(response.status, 400);
+});
+
+// ---------------------------------------------------------------------------
+// OpenAPI document
+// ---------------------------------------------------------------------------
+
+// The committed file and the runtime endpoint are two representations of the
+// same generator call (cf. ename-internals.md); any drift means openapi.json
+// was not regenerated after a route change.
+test('GET /api/v1/openapi.json is byte-identical to the committed backend/openapi.json', async () => {
+  const committed = await readFile(new URL('../../openapi.json', import.meta.url), 'utf-8');
+  const response = await app.fetch(new Request(`${ORIGIN}/api/v1/openapi.json`));
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('Content-Type') ?? '', /^application\/json/);
+  assert.equal(await response.text(), committed);
+
+  const document = JSON.parse(committed) as { servers: unknown; paths: Record<string, unknown> };
+  assert.deepEqual(document.servers, [{ url: '/api/v1' }]);
+  assert.ok('/health' in document.paths);
 });

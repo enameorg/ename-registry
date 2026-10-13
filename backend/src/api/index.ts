@@ -29,6 +29,11 @@ import { registerSubjectHandler, registerSubjectRoute } from './subject/register
 // milliseconds, so a 1-second floor is already generous.
 const RETRY_AFTER_SECONDS = 1;
 
+// Where this version is mounted (cf. src/index.ts). Carried by the OpenAPI
+// `servers` entry so the document's relative paths resolve, and by the Scalar
+// page to find the spec.
+const BASE_PATH = '/api/v1';
+
 // Cap on any request body, enforced by the body-limit middleware before routing.
 // Far above every legitimate v1 body (a registration is about 150 bytes), so no
 // well-formed client meets it. An internal protection, not a contract value
@@ -117,20 +122,10 @@ api.openapi(healthRoute, healthHandler);
 api.openapi(registerSubjectRoute, registerSubjectHandler);
 api.openapi(addEnameToSubjectRoute, addEnameToSubjectHandler);
 
-// Expose the live spec at /api/v1/openapi.json (relative to the v1 mount point).
-// The `servers` field makes the spec self-describing: paths declared as `/health`
-// inside the v1 sub-app are absolute under the `/api/v1` base URL.
-// Pretty-printed unconditionally: this endpoint is documentation, consumed by
-// humans and doc tooling, not by hot-path machine clients.
+// The live spec, byte-identical to the committed backend/openapi.json (see
+// renderOpenApiDocument below).
 api.get('/openapi.json', (context) => {
-  const spec = api.getOpenAPI31Document({
-    openapi: openApiMetadata.openapi,
-    info: openApiMetadata.info,
-    servers: [{ url: '/api/v1' }],
-  });
-  return context.text(JSON.stringify(spec, null, 2) + '\n', 200, {
-    'Content-Type': 'application/json',
-  });
+  return context.text(renderOpenApiDocument(), 200, { 'Content-Type': 'application/json' });
 });
 
 // Interactive API reference + client, reading the live spec at each load, so the
@@ -139,7 +134,7 @@ api.get('/openapi.json', (context) => {
 api.get(
   '/docs',
   Scalar({
-    url: '/api/v1/openapi.json',
+    url: `${BASE_PATH}/openapi.json`,
     pageTitle: 'Ename Registry API',
   }),
 );
@@ -212,3 +207,17 @@ api.onError((error, context) => {
     'An unexpected error occurred; the requestId can be used to correlate with server logs.',
   );
 });
+
+// The single generator of the v1 contract (cf. ename-internals.md): the
+// runtime endpoint above and scripts/generate-openapi.ts both serialize this
+// document, so the two representations cannot drift. Paths are relative to the
+// version's mount, which the `servers` entry carries. Pretty-printed: this is
+// documentation for humans and tooling, not a hot-path payload.
+export function renderOpenApiDocument(): string {
+  const document = api.getOpenAPI31Document({
+    openapi: openApiMetadata.openapi,
+    info: openApiMetadata.info,
+    servers: [{ url: BASE_PATH }],
+  });
+  return JSON.stringify(document, null, 2) + '\n';
+}

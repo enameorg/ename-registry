@@ -4,6 +4,11 @@
     "title": "Ename Registry API",
     "version": "0.1.0"
   },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
   "components": {
     "schemas": {
       "HealthResponse": {
@@ -304,7 +309,7 @@
     "parameters": {}
   },
   "paths": {
-    "/api/v1/health": {
+    "/health": {
       "get": {
         "summary": "Service health check",
         "description": "Returns 200 with status \"ok\" when the service is healthy, 503 with status \"unhealthy\" otherwise.",
@@ -332,7 +337,7 @@
         }
       }
     },
-    "/api/v1/subjects": {
+    "/subjects": {
       "post": {
         "summary": "Register a new subject (with its first ename)",
         "description": "Atomically registers a new subject (of `kind = person` in v1) together with its first ename. A subject without at least one ename has no meaning in the registry — the two are created together. Emits one `subject.registered` event in the registry log. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key with a different body returns `409 Conflict`.",
@@ -430,7 +435,7 @@
         }
       }
     },
-    "/api/v1/subjects/{id}/enames": {
+    "/subjects/{id}/enames": {
       "post": {
         "summary": "Add an ename to an existing subject",
         "description": "Adds one ename to an existing subject without replacing its previous enames. Emits one `subject.ename_added` event in the registry log. A subject cannot hold two enames with the same `namePart`; reusing the same `namePart` for the same subject returns `409 Conflict`. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key with a different path or body returns `409 Conflict`.",
