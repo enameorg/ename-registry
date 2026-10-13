@@ -10,11 +10,20 @@ import pg from 'pg';
 // database/migrations/ unchanged.
 //
 // Invariants:
-//   1. pg_advisory_lock around the run — prevents concurrent runners.
-//   2. schema_migrations stores a SHA-256 of each file — detects edits to
+//   1. schema_migrations stores a SHA-256 of each file — detects edits to
 //      already-applied migrations.
-//   3. One transaction per migration, unless the file starts with
-//      `-- migrate:no-transaction` (e.g. CREATE INDEX CONCURRENTLY).
+//   2. One transaction per migration, holding a transaction-level advisory
+//      lock (pg_advisory_xact_lock) under which the migration is re-checked as
+//      still pending: overlapping runners serialize and converge instead of
+//      failing. The PRIMARY KEY on version is the hard guarantee — a double
+//      apply fails on the INSERT and its DDL rolls back with it. A session-level
+//      lock around the whole run is not an option: Serverless SQL pools
+//      connections per transaction, so such a lock stays on one server
+//      connection while the next statements run on others.
+//   3. A file starting with `-- migrate:no-transaction` (e.g. CREATE INDEX
+//      CONCURRENTLY) runs outside any transaction, hence without the lock or
+//      the rollback: it must be idempotent, and the runner must be launched by
+//      a single job at a time.
 //   4. Lexicographic order on filename (the Unix-timestamp prefix is stable
 //      across machines).
 //   5. Single connection, sequential — no parallelism.
@@ -46,8 +55,11 @@ async function run(target: string): Promise<void> {
   await client.connect();
 
   try {
-    await client.query('SELECT pg_advisory_lock($1)', [ADVISORY_LOCK_KEY.toString()]);
-
+    // Bootstrap the bookkeeping table under the same lock as the migrations:
+    // two runners racing on an empty database would otherwise collide on
+    // CREATE TABLE IF NOT EXISTS (a unique violation in pg_type).
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)', [ADVISORY_LOCK_KEY.toString()]);
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version TEXT PRIMARY KEY,
@@ -56,6 +68,7 @@ async function run(target: string): Promise<void> {
         applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
     `);
+    await client.query('COMMIT');
 
     const appliedResult = await client.query<AppliedRow>(
       'SELECT version, name, hash FROM schema_migrations',
@@ -82,6 +95,7 @@ async function run(target: string): Promise<void> {
       return;
     }
 
+    let appliedCount = 0;
     for (const migration of pending) {
       console.log(`[migrate:${target}] applying ${migration.version}…`);
       if (migration.noTransaction) {
@@ -90,29 +104,57 @@ async function run(target: string): Promise<void> {
           'INSERT INTO schema_migrations (version, name, hash) VALUES ($1, $2, $3)',
           [migration.version, migration.name, migration.hash],
         );
+        appliedCount += 1;
+      } else if (await applyInTransaction(client, migration)) {
+        appliedCount += 1;
       } else {
-        try {
-          await client.query('BEGIN');
-          await client.query(migration.sql);
-          await client.query(
-            'INSERT INTO schema_migrations (version, name, hash) VALUES ($1, $2, $3)',
-            [migration.version, migration.name, migration.hash],
-          );
-          await client.query('COMMIT');
-        } catch (error) {
-          await client.query('ROLLBACK');
-          throw error;
-        }
+        console.log(
+          `[migrate:${target}] ${migration.version} applied by another runner meanwhile, skipped`,
+        );
       }
     }
 
-    console.log(`[migrate:${target}] applied ${pending.length} migration(s)`);
+    console.log(
+      `[migrate:${target}] applied ${appliedCount} of ${pending.length} pending migration(s)`,
+    );
   } finally {
-    try {
-      await client.query('SELECT pg_advisory_unlock($1)', [ADVISORY_LOCK_KEY.toString()]);
-    } finally {
-      await client.end();
+    await client.end();
+  }
+}
+
+// Apply one migration in its own transaction. Returns false when another runner
+// applied it between our pending computation and our lock acquisition.
+async function applyInTransaction(client: pg.Client, migration: Migration): Promise<boolean> {
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)', [ADVISORY_LOCK_KEY.toString()]);
+    const alreadyApplied = await client.query(
+      'SELECT 1 FROM schema_migrations WHERE version = $1',
+      [migration.version],
+    );
+    if ((alreadyApplied.rowCount ?? 0) > 0) {
+      await client.query('ROLLBACK');
+      return false;
     }
+    await client.query(migration.sql);
+    await client.query('INSERT INTO schema_migrations (version, name, hash) VALUES ($1, $2, $3)', [
+      migration.version,
+      migration.name,
+      migration.hash,
+    ]);
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    // The rollback must never mask the original error (cf. ename-internals.md).
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error(
+        `rollback of ${migration.version} failed; original error follows:`,
+        rollbackError,
+      );
+    }
+    throw error;
   }
 }
 
