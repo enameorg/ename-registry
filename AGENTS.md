@@ -22,7 +22,7 @@ The five default labels, unchanged: `needs-triage`, `needs-info`, `ready-for-age
 
 ### Domain docs
 
-Single-context: `GLOSSARY.md` at the repo root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.
+Single-context: `GLOSSARY.md` at the repo root, ADRs under `docs/adr/`. See `docs/agents/domain.md`; its ADR conventions (frontmatter, length, boundary with the internals) take precedence over the skills' default ADR format.
 
 ## Imports (loaded into context every session)
 

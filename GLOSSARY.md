@@ -91,9 +91,9 @@ The initial fee a platform owes to obtain accreditation, complemented by an annu
 ## Registry data model
 
 **Event**:
-One immutable record of a registry mutation in the append-only log, the single source of truth. Named `<entity>.<verb_past_tense>` (e.g. `subject.registered`).
+One immutable record of a registry mutation in the append-only log, the single source of truth.
 _Avoid_: transaction, mutation, log entry, record
 
 **Projection**:
-A table reconstructible by replaying the event log, serving fast reads (today `subjects` and `enames`).
+A table reconstructible by replaying the event log, serving fast reads.
 _Avoid_: read model, cache, view
