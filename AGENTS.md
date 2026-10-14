@@ -10,6 +10,20 @@ The code and its comments are the source of truth for the spec; `docs/ename-inte
 
 Three writing constraints for all project documentation: keep it short and plain; write in the present, stating things as they stand rather than as a change from a prior state ("X is forbidden", not "X remains forbidden"); and justify a decision by what it does in the current codebase, not by how it maps to the eventual Rust port — that Node→Rust rationale is stated once, at the architecture level, never re-argued per decision.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as local markdown files under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels, unchanged: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` at the repo root, ADRs under `docs/adr/`. See `docs/agents/domain.md`.
+
 ## Imports (loaded into context every session)
 
 Local instruction overrides:
