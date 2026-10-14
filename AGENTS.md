@@ -6,7 +6,7 @@ Ename is a public registry of verified human identifiers (format `<name>#<number
 
 ## Documentation discipline
 
-The code and its comments are the source of truth for the spec; `docs/ename-internals.md` sits one level above, recording only what the code cannot state about itself and never duplicating it. Any change to architecture, conventions, or the public contract under `backend/` or `database/` updates `docs/ename-internals.md` in the same change. Operational setup and commands live in each package's `README.md`, not in `ename-internals.md`.
+Technical documentation has three tiers, each recording what the tier below cannot state about itself and never duplicating it. The code and its comments are the source of truth for the spec. `docs/ename-internals.md` sits one level above: the current architecture, conventions and cross-cutting invariants, stated in the present tense. The ADRs under `docs/adr/` hold the trade-off behind a decision — context, rejected alternatives, consequences — and the internals link to them (conventions in `docs/agents/domain.md`). Any change to architecture, conventions, or the public contract under `backend/` or `database/` updates the internals, and the ADRs it touches, in the same change. Operational setup and commands live in each package's `README.md`, not in `ename-internals.md`.
 
 Three writing constraints for all project documentation: keep it short and plain; write in the present, stating things as they stand rather than as a change from a prior state ("X is forbidden", not "X remains forbidden"); and justify a decision by what it does in the current codebase, not by how it maps to the eventual Rust port — that Node→Rust rationale is stated once, at the architecture level, never re-argued per decision.
 
