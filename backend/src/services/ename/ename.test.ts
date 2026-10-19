@@ -6,7 +6,7 @@ import { pino } from 'pino';
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
 import { useTestDb } from '../../database/testing.ts';
-import { generateUUIDv7 } from '../../uuid.ts';
+import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
 import { insertSubject } from '../subject/index.ts';
 
@@ -15,6 +15,7 @@ import {
   findEnames,
   getEnameByNamePartAndNumberPart,
   insertEnameWithNextNumber,
+  NamePartSchema,
 } from './ename.ts';
 
 // Direct tests of the ename data-access primitives and the pure post-allocation
@@ -176,4 +177,22 @@ test('enforceMaxEnameLength throws ValidationError only when the total exceeds 5
       error instanceof ValidationError &&
       error.errors.some((issue) => issue.path[0] === 'ename' && issue.path[1] === 'namePart'),
   );
+});
+
+// NamePartSchema is the pure namePart grammar (docs/ename-format.md): the single
+// definition every layer parses a namePart through, so one expected-value list
+// here covers the HTTP body, the event request and the projection row alike.
+test('NamePartSchema accepts the namePart grammar and rejects everything else with the grammar message', () => {
+  for (const namePart of ['a', 'jean', 'jean-dupont', 'a'.repeat(50)]) {
+    assert.equal(NamePartSchema.safeParse(namePart).success, true, namePart);
+  }
+  for (const namePart of ['Jean', 'jean42', '-jean', 'jean-', 'jean--dupont', 'jean dupont', 'é']) {
+    const result = NamePartSchema.safeParse(namePart);
+    assert.equal(result.success, false, namePart);
+    assert.equal(
+      result.error?.issues[0]?.message,
+      'must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)',
+    );
+  }
+  assert.equal(NamePartSchema.safeParse('a'.repeat(51)).success, false);
 });

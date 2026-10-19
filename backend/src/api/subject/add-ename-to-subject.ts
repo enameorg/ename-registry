@@ -1,14 +1,13 @@
 import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
 
-import {
-  MAX_NAME_PART_LENGTH,
-  MAX_NUMBER_PART,
-  NAME_PART_REGEX,
-} from '../../services/ename/index.ts';
 import { addEnameToSubject, type AddEnameToSubjectResult } from '../../services/subject/index.ts';
-import { UUIDV7_REGEX } from '../../uuid.ts';
+import { DateTimeSchema } from '../../utilities/date-time.ts';
+import { UUIDv7Schema } from '../../utilities/uuid.ts';
 import type { HonoEnv } from '../context.ts';
 import { problemResponse } from '../problem.ts';
+
+import { EnameInputSchema, EnameSchema } from './ename.ts';
+import { SubjectReferenceSchema } from './subject.ts';
 
 // ---------------------------------------------------------------------------
 // Request and response schemas
@@ -16,59 +15,27 @@ import { problemResponse } from '../problem.ts';
 
 const AddEnameToSubjectParamsSchema = z
   .object({
-    id: z
-      .string()
-      .regex(UUIDV7_REGEX, { message: 'must be a UUIDv7' })
-      .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
+    id: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e1a' }),
   })
   .openapi('AddEnameToSubjectParams');
 
 // Strict at every level: an unknown field is a 422 naming the key, never
 // silently dropped, so the validated request is exactly what the client sent
-// (cf. ename-internals.md).
+// (cf. ename-internals.md). The ename block is the shared wire component.
 const AddEnameToSubjectRequestSchema = z
   .strictObject({
-    idempotencyKey: z
-      .string()
-      .regex(UUIDV7_REGEX, { message: 'must be a UUIDv7' })
-      .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
-    ename: z
-      .strictObject({
-        namePart: z
-          .string()
-          .min(1)
-          .max(MAX_NAME_PART_LENGTH)
-          .regex(NAME_PART_REGEX, {
-            message:
-              'must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)',
-          })
-          .openapi({ example: 'marie-curie' }),
-      })
-      .openapi('AddEnameToSubjectRequestEname'),
+    idempotencyKey: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
+    ename: EnameInputSchema,
   })
   .openapi('AddEnameToSubjectRequest');
 
+// The subject is named, not returned in full: the response mirrors the event,
+// whose request carries the subject's id alone.
 const AddEnameToSubjectResponseSchema = z
   .object({
-    createdAt: z.iso.datetime().openapi({ example: '2026-05-30T14:32:11.123Z' }),
-    subject: z
-      .object({
-        id: z
-          .string()
-          .regex(UUIDV7_REGEX)
-          .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
-      })
-      .openapi('AddEnameToSubjectResponseSubject'),
-    ename: z
-      .object({
-        id: z
-          .string()
-          .regex(UUIDV7_REGEX)
-          .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e10' }),
-        namePart: z.string().openapi({ example: 'marie-curie' }),
-        numberPart: z.number().int().min(1).max(MAX_NUMBER_PART).openapi({ example: 2 }),
-      })
-      .openapi('AddEnameToSubjectResponseEname'),
+    createdAt: DateTimeSchema.openapi({ example: '2026-05-30T14:32:11.123Z' }),
+    subject: SubjectReferenceSchema,
+    ename: EnameSchema,
   })
   .openapi('AddEnameToSubjectResponse');
 

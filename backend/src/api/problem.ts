@@ -1,7 +1,7 @@
 import { z } from '@hono/zod-openapi';
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
 
-import { UUIDV7_REGEX } from '../uuid.ts';
+import { UUIDv7Schema } from '../utilities/uuid.ts';
 
 import type { ApiContext } from './context.ts';
 
@@ -15,10 +15,7 @@ export const ProblemDetailsSchema = z
     title: z.string().openapi({ example: 'Validation failed' }),
     status: z.number().int().openapi({ example: 422 }),
     detail: z.string().openapi({ example: '1 validation error' }),
-    requestId: z
-      .string()
-      .regex(UUIDV7_REGEX)
-      .openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
+    requestId: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e2b' }),
     errors: z
       .array(
         z.object({

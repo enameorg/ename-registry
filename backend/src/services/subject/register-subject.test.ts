@@ -2,6 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
 import { pino } from 'pino';
+import { z } from 'zod';
 
 // Service integration tests: assert the return value and the persisted state
 // read back through the Service's own functions (findSubjects, findEnames,
@@ -11,7 +12,7 @@ import { pino } from 'pino';
 // at its interface in services/event/append-event.test.ts. Test doctrine:
 // ename-internals.md.
 import { useTestDb } from '../../database/testing.ts';
-import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ValidationError } from '../errors.ts';
 import { findEvents, SubjectRegisteredEventKindDefinition } from '../event/index.ts';
@@ -186,4 +187,33 @@ test('52-char post-allocation guard: throws ValidationError pointing at ename.na
   assert.equal((await findSubjects()).length, 9);
   assert.equal((await findEnames()).length, 9);
   assert.equal((await findEvents()).length, 9);
+});
+
+// ---------------------------------------------------------------------------
+// Input validation: the namePart grammar holds for every caller, not only HTTP
+// ---------------------------------------------------------------------------
+
+test('a namePart outside the grammar is rejected before anything is written', async () => {
+  await assert.rejects(
+    () =>
+      registerSubject(
+        {
+          idempotencyKey: generateUUIDv7(),
+          subject: { kind: 'person' },
+          ename: { namePart: 'Jean-Dupont' },
+        },
+        context,
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof z.ZodError);
+      assert.ok(
+        error.issues.some((issue) => issue.path[0] === 'ename' && issue.path[1] === 'namePart'),
+      );
+      return true;
+    },
+  );
+
+  assert.equal((await findSubjects()).length, 0);
+  assert.equal((await findEnames()).length, 0);
+  assert.equal((await findEvents()).length, 0);
 });

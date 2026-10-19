@@ -2,9 +2,10 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
 import { pino } from 'pino';
+import { z } from 'zod';
 
 import { useTestDb } from '../../database/testing.ts';
-import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ConflictError, NotFoundError } from '../errors.ts';
 import { findEvents, SubjectEnameAddedEventKindDefinition } from '../event/index.ts';
@@ -185,4 +186,37 @@ test('concurrent duplicate adds with different idempotencyKeys produce one succe
   assert.equal(conflicts.length, concurrency - 1);
   assert.equal((await findEvents()).length, 2);
   assert.equal((await findEnames()).length, 2);
+});
+
+test('a namePart outside the grammar is rejected before anything is written', async () => {
+  const registered = await registerSubject(
+    {
+      idempotencyKey: generateUUIDv7(),
+      subject: { kind: 'person' },
+      ename: { namePart: 'old-name' },
+    },
+    context,
+  );
+
+  await assert.rejects(
+    () =>
+      addEnameToSubject(
+        {
+          idempotencyKey: generateUUIDv7(),
+          subject: { id: registered.subject.id },
+          ename: { namePart: 'new--name' },
+        },
+        context,
+      ),
+    (error: unknown) => {
+      assert.ok(error instanceof z.ZodError);
+      assert.ok(
+        error.issues.some((issue) => issue.path[0] === 'ename' && issue.path[1] === 'namePart'),
+      );
+      return true;
+    },
+  );
+
+  assert.equal((await findEnames()).length, 1);
+  assert.equal((await findEvents()).length, 1);
 });

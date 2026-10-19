@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { pool } from '../../database/pool.ts';
 import { queryRows } from '../../database/query.ts';
-import { UUIDV7_REGEX } from '../../uuid.ts';
+import { UUIDv7Schema } from '../../utilities/uuid.ts';
 
 // ---------------------------------------------------------------------------
 // Subject domain type and lookups
@@ -11,7 +11,7 @@ import { UUIDV7_REGEX } from '../../uuid.ts';
 
 // Domain-shaped Subject. Mirrors the `subjects` projection table.
 export const SubjectSchema = z.object({
-  id: z.string().regex(UUIDV7_REGEX),
+  id: UUIDv7Schema,
   kind: z.literal('person'),
   createdAt: z.date(),
 });

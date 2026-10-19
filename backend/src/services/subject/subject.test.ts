@@ -6,7 +6,7 @@ import { pino } from 'pino';
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
 import { useTestDb } from '../../database/testing.ts';
-import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 
 import { findSubjects, getSubject, insertSubject } from './subject.ts';
 

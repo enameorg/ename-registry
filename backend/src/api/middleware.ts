@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 
 import { logger as rootLogger } from '../logger.ts';
-import { generateUUIDv7 } from '../uuid.ts';
+import { generateUUIDv7 } from '../utilities/uuid.ts';
 
 import type { HonoEnv } from './context.ts';
 

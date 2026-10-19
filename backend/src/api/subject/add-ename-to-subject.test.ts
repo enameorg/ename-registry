@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { useTestDb } from '../../database/testing.ts';
 import { app } from '../../index.ts';
-import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 
 const SUBJECTS_ENDPOINT = 'http://localhost/api/v1/subjects';
 

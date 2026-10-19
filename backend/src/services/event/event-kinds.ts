@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { UUIDV7_REGEX } from '../../uuid.ts';
-import { NumberPartFieldSchema } from '../ename/index.ts';
+import { UUIDv7Schema } from '../../utilities/uuid.ts';
+import { NamePartSchema, NumberPartSchema } from '../ename/index.ts';
 
 // ---------------------------------------------------------------------------
 // Event kind definitions — the log's vocabulary
@@ -36,18 +36,21 @@ export const SubjectRegisteredEventKindDefinition = {
       kind: z.literal('person'),
     }),
     ename: z.object({
-      namePart: z.string(),
+      // The grammar holds for every caller of the use case, not only the HTTP
+      // body; and, like numberPart below, a namePart re-parsed from the log
+      // can't pass what the original request would have failed.
+      namePart: NamePartSchema,
     }),
   }),
   outcomeSchema: z.object({
     subject: z.object({
-      id: z.string().regex(UUIDV7_REGEX),
+      id: UUIDv7Schema,
     }),
     ename: z.object({
-      id: z.string().regex(UUIDV7_REGEX),
+      id: UUIDv7Schema,
       // Same chain as the projection schema, so a numberPart re-parsed from the
       // event log can't pass what the original INSERT would have rejected.
-      numberPart: NumberPartFieldSchema,
+      numberPart: NumberPartSchema,
     }),
   }),
 } as const satisfies EventKindDefinition;
@@ -56,16 +59,16 @@ export const SubjectEnameAddedEventKindDefinition = {
   kind: 'subject.ename_added',
   requestSchema: z.object({
     subject: z.object({
-      id: z.string().regex(UUIDV7_REGEX),
+      id: UUIDv7Schema,
     }),
     ename: z.object({
-      namePart: z.string(),
+      namePart: NamePartSchema,
     }),
   }),
   outcomeSchema: z.object({
     ename: z.object({
-      id: z.string().regex(UUIDV7_REGEX),
-      numberPart: NumberPartFieldSchema,
+      id: UUIDv7Schema,
+      numberPart: NumberPartSchema,
     }),
   }),
 } as const satisfies EventKindDefinition;

@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { isUniqueViolation } from '../../database/errors.ts';
 import { pool } from '../../database/pool.ts';
 import { queryRows } from '../../database/query.ts';
-import { UUIDV7_REGEX } from '../../uuid.ts';
+import { UUIDv7Schema } from '../../utilities/uuid.ts';
 
 // ---------------------------------------------------------------------------
 // Event domain type and lookups
@@ -23,7 +23,7 @@ import { UUIDV7_REGEX } from '../../uuid.ts';
 // the future public log endpoint by the API layer.
 export const EventSchema = z.object({
   sequence: z.coerce.number().int().min(1),
-  idempotencyKey: z.string().regex(UUIDV7_REGEX),
+  idempotencyKey: UUIDv7Schema,
   kind: z.string(),
   request: z.unknown(),
   outcome: z.unknown(),

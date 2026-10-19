@@ -1,9 +1,9 @@
 import { serve } from '@hono/node-server';
 
 import { config } from './config.ts';
-import { closePool } from './database/pool.ts';
 import { app } from './index.ts';
 import { logger } from './logger.ts';
+import { closeDatabase } from './services/application/index.ts';
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -38,7 +38,7 @@ async function closeResources(
   }
 
   try {
-    await closePool();
+    await closeDatabase();
   } catch (error) {
     logger.error({ err: error }, 'database pool close failed');
     failed = true;

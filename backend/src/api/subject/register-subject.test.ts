@@ -7,7 +7,7 @@ import { test } from 'node:test';
 // ../../database import; no raw pool access here. Test doctrine: ename-internals.md.
 import { useTestDb } from '../../database/testing.ts';
 import { app } from '../../index.ts';
-import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
+import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 
 const ENDPOINT = 'http://localhost/api/v1/subjects';
 

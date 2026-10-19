@@ -72,16 +72,20 @@ backend/
 ├── src/
 │   ├── api/                          # API layer (HTTP surface)
 │   │   ├── application/              # service-wide endpoints
+│   │   │   ├── index.ts              # barrel: the folder's routes, handlers and wire schema
 │   │   │   ├── health.ts             # GET /health (liveness) route, handler, and the shared Zod schema
 │   │   │   ├── health-deep.ts        # GET /health/deep (database probe) route and handler
 │   │   │   └── *.test.ts             # HTTP-level tests
-│   │   ├── subject/                  # endpoints rooted at /subjects (one file per route)
-│   │   │   ├── register-subject.ts   # POST /subjects route, handler, and inline Zod schemas
-│   │   │   ├── add-ename-to-subject.ts # POST /subjects/:id/enames route, handler, and schemas
+│   │   ├── subject/                  # endpoints rooted at /subjects (one file per route) and their wire schemas
+│   │   │   ├── index.ts              # barrel: the folder's routes, handlers and wire schemas
+│   │   │   ├── register-subject.ts   # POST /subjects route, handler, and request/response envelopes
+│   │   │   ├── add-ename-to-subject.ts # POST /subjects/:id/enames route, handler, and envelopes
+│   │   │   ├── subject.ts            # Subject, SubjectReference, SubjectInput wire schemas (OpenAPI components)
+│   │   │   ├── ename.ts              # Ename, EnameInput wire schemas; NamePartSchema wraps the Service rule
 │   │   │   └── *.test.ts             # HTTP-level integration tests
 │   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, ApiContext
 │   │   ├── index.ts                  # v1 sub-app assembly: middleware, body limit, routes, 404/405 fallbacks, defaultHook, onError, OpenAPI document
-│   │   ├── index.test.ts             # Contract of the v1 gates and fallbacks (body limit, 404 catch-all, 405 with Allow)
+│   │   ├── index.test.ts             # Contract of the v1 gates, fallbacks and OpenAPI components
 │   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs
 │   │   ├── openapi-metadata.ts       # OpenAPI info object
 │   │   └── problem.ts                # RFC 9457 Problem Details schema + helpers (shared error shape)
@@ -101,7 +105,7 @@ backend/
 │   │   │   └── *.test.ts             # use-case tests (projections, concurrency)
 │   │   ├── ename/
 │   │   │   ├── index.ts
-│   │   │   ├── ename.ts              # Ename type/schema, format constants, pure rules, primitives
+│   │   │   ├── ename.ts              # Ename type/schema, NamePartSchema and format rules, primitives
 │   │   │   └── ename.test.ts
 │   │   ├── event/
 │   │   │   ├── index.ts
@@ -112,15 +116,18 @@ backend/
 │   │   │   └── append-event.test.ts  # protocol tests (replay, conflict, race, domain error vs winner)
 │   │   ├── application/
 │   │   │   ├── index.ts
-│   │   │   ├── application.ts        # health(), checkDatabase()
+│   │   │   ├── application.ts        # health(), checkDatabase(), closeDatabase()
 │   │   │   └── application.test.ts
 │   │   ├── context.ts                # ServiceContext (request-scoped values passed from the API layer)
 │   │   └── errors.ts                 # Domain error classes (DomainError, ValidationError, IdempotencyConflictError, ContentionError)
+│   ├── utilities/                    # Pure modules both layers import (no I/O, no singleton), one file per concept
+│   │   ├── uuid.ts                   # UUIDv7 generation, validation regex and the pure UUIDv7Schema
+│   │   ├── date-time.ts              # DateTimeSchema: a timestamp on the wire (RFC 3339, UTC)
+│   │   └── *.test.ts
 │   ├── config.ts                     # Environment-driven configuration (Zod-validated)
 │   ├── index.ts                      # Top-level app assembly (mounts /api/v1)
 │   ├── logger.ts                     # Pino root logger
-│   ├── server.ts                     # Node runtime entry: serve + graceful shutdown
-│   └── uuid.ts                       # UUIDv7 generation + validation regex
+│   └── server.ts                     # Node runtime entry: serve + graceful shutdown
 ├── scripts/
 │   └── generate-openapi.ts           # Regenerates the canonical OpenAPI spec
 ├── openapi.json                      # Canonical OpenAPI spec (versioned source of truth)

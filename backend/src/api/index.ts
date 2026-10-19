@@ -13,8 +13,12 @@ import {
   ValidationError,
 } from '../services/errors.ts';
 
-import { healthDeepHandler, healthDeepRoute } from './application/health-deep.ts';
-import { healthHandler, healthRoute } from './application/health.ts';
+import {
+  healthDeepHandler,
+  healthDeepRoute,
+  healthHandler,
+  healthRoute,
+} from './application/index.ts';
 import type { HonoEnv } from './context.ts';
 import { requestContext } from './middleware.ts';
 import { openApiMetadata } from './openapi-metadata.ts';
@@ -22,8 +26,9 @@ import { buildProblemJson } from './problem.ts';
 import {
   addEnameToSubjectHandler,
   addEnameToSubjectRoute,
-} from './subject/add-ename-to-subject.ts';
-import { registerSubjectHandler, registerSubjectRoute } from './subject/register-subject.ts';
+  registerSubjectHandler,
+  registerSubjectRoute,
+} from './subject/index.ts';
 
 // Retry-After hint (seconds) sent with 503 ContentionError responses. Kept
 // short: number_part allocation contention on a single name_part clears in

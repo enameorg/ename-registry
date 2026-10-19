@@ -7,7 +7,7 @@ import { ZodError } from 'zod';
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
 import { useTestDb } from '../../database/testing.ts';
-import { generateUUIDv7 } from '../../uuid.ts';
+import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, IdempotencyConflictError } from '../errors.ts';
 import { findSubjects, insertSubject } from '../subject/index.ts';
 

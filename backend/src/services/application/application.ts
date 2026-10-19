@@ -1,4 +1,4 @@
-import { pool } from '../../database/pool.ts';
+import { closePool, pool } from '../../database/pool.ts';
 import { pingDatabase } from '../../database/query.ts';
 import type { ServiceContext } from '../context.ts';
 
@@ -22,4 +22,11 @@ export async function checkDatabase(context: ServiceContext): Promise<boolean> {
     context.logger.warn({ err: error }, 'database probe failed');
     return false;
   }
+}
+
+// Release the database at shutdown, once in-flight requests have drained. The
+// runtime entry calls this, so the pool stays invisible outside the Service
+// layer (cf. ename-internals.md).
+export async function closeDatabase(): Promise<void> {
+  await closePool();
 }

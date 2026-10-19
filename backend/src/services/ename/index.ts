@@ -6,9 +6,8 @@ export {
   getEnameByNamePartAndNumberPart,
   insertEnameWithNextNumber,
   MAX_ENAME_LENGTH,
-  MAX_NAME_PART_LENGTH,
   MAX_NUMBER_PART,
-  NAME_PART_REGEX,
-  NumberPartFieldSchema,
+  NamePartSchema,
+  NumberPartSchema,
 } from './ename.ts';
 export type { Ename } from './ename.ts';

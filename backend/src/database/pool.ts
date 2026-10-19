@@ -26,8 +26,9 @@ pool.on('error', (error) => {
 });
 
 // Named lifecycle seam for graceful shutdown: drains in-flight queries and closes
-// every pooled connection. Called once by the runtime entry, after the HTTP server
-// has stopped accepting requests; keeps pg's end() mechanics confined to src/database.
+// every pooled connection. Called once, through the Service layer's closeDatabase,
+// after the HTTP server has stopped accepting requests; keeps pg's end() mechanics
+// confined to src/database.
 export async function closePool(): Promise<void> {
   await pool.end();
 }

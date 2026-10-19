@@ -1,4 +1,4 @@
-import { generateUUIDv7 } from '../../uuid.ts';
+import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import type { ServiceContext } from '../context.ts';
 import { enforceMaxEnameLength, insertEnameWithNextNumber } from '../ename/index.ts';
 import {

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 import { useTestDb } from '../database/testing.ts';
 import { app } from '../index.ts';
-import { UUIDV7_REGEX } from '../uuid.ts';
+import { UUIDV7_REGEX } from '../utilities/uuid.ts';
 
 import { MAX_BODY_BYTES } from './index.ts';
 
@@ -146,4 +146,45 @@ test('GET /api/v1/openapi.json is byte-identical to the committed backend/openap
   const document = JSON.parse(committed) as { servers: unknown; paths: Record<string, unknown> };
   assert.deepEqual(document.servers, [{ url: '/api/v1' }]);
   assert.ok('/health' in document.paths);
+});
+
+// One OpenAPI component per wire shape, whatever route produces it, so an SDK
+// generator emits one type per concept (cf. ename-internals.md). The name list
+// is the contract: a new route adds its own envelopes here, never a second
+// `Subject` or `Ename`.
+test('the v1 components name each wire shape once, shared across the write routes', async () => {
+  const response = await app.fetch(new Request(`${ORIGIN}/api/v1/openapi.json`));
+  const document = (await response.json()) as {
+    components: { schemas: Record<string, { properties: Record<string, { $ref?: string }> }> };
+  };
+  const schemas = document.components.schemas;
+
+  assert.deepEqual(Object.keys(schemas).sort(), [
+    'AddEnameToSubjectRequest',
+    'AddEnameToSubjectResponse',
+    'Ename',
+    'EnameInput',
+    'HealthResponse',
+    'ProblemDetails',
+    'RegisterSubjectRequest',
+    'RegisterSubjectResponse',
+    'Subject',
+    'SubjectInput',
+    'SubjectReference',
+  ]);
+
+  // Both write routes submit the same ename block and return the same ename;
+  // registration returns the full subject, adding an ename only names it.
+  const reference = (component: string, property: string) =>
+    schemas[component]?.properties[property]?.$ref;
+  assert.equal(reference('RegisterSubjectRequest', 'subject'), '#/components/schemas/SubjectInput');
+  assert.equal(reference('RegisterSubjectRequest', 'ename'), '#/components/schemas/EnameInput');
+  assert.equal(reference('AddEnameToSubjectRequest', 'ename'), '#/components/schemas/EnameInput');
+  assert.equal(reference('RegisterSubjectResponse', 'subject'), '#/components/schemas/Subject');
+  assert.equal(reference('RegisterSubjectResponse', 'ename'), '#/components/schemas/Ename');
+  assert.equal(
+    reference('AddEnameToSubjectResponse', 'subject'),
+    '#/components/schemas/SubjectReference',
+  );
+  assert.equal(reference('AddEnameToSubjectResponse', 'ename'), '#/components/schemas/Ename');
 });

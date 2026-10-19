@@ -5,23 +5,31 @@ import { z } from 'zod';
 import { isForeignKeyViolation, isUniqueViolation } from '../../database/errors.ts';
 import { pool } from '../../database/pool.ts';
 import { queryRows } from '../../database/query.ts';
-import { UUIDV7_REGEX } from '../../uuid.ts';
+import { UUIDv7Schema } from '../../utilities/uuid.ts';
 import { ConflictError, ContentionError, NotFoundError, ValidationError } from '../errors.ts';
 
 // ---------------------------------------------------------------------------
-// Ename format constants and shared regex
+// Ename format rules
 // ---------------------------------------------------------------------------
 
 // namePart grammar per docs/ename-format.md: lowercase letters and single hyphens,
-// no leading/trailing/consecutive hyphens, at least one letter. Shared across
-// layers so API validation and any future ename-creating endpoint agree.
+// no leading/trailing/consecutive hyphens, at least one letter.
 //
-// No regex flags, so callers can attach it to OpenAPI `pattern` fields without
-// leaking flag delimiters into the generated JSON Schema.
-export const NAME_PART_REGEX = /^[a-z]+(-[a-z]+)*$/;
+// No regex flags: the OpenAPI generator derives `pattern` from the regex source,
+// and a flag would not carry over into the generated JSON Schema.
+const NAME_PART_REGEX = /^[a-z]+(-[a-z]+)*$/;
 
 // namePart length cap per docs/ename-format.md.
-export const MAX_NAME_PART_LENGTH = 50;
+const MAX_NAME_PART_LENGTH = 50;
+
+// The namePart grammar as a pure schema: the single definition of the rule and
+// of its client-facing message. The HTTP body, the event request and the
+// projection row all parse a namePart through it; the API layer wraps it with
+// its OpenAPI example rather than re-assembling it (cf. ename-internals.md).
+export const NamePartSchema = z.string().min(1).max(MAX_NAME_PART_LENGTH).regex(NAME_PART_REGEX, {
+  message:
+    'must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)',
+});
 
 // Upper bound for numberPart, mirroring the enames_number_part_range CHECK
 // (1..999_999_999_999). Well under 2^53, so it round-trips as a JSON integer.
@@ -32,7 +40,7 @@ export const MAX_NUMBER_PART = 999_999_999_999;
 // path. z.coerce accepts both string and number: BIGINT comes back as a string
 // from pg, JSONB as a number. The API response schema uses a non-coerce variant
 // (the wire is JSON, we control the serializer).
-export const NumberPartFieldSchema = z.coerce.number().int().min(1).max(MAX_NUMBER_PART);
+export const NumberPartSchema = z.coerce.number().int().min(1).max(MAX_NUMBER_PART);
 
 // 52-char total budget on <namePart>#<numberPart>. Enforced after numberPart
 // allocation, since the digit count isn't known at request time.
@@ -55,12 +63,12 @@ const ENAMES_SUBJECT_ID_CONSTRAINT = 'enames_subject_id_fkey';
 // ---------------------------------------------------------------------------
 
 // Domain-shaped Ename, mirroring the enames projection. numberPart is BIGINT on
-// the DB side; see NumberPartFieldSchema above for the chain.
+// the DB side; see NumberPartSchema above for the chain.
 export const EnameSchema = z.object({
-  id: z.string().regex(UUIDV7_REGEX),
-  subjectId: z.string().regex(UUIDV7_REGEX),
-  namePart: z.string(),
-  numberPart: NumberPartFieldSchema,
+  id: UUIDv7Schema,
+  subjectId: UUIDv7Schema,
+  namePart: NamePartSchema,
+  numberPart: NumberPartSchema,
   createdAt: z.date(),
 });
 
@@ -98,7 +106,7 @@ export async function findEnames(): Promise<Ename[]> {
 
 // Row shape for `INSERT enames ... RETURNING number_part`.
 const NumberPartRowSchema = z.object({
-  numberPart: NumberPartFieldSchema,
+  numberPart: NumberPartSchema,
 });
 
 // INSERT the ename with the next number_part for this name_part, computed
