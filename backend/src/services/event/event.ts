@@ -15,8 +15,8 @@ import { UUIDV7_REGEX } from '../../uuid.ts';
 //
 // request and outcome are typed `unknown`: the table holds heterogeneous kinds
 // (subject.registered, subject.ename_added, future key rotation, …), each with
-// its own pair of schemas. Callers narrow by kind and parse each column
-// accordingly (e.g. SubjectRegistered{Request,Outcome}Schema).
+// its own pair of schemas. Callers narrow by kind and parse each column with
+// the kind's definition (see event-kinds.ts).
 //
 // idempotencyKey is exposed for service-internal use (replay lookup, race
 // reconciliation) and admin reads; it is transport metadata, projected out of
@@ -89,9 +89,8 @@ export async function insertEvent(
 
 // Sentinel raised by insertEvent when the events.idempotency_key UNIQUE
 // constraint fires: another transaction won the idempotency race. Not a
-// DomainError — it's internal control flow, caught by the use case (e.g.
-// registerSubject) to roll back and reconcile from the winner's row. Never
-// reaches the API layer.
+// DomainError — it's internal control flow, caught by appendEvent to roll back
+// and reconcile from the winner's row. Never leaves the event concept.
 export class IdempotencyRaceError extends Error {
   public override readonly name = 'IdempotencyRaceError';
   constructor() {

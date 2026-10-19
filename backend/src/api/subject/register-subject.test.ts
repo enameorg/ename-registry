@@ -119,10 +119,7 @@ test('idempotency conflict: same idempotencyKey with a different body returns 40
   assert.equal(body.type, 'about:blank');
   assert.equal(body.status, 409);
   assert.equal(body.title, 'Idempotency conflict');
-  assert.equal(
-    body.detail,
-    'This idempotency key has already been used with a different request body.',
-  );
+  assert.equal(body.detail, 'This idempotency key has already been used with a different request.');
   assert.match(body.requestId, UUIDV7_REGEX);
 });
 

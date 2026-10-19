@@ -5,25 +5,23 @@ import { pino } from 'pino';
 
 // Service integration tests: assert the return value and the persisted state
 // read back through the Service's own functions (findSubjects, findEnames,
-// findEvents, getEventByIdempotencyKey) — no raw pool/SQL. Those read primitives
-// are themselves covered by their concept's *.test.ts, so reading state through
-// them here is not circular. Test doctrine: ename-internals.md.
+// findEvents) — no raw pool/SQL. Those read primitives are themselves covered
+// by their concept's *.test.ts, so reading state through them here is not
+// circular. Idempotency (replay, conflict, race) is appendEvent's and is tested
+// at its interface in services/event/append-event.test.ts. Test doctrine:
+// ename-internals.md.
 import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../uuid.ts';
 import { findEnames } from '../ename/index.ts';
-import { IdempotencyConflictError, ValidationError } from '../errors.ts';
-import { findEvents, getEventByIdempotencyKey } from '../event/index.ts';
+import { ValidationError } from '../errors.ts';
+import { findEvents, SubjectRegisteredEventKindDefinition } from '../event/index.ts';
 
-import {
-  registerSubject,
-  SubjectRegisteredOutcomeSchema,
-  SubjectRegisteredRequestSchema,
-} from './register-subject.ts';
+import { registerSubject } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
 // Silent logger: these tests assert behavior, not log output. Keeping the
 // test runner output clean while still exercising the logger plumbing in the
-// service (logger.warn on number_part retry, logger.info on replay paths).
+// service (logger.warn on number_part retry).
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
@@ -72,10 +70,10 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(events[0]?.idempotencyKey, idempotencyKey);
   assert.equal(events[0]?.kind, 'subject.registered');
   // request = what the client submitted; outcome = what the server allocated.
-  const request = SubjectRegisteredRequestSchema.parse(events[0]?.request);
+  const request = SubjectRegisteredEventKindDefinition.requestSchema.parse(events[0]?.request);
   assert.equal(request.subject.kind, 'person');
   assert.equal(request.ename.namePart, namePart);
-  const outcome = SubjectRegisteredOutcomeSchema.parse(events[0]?.outcome);
+  const outcome = SubjectRegisteredEventKindDefinition.outcomeSchema.parse(events[0]?.outcome);
   assert.equal(outcome.subject.id, result.subject.id);
   assert.equal(outcome.ename.id, result.ename.id);
   assert.equal(outcome.ename.numberPart, 1);
@@ -113,53 +111,6 @@ test('two sequential registrations for the same namePart produce consecutive num
 });
 
 // ---------------------------------------------------------------------------
-// Idempotency: replay (same body) and conflict (different body)
-// ---------------------------------------------------------------------------
-
-test('idempotent replay: second sequential call with the same input returns the same result and writes nothing new', async () => {
-  const idempotencyKey = generateUUIDv7();
-  const input = {
-    idempotencyKey,
-    subject: { kind: 'person' as const },
-    ename: { namePart: 'albert-einstein' },
-  };
-
-  const first = await registerSubject(input, context);
-  const second = await registerSubject(input, context);
-
-  assert.equal(first.subject.id, second.subject.id);
-  assert.equal(first.ename.id, second.ename.id);
-  assert.equal(first.ename.numberPart, second.ename.numberPart);
-  assert.equal(first.createdAt.getTime(), second.createdAt.getTime());
-
-  assert.equal((await findEvents()).length, 1);
-  assert.equal((await findEnames()).length, 1);
-  assert.equal((await findSubjects()).length, 1);
-});
-
-test('idempotency conflict: same idempotencyKey with a different body throws IdempotencyConflictError', async () => {
-  const idempotencyKey = generateUUIDv7();
-
-  await registerSubject(
-    { idempotencyKey, subject: { kind: 'person' }, ename: { namePart: 'first-name' } },
-    context,
-  );
-
-  await assert.rejects(
-    () =>
-      registerSubject(
-        { idempotencyKey, subject: { kind: 'person' }, ename: { namePart: 'different-name' } },
-        context,
-      ),
-    (error: unknown) => {
-      assert.ok(error instanceof IdempotencyConflictError);
-      assert.match(error.message, /idempotency key/i);
-      return true;
-    },
-  );
-});
-
-// ---------------------------------------------------------------------------
 // Concurrency
 // ---------------------------------------------------------------------------
 
@@ -192,41 +143,6 @@ test('concurrent registrations for the same namePart produce consecutive numberP
   // Distinct subjects (each registration creates a new subject).
   const subjectIds = new Set(results.map((result) => result.subject.id));
   assert.equal(subjectIds.size, concurrency);
-});
-
-test('concurrent registrations with the same idempotencyKey produce a single event', async () => {
-  const idempotencyKey = generateUUIDv7();
-  const input = {
-    idempotencyKey,
-    subject: { kind: 'person' as const },
-    ename: { namePart: 'race-name' },
-  };
-  const concurrency = 10;
-
-  const results = await Promise.all(
-    Array.from({ length: concurrency }, () => registerSubject(input, context)),
-  );
-
-  // All callers must observe the same canonical result (same subject id,
-  // same ename id, same numberPart, same createdAt) — the winner's row
-  // reconciled to every loser via the preliminary lookup or the 23505
-  // race-recovery path.
-  const first = results[0];
-  assert.ok(first);
-  for (const result of results) {
-    assert.equal(result.subject.id, first.subject.id);
-    assert.equal(result.ename.id, first.ename.id);
-    assert.equal(result.ename.numberPart, first.ename.numberPart);
-    assert.equal(result.createdAt.getTime(), first.createdAt.getTime());
-  }
-
-  // Exactly one event was committed for this idempotency key, and exactly
-  // one subject + one ename in the projections — the other 9 attempts
-  // reconciled to the winner without leaving any trace.
-  assert.ok(await getEventByIdempotencyKey(idempotencyKey));
-  assert.equal((await findEvents()).length, 1);
-  assert.equal((await findSubjects()).length, 1);
-  assert.equal((await findEnames()).length, 1);
 });
 
 // ---------------------------------------------------------------------------

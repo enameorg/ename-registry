@@ -94,6 +94,10 @@ The initial fee a platform owes to obtain accreditation, complemented by an annu
 One immutable record of a registry mutation in the append-only log, the single source of truth.
 _Avoid_: transaction, mutation, log entry, record
 
+**Event kind**:
+The named category of an event (`subject.registered`, `subject.ename_added`), declared once with the pair of schemas that parse its request and outcome. Every event has exactly one kind.
+_Avoid_: event type
+
 **Projection**:
 A table reconstructible by replaying the event log, serving fast reads.
 _Avoid_: read model, cache, view

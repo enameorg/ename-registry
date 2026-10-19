@@ -96,9 +96,9 @@ backend/
 │   │   │   ├── index.ts              # barrel: the concept's public surface
 │   │   │   ├── subject.ts            # Subject type/schema + data-access primitives (get/find/insert)
 │   │   │   ├── subject.test.ts       # primitive round-trip tests
-│   │   │   ├── register-subject.ts   # registerSubject() use case + subject.registered event schemas
-│   │   │   ├── add-ename-to-subject.ts # addEnameToSubject() use case + subject.ename_added schemas
-│   │   │   └── *.test.ts             # use-case tests (idempotency, concurrency)
+│   │   │   ├── register-subject.ts   # registerSubject() use case (emits subject.registered)
+│   │   │   ├── add-ename-to-subject.ts # addEnameToSubject() use case (emits subject.ename_added)
+│   │   │   └── *.test.ts             # use-case tests (projections, concurrency)
 │   │   ├── ename/
 │   │   │   ├── index.ts
 │   │   │   ├── ename.ts              # Ename type/schema, format constants, pure rules, primitives
@@ -106,7 +106,10 @@ backend/
 │   │   ├── event/
 │   │   │   ├── index.ts
 │   │   │   ├── event.ts              # Event type/schema + primitives (the append-only log)
-│   │   │   └── event.test.ts
+│   │   │   ├── event.test.ts
+│   │   │   ├── event-kinds.ts        # Event kind definitions: kind literal + request/outcome schemas
+│   │   │   ├── append-event.ts       # appendEvent(): the idempotent-write protocol every use case runs
+│   │   │   └── append-event.test.ts  # protocol tests (replay, conflict, race, domain error vs winner)
 │   │   ├── application/
 │   │   │   ├── index.ts
 │   │   │   ├── application.ts        # health(), checkDatabase()
@@ -127,7 +130,7 @@ backend/
 └── README.md
 ```
 
-`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel. A concept's `<concept>.ts` holds its domain type/schema and its **data-access primitives** (single-table reads and writes); use cases live in their own operation-named files (`register-subject.ts`). The primitives are the sole holder of schema knowledge — table and column names, SQL, constraint names (see `docs/ename-internals.md`).
+`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel. A concept's `<concept>.ts` holds its domain type/schema and its **data-access primitives** (single-table reads and writes); use cases live in their own operation-named files (`register-subject.ts`) and run their writes through `appendEvent`, the write protocol of the `event` concept, which owns the transaction and idempotency. The primitives are the sole holder of schema knowledge — table and column names, SQL, constraint names (see `docs/ename-internals.md`).
 
 The split between `src/database/` and `src/services/` is intentional: `database/` holds **stateless, table-agnostic DB plumbing** (the pool singleton, the `queryRows`/`withTransaction` helpers, the test-only reset utility); `services/` holds the **business logic** — primitives and use cases — that uses it. Both belong conceptually to the Service layer (cf. `docs/ename-internals.md`). The API layer imports only the Service layer's public surface (the concept barrels), never `src/database/` directly.
 
