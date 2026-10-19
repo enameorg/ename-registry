@@ -32,24 +32,25 @@ The local database is a single PostgreSQL 18 cluster (matching Scaleway Serverle
 
 ## Common commands
 
-| Command                    | What it does                                                                       |
-| -------------------------- | ---------------------------------------------------------------------------------- |
-| `npm run db:up`            | Start PostgreSQL (Docker), wait for healthcheck, run migrations on both databases. |
-| `npm run db:down`          | Stop the PostgreSQL container (data preserved in the named volume).                |
-| `npm run db:nuke`          | Stop the container **and delete the data volume**. Destructive.                    |
-| `npm run db:migrate`       | Apply pending migrations to `ename_dev`.                                           |
-| `npm run db:migrate:test`  | Apply pending migrations to `ename_test`.                                          |
-| `npm run db:new -- <name>` | Create a new empty `<unix_ts>_<name>.sql` in `migrations/`.                        |
-| `npm run db:reset`         | Drop and recreate `ename_dev`, then re-run migrations. Fast reset without nuking.  |
-| `npm run db:reset:test`    | Same for `ename_test`.                                                             |
-| `npm run db:dump`          | Dump `ename_dev`'s schema to `schema.sql` (versioned).                             |
-| `npm run db:status`        | List migrations applied to `ename_dev`.                                            |
-| `npm run typecheck`        | Type-check the migration scripts (`tsc --noEmit`).                                 |
-| `npm run lint`             | Lint the codebase via ESLint.                                                      |
-| `npm run lint:fix`         | Lint and auto-fix where possible.                                                  |
-| `npm run format`           | Check formatting via Prettier.                                                     |
-| `npm run format:fix`       | Reformat the codebase via Prettier.                                                |
-| `npm run check`            | Run typecheck + lint + format in sequence.                                         |
+| Command                    | What it does                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `npm run db:up`            | Start PostgreSQL (Docker), wait for healthcheck, run migrations on both databases.  |
+| `npm run db:down`          | Stop the PostgreSQL container (data preserved in the named volume).                 |
+| `npm run db:nuke`          | Stop the container **and delete the data volume**. Destructive.                     |
+| `npm run db:migrate`       | Apply pending migrations to `ename_dev`.                                            |
+| `npm run db:migrate:test`  | Apply pending migrations to `ename_test`.                                           |
+| `npm run db:new -- <name>` | Create a new empty `<unix_ts>_<name>.sql` in `migrations/`.                         |
+| `npm run db:reset`         | Drop and recreate `ename_dev`, then re-run migrations. Fast reset without nuking.   |
+| `npm run db:reset:test`    | Same for `ename_test`.                                                              |
+| `npm run db:dump`          | Dump `ename_dev`'s schema to `schema.sql` (versioned).                              |
+| `npm run db:status`        | List migrations applied to `ename_dev`.                                             |
+| `npm run typecheck`        | Type-check the migration scripts (`tsc --noEmit`).                                  |
+| `npm run lint`             | Lint the codebase via ESLint.                                                       |
+| `npm run lint:fix`         | Lint and auto-fix where possible.                                                   |
+| `npm run format`           | Check formatting via Prettier.                                                      |
+| `npm run format:fix`       | Reformat the codebase via Prettier.                                                 |
+| `npm test`                 | Run the migration runner's tests (`node:test`, throwaway databases on the cluster). |
+| `npm run check`            | Run typecheck + lint + format + tests in sequence.                                  |
 
 ## Project structure
 
@@ -59,8 +60,11 @@ database/
 │   └── 01-create-databases.sql    # Runs once at first container boot — creates ename_test
 ├── migrations/                    # <unix_ts>_<name>.sql, forward-only (no down files)
 ├── scripts/
-│   ├── migrate.ts                 # Custom migration runner (content hash + per-migration transaction lock)
-│   └── new-migration.ts           # Scaffolds a new up/down migration pair
+│   ├── migrate.ts                 # CLI over src/migrate.ts: target (dev|test), connection, exit code
+│   └── new-migration.ts           # Scaffolds a new empty migration file
+├── src/
+│   ├── migrate.ts                 # The runner: run(), loadMigrations(), verifyApplied()
+│   └── migrate.test.ts            # Runner tests, one throwaway database per test
 ├── schema.sql                     # Canonical schema dump, regenerated by `npm run db:dump`
 ├── compose.yml                    # Local PostgreSQL service (included from the root compose.yml)
 ├── eslint.config.js
@@ -69,7 +73,7 @@ database/
 └── README.md
 ```
 
-Migrations are forward-only and have no down files: a local rollback is `npm run db:reset`. The runner invariants (SHA-256 of each file's raw bytes, per-migration transaction holding a transaction-level advisory lock, lexicographic ordering, single connection) are documented inline at the top of [`scripts/migrate.ts`](./scripts/migrate.ts) and in [`../docs/ename-internals.md`](../docs/ename-internals.md); the `schema_migrations` table and the hash are the contract the Rust phase reimplements.
+Migrations are forward-only and have no down files: a local rollback is `npm run db:reset`. The runner is a library, [`src/migrate.ts`](./src/migrate.ts), exporting `run(client, migrationsDirectory)` with its helpers `loadMigrations` and `verifyApplied`; [`scripts/migrate.ts`](./scripts/migrate.ts) is the thin CLI over it (target, connection, exit code). The runner invariants (SHA-256 of each file's raw bytes, an applied migration frozen in content and presence, per-migration transaction holding a transaction-level advisory lock, lexicographic ordering, single connection) are documented inline at the top of the library and in [`../docs/ename-internals.md`](../docs/ename-internals.md); [`src/migrate.test.ts`](./src/migrate.test.ts) is their executable specification. Each test creates a throwaway database on the cluster of `DATABASE_URL` and drops it afterwards, so the suite never touches `ename_dev` or `ename_test`. The `schema_migrations` table and the hash are the contract the Rust phase reimplements.
 
 ## License
 

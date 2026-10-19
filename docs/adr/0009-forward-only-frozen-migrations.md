@@ -23,6 +23,7 @@ Migrations are pure SQL files, `<unix_ts>_<name>.sql`, forward-only: there are n
 
 ## Consequences
 
-- An edit to an applied migration is detected and refused; a comment inside a migration states only the local why of its change, as it stands.
+- An applied migration is frozen in content and presence: a file edited, deleted or renamed after its application is detected, and the run refuses to apply anything until the corpus is restored or a local database is reset. A comment inside a migration states only the local why of its change, as it stands.
+- The runner is a library behind a thin CLI, and its invariants have an executable specification (`database/src/migrate.test.ts`), the reference a reimplementation is checked against.
 - A `no-transaction` migration (`CREATE INDEX CONCURRENTLY`) has neither the lock nor the rollback: it must be idempotent, and the runner is launched by a single job at a time.
 - Overlapping runners serialize and converge; the primary key on `schema_migrations.version` is the hard guarantee.
