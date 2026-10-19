@@ -4,7 +4,7 @@ import { registerSubject, type RegisterSubjectResult } from '../../services/subj
 import { DateTimeSchema } from '../../utilities/date-time.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 import type { HonoEnv } from '../context.ts';
-import { problemResponse } from '../problem.ts';
+import { gateProblemResponses, problemResponse } from '../errors.ts';
 
 import { EnameInputSchema, EnameSchema } from './ename.ts';
 import { SubjectInputSchema, SubjectSchema } from './subject.ts';
@@ -61,10 +61,8 @@ export const registerSubjectRoute = createRoute({
         'application/json': { schema: RegisterSubjectResponseSchema },
       },
     },
-    400: problemResponse('Request body could not be read properly'),
+    ...gateProblemResponses,
     409: problemResponse('Idempotency key already used for a different operation'),
-    413: problemResponse('Request body exceeds the size limit'),
-    415: problemResponse('Request body media type is not supported'),
     422: problemResponse('Request body failed validation'),
     500: problemResponse('Unexpected error'),
     503: problemResponse(

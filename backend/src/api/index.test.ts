@@ -6,7 +6,7 @@ import { useTestDb } from '../database/testing.ts';
 import { app } from '../index.ts';
 import { UUIDV7_REGEX } from '../utilities/uuid.ts';
 
-import { MAX_BODY_BYTES } from './index.ts';
+import { MAX_BODY_BYTES } from './middleware.ts';
 
 // Contract of the v1 gates and fallbacks: under the version prefix, an oversized
 // body, an unmatched path or an unsupported method answers a Problem Details

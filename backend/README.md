@@ -84,11 +84,12 @@ backend/
 │   │   │   ├── ename.ts              # Ename, EnameInput wire schemas; NamePartSchema wraps the Service rule
 │   │   │   └── *.test.ts             # HTTP-level integration tests
 │   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, ApiContext
-│   │   ├── index.ts                  # v1 sub-app assembly: middleware, body limit, routes, 404/405 fallbacks, defaultHook, onError, OpenAPI document
+│   │   ├── errors.ts                 # Error policy: RFC 9457 Problem Details shape, validation hook, error → response mapping, 404/405 responders, gate responses
+│   │   ├── errors.test.ts            # The 500 fallback and the unmapped HTTPException, through a throwaway sub-app
+│   │   ├── index.ts                  # v1 mount table: middleware order, routes, fallbacks, OpenAPI document
 │   │   ├── index.test.ts             # Contract of the v1 gates, fallbacks and OpenAPI components
-│   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs
-│   │   ├── openapi-metadata.ts       # OpenAPI info object
-│   │   └── problem.ts                # RFC 9457 Problem Details schema + helpers (shared error shape)
+│   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs; the body-size cap
+│   │   └── openapi-metadata.ts       # OpenAPI info object
 │   ├── database/                     # Low-level DB plumbing (singletons + helpers consumed by services)
 │   │   ├── errors.ts                 # pg driver error narrowing (isUniqueViolation)
 │   │   ├── pool.ts                   # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)

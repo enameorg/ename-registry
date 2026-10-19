@@ -1,5 +1,5 @@
 // Domain errors raised by the Service layer, which knows nothing about HTTP; the
-// API layer's onError maps each to a Problem Details response (see api/problem.ts).
+// API layer's error module maps each to a Problem Details response (see api/errors.ts).
 // Discriminated classes (not a tagged union) so instanceof works in the handler.
 
 export class DomainError extends Error {

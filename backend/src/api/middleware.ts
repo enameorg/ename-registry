@@ -7,6 +7,13 @@ import type { HonoEnv } from './context.ts';
 
 const REQUEST_ID_HEADER = 'X-Request-Id';
 
+// Cap on any request body, enforced by the body-limit middleware before routing
+// (cf. api/index.ts). Far above every legitimate v1 body (a registration is
+// about 150 bytes), so no well-formed client meets it. An internal protection,
+// not a contract value (cf. ename-internals.md): revisable without a contract
+// change.
+export const MAX_BODY_BYTES = 64 * 1024;
+
 // Generates requestId, binds a child logger, sets the response header, logs
 // entrance and exit. A client-provided header is deliberately NOT trusted —
 // it would let any caller poison the logs.

@@ -4,7 +4,7 @@ import { addEnameToSubject, type AddEnameToSubjectResult } from '../../services/
 import { DateTimeSchema } from '../../utilities/date-time.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 import type { HonoEnv } from '../context.ts';
-import { problemResponse } from '../problem.ts';
+import { gateProblemResponses, problemResponse } from '../errors.ts';
 
 import { EnameInputSchema, EnameSchema } from './ename.ts';
 import { SubjectReferenceSchema } from './subject.ts';
@@ -69,11 +69,9 @@ export const addEnameToSubjectRoute = createRoute({
         'application/json': { schema: AddEnameToSubjectResponseSchema },
       },
     },
-    400: problemResponse('Request body could not be read properly'),
+    ...gateProblemResponses,
     404: problemResponse('Subject not found'),
     409: problemResponse('Idempotency key conflict or subject already has this namePart'),
-    413: problemResponse('Request body exceeds the size limit'),
-    415: problemResponse('Request body media type is not supported'),
     422: problemResponse('Path parameter or request body failed validation'),
     500: problemResponse('Unexpected error'),
     503: problemResponse(
