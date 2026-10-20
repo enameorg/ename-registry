@@ -4,4 +4,4 @@
 -- (name_part, number_part) UNIQUE constraint.
 
 ALTER TABLE enames
-  ADD CONSTRAINT enames_subject_id_name_part_key UNIQUE (subject_id, name_part);
+  ADD UNIQUE (subject_id, name_part);
