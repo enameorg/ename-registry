@@ -8,7 +8,7 @@ This document is about the **Ename registry**. It describes platforms as an inst
 
 Conventions:
 - **Concept-based headings**, not numbered headings, so anchors survive reordering.
-- **Explicit status markers** on decisions: `[settled]`, `[settled in principle]`, `[strong intuition]`, `[working hypothesis]`, `[open]`.
+- **Explicit status markers** on decisions: `[settled]`, `[settled in principle]`, `[working hypothesis]`, `[open]`.
 - **Stable Q-IDs** for open topics (`[Q-XXX]`), referenced from the body.
 - **No external-communication wording here**: no user promises, no pitches, no ornate prose. Dense, explicit text.
 - **Registry / platform distinction**: this document describes the registry. When a platform-side decision is mentioned, it is as a registry expectation (what the platform must do), not as platform-internal architecture.
@@ -70,7 +70,7 @@ Decisions:
 - **Combined trigger criteria**: internal usage threshold (% of the platform's users) + externalization threshold (>=1 other interested platform) + absolute time threshold (feature age). Exact values and threshold logic remain open. `[settled in principle; values: Q-STAND-PARAM]`
 - **Delay between trigger and submission**: 12-month intuition. Shorter = punitive; longer = complacent. `[working hypothesis; Q-STAND-PARAM]`
 - **Trigger governance**: by Ename, upon report by any actor (user, other platform, observer). Public and enforceable. Not by the platform itself (conflict of interest). `[settled]`
-- **Validation of proposed standards**: Ename reviews, rejects standards that serve only one platform. Open consultation, public review, reasoned decision. Precise modalities (arbitration body, timelines, appeal paths) in the rules of procedure. `[settled in principle; details: Q-STAND-PARAM]`
+- **Review of proposed standards**: Ename reviews, rejects standards that serve only one platform. Open consultation, public review, reasoned decision. Precise modalities (arbitration body, timelines, appeal paths) in the rules of procedure. `[settled in principle; details: Q-STAND-PARAM]`
 - **Productive tension**: similar balance to patents — limited monopoly against disclosure, except here the counterpart is enrichment of a commons, not disclosure to the state. Use as pedagogical analogy. `[settled]`
 - **Terminological disambiguation**: "standardization" in the ecosystem denotes two distinct things — (a) Ename's establishment of interoperability standards (registry objective #3), (b) the specific usage-proven mechanism described here. Mechanism (b) feeds corpus (a); they are not synonyms. `[settled]`
 
@@ -80,7 +80,7 @@ Fourth registry objective. Orthogonal layer superimposed on transport — it doe
 
 Decisions:
 - **Signature by the user, not by the platform**. Non-negotiable consequence of three project properties: multi-century durability (a platform may disappear; the registry endures), platform portability (no re-signature on migration), trust across platforms (verification happens against the Ename key, not the platform's reputation). `[settled]`
-- **Verification across platforms**: every signature, attestation, or transfer verification is performed against keys published by Ename, never against the emitting platform's reputation. A malicious platform can at worst omit (censor by invisibilization), not fabricate. `[settled]`
+- **Verification across platforms**: every signature, attestation, or transfer verification is performed against keys published by Ename, never against the emitting platform's reputation. Once an ename's key is published, a malicious platform can at worst omit (censor by invisibilization), not fabricate. The one exception is initial registration, which the platform alone submits: it can bind an ename to a key it controls, but never silently — the person cannot sign under their ename, so the attack is visible to its target. Proof of possession would not close this gap: a platform that generates the key pair proves possession trivially. `[settled]`
 - **Key history in the registry**: Ename publishes the public-key history of each ename, with validity periods. A signature remains verifiable as long as its timestamp falls within the validity period of the key that produced it. `[settled in principle]`
 - **Revocation policy in case of compromise**: three possible options (invalidate everything during the presumed compromise period — purist; only elements after report — pragmatic; let the recipient choose — responsibility-shifting). To be settled in Ename rules. `[open: Q-REVOC]`
 - **Key recovery mechanisms**: three mechanisms the user may freely combine depending on risk profile — cloud-sync via passkey, social recovery by quorum of contacts, re-KYC with the platform as last resort. None is free of tradeoffs (each balances convenience, third-party dependence, and identity exposure differently). Interface standardization to be led by Ename; operational experimentation by platforms. `[settled in principle; Q-KEYREC]`
@@ -97,9 +97,9 @@ Decisions:
 - **Non-domination rule**: no college alone holds a majority. Guarantees the pluralistic nature of governance and registry neutrality. `[settled]`
 - **One-third renewal** of mandates, limited duration (bylaws art. 12: three years, bounded re-eligibility). Aims for continuity while avoiding concentration of power. `[settled]`
 - **Structural modifications** (rules affecting format, accreditation conditions, user rights): subject to **prior public consultation**, with a public summary before the final decision. `[settled]`
-- **Validation of interoperability standards** proposed by platforms: follows the same principle — open consultation, public review, reasoned decision. Precise modalities (arbitration body, timelines, appeal paths) in the rules of procedure. `[settled in principle; details: Q-STAND-PARAM]`
+- **Review of interoperability standards** proposed by platforms: follows the same principle — open consultation, public review, reasoned decision. Precise modalities (arbitration body, timelines, appeal paths) in the rules of procedure. `[settled in principle; details: Q-STAND-PARAM]`
 - **Independent appeal mechanism**: allows platforms and end users to contest registry decisions. Precise modalities in the rules of procedure. `[settled in principle; Q-RECOURS]`
-- **Founder-seat decrease**: main mechanism settled by the bylaws (arts. 12 and 17) — re-eligibility limited to once for founders (vs twice for other colleges), vacant founder seats not refilled but redistributed to the other colleges, transition to the target composition to be completed within a period defined by transitional provisions. Practical redistribution modalities remain to be specified (rules of procedure). `[partly settled; practical details: Q-FOUND-DECREASE]`
+- **Founder-seat decrease**: main mechanism settled by the bylaws (arts. 12 and 17) — re-eligibility limited to once for founders (vs twice for other colleges), vacant founder seats not refilled but redistributed to the other colleges, transition to the target composition to be completed within a period defined by transitional provisions. Practical redistribution modalities remain to be specified (rules of procedure). `[settled in principle; practical details: Q-FOUND-DECREASE]`
 - **Precise platform accreditation criteria**: required KYC level, operational security requirements, financial capacity, accreditation duration, withdrawal conditions. Minimal framework to set in the rules of procedure or an accreditation-standards document. `[open: Q-ACCRED-CRITERES]`
 
 ### Funding
@@ -134,7 +134,7 @@ The ename format (syntax, structure, transliteration rules, length, name changes
 - **General form `<name>#<number>`**, readable, easy to dictate, stable. `[settled]`
 - **Definitive person <-> ename link**: once assigned, an ename remains definitively linked to the same person, even if that person changes name (they then obtain a new ename; the old one remains linked to them). `[settled]`
 - **Central case: verified ename** of a natural person, only operational case at this stage (cf. glossary *verified ename*). `[settled]`
-- **Planned extensions** (operational frameworks to define, handled in section *Upcoming Workstreams*): organization enames, secondary enames (aliases), unverified enames, affiliation syntax (`person#1@organization#1`). `[settled in principle for scope; open for implementation]`
+- **Planned extensions** (operational frameworks to define, handled in section *Upcoming Workstreams*): organization enames, secondary enames (aliases), unverified enames, affiliation syntax (`person#1@organization#1`). `[settled in principle; Q-ORG, Q-ALIAS, Q-NONVERIF]`
 
 ### Upcoming Workstreams
 

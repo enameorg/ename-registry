@@ -23,7 +23,7 @@ Phase 1 is Node.js + TypeScript. Phase 2 is a port to Rust by a dedicated team r
 
 ## Consequences
 
-- Repo-wide shape chosen for the port: raw parameterized SQL (no ORM), pure functions and module singletons (no DI framework, no classes with hidden state), snake_case in SQL, and a two-layer architecture (ADR-0006).
+- The Node code takes a repo-wide shape chosen for the port — raw SQL, no DI framework, two layers (ADR-0006); the internals state it.
 - Schema, migrations and the migration runner live in their own package, shared by both phases (ADR-0009).
 - The Node → Rust rationale is stated here once and is not re-argued per decision.
 - The trigger of the port is an open question, `[Q-PORT-TRIGGER]` in the internals.

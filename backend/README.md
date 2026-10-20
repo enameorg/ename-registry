@@ -139,13 +139,11 @@ backend/
 └── README.md
 ```
 
-`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel. A concept's `<concept>.ts` holds its domain type/schema and its **data-access primitives** (single-table reads and writes); use cases live in their own operation-named files (`register-subject.ts`) and run their writes through `appendEvent`, the write protocol of the `event` concept, which owns the transaction and idempotency. The primitives are the sole holder of schema knowledge — table and column names, SQL, constraint names (see `docs/ename-internals.md`).
-
-The split between `src/database/` and `src/services/` is intentional: `database/` holds **stateless, table-agnostic DB plumbing** (the pool singleton, the `queryRows`/`withTransaction` helpers, the test-only reset utility); `services/` holds the **business logic** — primitives and use cases — that uses it. Both belong conceptually to the Service layer (cf. `docs/ename-internals.md`). The API layer imports only the Service layer's public surface (the concept barrels), never `src/database/` directly.
+`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel: the concept-named file holds its type and data-access primitives, each use case has its own operation-named file, and `event` holds the write protocol every use case goes through. `src/database/` is the runtime DB plumbing (pool, query and transaction helpers, test reset) the services build on.
 
 Note: the in-repo `src/database/` directory above is **runtime DB plumbing** consumed by the backend service; do not confuse it with the sibling [`database/`](../database/) **package**, which owns the schema, migrations, the migration runner, and the local PostgreSQL cluster.
 
-The two-layer architecture (API / Services), the dependency propagation rules, and the rationale for each tooling choice are documented in [`../docs/ename-internals.md`](../docs/ename-internals.md).
+The rules behind this layout — the two layers, what a primitive owns, who opens transactions, what the API layer may import — are stated in [`../docs/ename-internals.md`](../docs/ename-internals.md); the trade-offs behind them live in [`../docs/adr/`](../docs/adr/).
 
 ## License
 

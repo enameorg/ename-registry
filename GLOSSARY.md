@@ -1,6 +1,6 @@
 # Ename
 
-Public registry of verified human identifiers, operated by a nonprofit organization and designed to last for centuries. This glossary is the project's vocabulary; the mission, decisions and open questions live in `docs/ename-synthesis.md` and `docs/ename-internals.md`.
+Public registry of verified human identifiers, operated by a nonprofit organization and designed to last for centuries. This glossary is the project's vocabulary; the mission, decisions and open questions live in `docs/ename-synthesis.md` and `docs/ename-internals.md`. A term listed under _Avoid_ is rejected as a synonym of that entry, not banned from the corpus: it may be used in its own distinct sense.
 
 ## Identity
 
@@ -21,7 +21,11 @@ _Avoid_: anonymous ename, pseudonym
 
 **Subject**:
 The registry's record of one person holding one or more enames, referenced publicly by a stable `subject_id`. The registry stores nothing about the person beyond what binding and verification require.
-_Avoid_: user, account, holder, customer
+_Avoid_: user, account, holder, customer (when the registry's record is meant)
+
+**End user**:
+The person a platform serves: they hold one or more enames, sign with their keys, and entrust their portable user data to a platform. Distinct from the Subject, the registry's record of that person. "User" alone is acceptable where the platform context is clear.
+_Avoid_: customer, member, account
 
 **Home platform**:
 The accredited platform currently serving a given ename, as recorded in the registry.
@@ -97,6 +101,10 @@ _Avoid_: transaction, mutation, log entry, record
 **Event kind**:
 The named category of an event (`subject.registered`, `subject.ename_added`), declared once with the pair of schemas that parse its request and outcome. Every event has exactly one kind.
 _Avoid_: event type
+
+**Idempotency key**:
+The client-supplied identifier carried in every write request and stored with the event it produces: a replay of the same request returns the prior result, and the same key with a different request is a conflict.
+_Avoid_: request id (the server-generated correlation id), nonce
 
 **Projection**:
 A table reconstructible by replaying the event log, serving fast reads.

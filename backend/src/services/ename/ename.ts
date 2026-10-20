@@ -21,7 +21,8 @@ import { ConflictError, ContentionError, NotFoundError, ValidationError } from '
 // and a flag would not carry over into the generated JSON Schema.
 const NAME_PART_REGEX = /^[a-z]+(-[a-z]+)*$/;
 
-// namePart length cap per docs/ename-format.md.
+// Derived from the 52-character ename budget of docs/ename-format.md:
+// 52 minus `#` minus the shortest numberPart, one digit.
 const MAX_NAME_PART_LENGTH = 50;
 
 // The namePart grammar as a pure schema: the single definition of the rule and

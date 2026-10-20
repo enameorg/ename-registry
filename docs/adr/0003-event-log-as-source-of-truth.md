@@ -22,6 +22,5 @@ Every mutation is recorded as an immutable event in an append-only `events` tabl
 
 ## Consequences
 
-- Replay must be deterministic: `created_at` is supplied by the application (never `DEFAULT now()`), ids are application-generated (no `DEFAULT`), and there is no `updated_at` — change is a new row, never an UPDATE.
-- The event `sequence` is a total order over committed events but not gap-free; the contiguous Merkle leaf index is assigned at tree-construction time.
+- Replay must be deterministic, so no projection row carries a value the log does not: the internals state the schema discipline that follows (no database-generated timestamp or id, no update in place).
 - The registry stores only what binding and verification require; profile data stays on the platforms, which keeps the auditable, non-erasable surface minimal.

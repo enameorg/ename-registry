@@ -18,7 +18,7 @@ An event carries two JSONB columns. `request` is exactly what the actor submitte
 ## Considered options
 
 - **One `payload` column.** Rejected: the signature scope would be ambiguous and the server would have to reconstruct the signed subset at verification time.
-- **Signing a canonical re-serialization regardless of storage.** Rejected for now: it needs canonicalization machinery whose choice belongs to the open cryptographic design (`[Q-CRYPTO-IMPL]`), and the storage split costs nothing today.
+- **Signing a canonical re-serialization regardless of storage.** Rejected: it needs canonicalization machinery whose choice belongs to the open cryptographic design (`[Q-CRYPTO-IMPL]`), and the storage split costs nothing; the option is reconsidered with that design.
 
 ## Consequences
 

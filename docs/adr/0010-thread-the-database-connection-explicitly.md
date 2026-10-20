@@ -15,11 +15,10 @@ The connection is an explicit argument, `Pool | PoolClient`, first on every prim
 
 ## Considered options
 
-- **An ambient connection via async context.** Rejected. The write protocol's idempotency rests on its preliminary lookup and its reconciliation running *outside* the transaction; with an ambient connection that guarantee holds only while nobody calls the protocol from a transaction of their own, and the breach is silent. The propagation model admits no hidden channel, and the Rust target (sqlx) has no ambient executor: the port would re-thread the argument everywhere. The ergonomic gain is real; the first two costs outweigh it.
+- **An ambient connection via async context.** Rejected. The write protocol's idempotency rests on its preliminary lookup and its reconciliation running *outside* the transaction; with an ambient connection that guarantee holds only while nobody calls the protocol from a transaction of their own, and the breach is silent. The propagation model admits no hidden channel. The ergonomic gain is real; these two costs outweigh it.
 - **A client-only signature for the allocation.** Rejected: nesting in the helper makes the exception unnecessary.
 
 ## Consequences
 
 - A projection writer can pass the pool by mistake inside its transaction; the type does not forbid it. The import of the pool singleton is the thing to watch in review.
-- No parallel statements inside one transaction: two nested blocks on the same client interleave their savepoints, and releasing the first drops the second.
-- A loop releases its savepoint at each turn: PostgreSQL degrades past 64 open subtransactions in one transaction.
+- Nesting by savepoint constrains callers — no parallel statements inside one transaction, one release per loop turn; the internals state those rules.
