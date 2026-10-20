@@ -1,8 +1,9 @@
+import { defineConfig } from 'eslint/config';
 import importX from 'eslint-plugin-import-x';
 import unusedImports from 'eslint-plugin-unused-imports';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+export default defineConfig(
   {
     files: ['src/**/*.ts', 'scripts/**/*.ts'],
 
