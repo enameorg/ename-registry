@@ -129,7 +129,7 @@ A request-scoped value the Service layer needs is read from the `ApiContext` by 
 
 **Logging.** `pino`, emitting JSON in every environment including local dev, so the production log format is familiar from day one. Logs may carry registry values (a `namePart`, a submitted request body): the registry's data is public by design, so a value in a log exposes nothing the database does not. The rule is revisited the day the registry holds a non-public value.
 
-**Lint and format.** Prettier owns formatting; ESLint complements it without overlap and runs no opaque preset — each rule is individually justified (type-aware promise hygiene, import ordering and hygiene, unused-import removal). Prettier is left at its defaults except `singleQuote`, `printWidth: 100`, `endOfLine: 'lf'`.
+**Lint and format.** Prettier owns formatting; ESLint complements it without overlap and runs no opaque preset — each rule is individually justified (type-aware promise hygiene, import ordering and hygiene, unused-import removal). Prettier is left at its defaults except `singleQuote` and `printWidth: 100`.
 
 ## Tooling and supply chain
 
