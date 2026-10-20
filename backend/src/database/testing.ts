@@ -24,7 +24,7 @@ export function useTestDb(): void {
 // two distinct .env URLs) between a misconfigured test runner and the dev DB.
 //
 // Uses the singleton pool directly: this helper only runs from tests, and the
-// enclosing lifecycle helper keeps `pool` out of higher-layer test files.
+// enclosing lifecycle helper keeps the reset itself out of higher-layer test files.
 async function resetTestDb(): Promise<void> {
   if (config.nodeEnv !== 'test') {
     throw new Error(`resetTestDb() called with NODE_ENV=${config.nodeEnv}; only allowed in 'test'`);

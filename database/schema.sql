@@ -35,7 +35,8 @@ CREATE TABLE public.enames (
     created_at timestamp with time zone NOT NULL,
     CONSTRAINT enames_name_part_charset CHECK ((name_part ~ '^[a-z0-9-]+$'::text)),
     CONSTRAINT enames_name_part_length CHECK (((length(name_part) >= 1) AND (length(name_part) <= 50))),
-    CONSTRAINT enames_number_part_range CHECK (((number_part >= 1) AND (number_part <= '999999999999'::bigint)))
+    CONSTRAINT enames_number_part_range CHECK (((number_part >= 1) AND (number_part <= '999999999999'::bigint))),
+    CONSTRAINT enames_total_length CHECK ((((length(name_part) + 1) + length((number_part)::text)) <= 52))
 );
 
 

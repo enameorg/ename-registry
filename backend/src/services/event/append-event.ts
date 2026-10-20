@@ -1,10 +1,9 @@
 import { isDeepStrictEqual } from 'node:util';
 
-import type { PoolClient } from 'pg';
 import type { Logger } from 'pino';
 
 import { pool } from '../../database/pool.ts';
-import { withTransaction } from '../../database/query.ts';
+import { type Database, withTransaction } from '../../database/query.ts';
 import type { ServiceContext } from '../context.ts';
 import { DomainError, IdempotencyConflictError } from '../errors.ts';
 
@@ -34,7 +33,7 @@ export async function appendEvent<Definition extends EventKindDefinition>(
   params: {
     idempotencyKey: string;
     request: EventRequest<Definition>;
-    projectionWriter: (client: PoolClient, createdAt: Date) => Promise<EventOutcome<Definition>>;
+    projectionWriter: (db: Database, createdAt: Date) => Promise<EventOutcome<Definition>>;
   },
   context: ServiceContext,
 ): Promise<AppendEventResult<Definition>> {
@@ -44,7 +43,7 @@ export async function appendEvent<Definition extends EventKindDefinition>(
   const request = definition.requestSchema.parse(params.request) as EventRequest<Definition>;
 
   // Step 1 — preliminary lookup, outside any transaction.
-  const existing = await getEventByIdempotencyKey(params.idempotencyKey);
+  const existing = await getEventByIdempotencyKey(pool, params.idempotencyKey);
   if (existing) {
     logger.info(
       { idempotencyKey: params.idempotencyKey, kind: definition.kind, outcome: 'replay' },
@@ -59,14 +58,14 @@ export async function appendEvent<Definition extends EventKindDefinition>(
   try {
     return await withTransaction(
       pool,
-      async (client) => {
+      async (db) => {
         // Step 3 — the use case's projection writes, inside the event's transaction.
-        const outcome = await params.projectionWriter(client, createdAt);
+        const outcome = await params.projectionWriter(db, createdAt);
 
         // Step 4 — INSERT events. A 23505 on idempotency_key means another
         // backend won the race since step 1; insertEvent raises
         // IdempotencyRaceError and we reconcile outside the transaction.
-        await insertEvent(client, {
+        await insertEvent(db, {
           idempotencyKey: params.idempotencyKey,
           kind: definition.kind,
           request,
@@ -78,12 +77,17 @@ export async function appendEvent<Definition extends EventKindDefinition>(
       logger,
     );
   } catch (error) {
+    // Both lookups below run on the pool, after the rollback, never inside the
+    // transaction: a failed INSERT (the events row, or a projection constraint
+    // behind a domain error) leaves the transaction aborted, so nothing can be
+    // read on that connection, and its projection writes are to be discarded
+    // anyway — the winner's committed state is the truth.
     if (error instanceof IdempotencyRaceError) {
       logger.info(
         { idempotencyKey: params.idempotencyKey, kind: definition.kind },
         'idempotency race detected at events insert, reconciling from winner',
       );
-      const winner = await getEventByIdempotencyKey(params.idempotencyKey);
+      const winner = await getEventByIdempotencyKey(pool, params.idempotencyKey);
       if (!winner) {
         // Pathological: the constraint fired but the row is no longer
         // visible (concurrent ROLLBACK between our INSERT-fail and this
@@ -94,10 +98,10 @@ export async function appendEvent<Definition extends EventKindDefinition>(
     }
     if (error instanceof DomainError) {
       // A current-state error raised by the projection writer (a projection
-      // conflict, a post-allocation rule) may be the trace of a same-key winner
+      // conflict, the 52-char budget) may be the trace of a same-key winner
       // that committed between step 1 and the writer's writes: the replay must win
       // over the conflict, so look for the winner before surfacing the error.
-      const winner = await getEventByIdempotencyKey(params.idempotencyKey);
+      const winner = await getEventByIdempotencyKey(pool, params.idempotencyKey);
       if (winner) {
         logger.info(
           { idempotencyKey: params.idempotencyKey, kind: definition.kind, error: error.name },

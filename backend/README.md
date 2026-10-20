@@ -91,10 +91,11 @@ backend/
 │   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs; the body-size cap
 │   │   └── openapi-metadata.ts       # OpenAPI info object
 │   ├── database/                     # Low-level DB plumbing (singletons + helpers consumed by services)
-│   │   ├── errors.ts                 # pg driver error narrowing (isUniqueViolation)
+│   │   ├── errors.ts                 # pg driver error narrowing (isUniqueViolation, isForeignKeyViolation, isCheckViolation)
 │   │   ├── pool.ts                   # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)
 │   │   ├── pool.test.ts              # Idle-client connection loss is logged, never fatal
-│   │   ├── query.ts                  # queryRows() + withTransaction() helpers, camelize at boundary
+│   │   ├── query.ts                  # Database type, queryRows(), withTransaction() (nests as a savepoint), camelize at boundary
+│   │   ├── query.test.ts             # withTransaction nesting: contained failure, release, outer rollback
 │   │   └── testing.ts                # Test DB reset + pool shutdown; refuses reset outside NODE_ENV=test
 │   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
 │   │   ├── subject/

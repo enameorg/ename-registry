@@ -4,36 +4,49 @@ import { test } from 'node:test';
 import { pino } from 'pino';
 
 import { pool } from '../../database/pool.ts';
-import { withTransaction } from '../../database/query.ts';
 import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
 import { insertSubject } from '../subject/index.ts';
 
 import {
-  enforceMaxEnameLength,
   findEnames,
   getEnameByNamePartAndNumberPart,
   insertEnameWithNextNumber,
   NamePartSchema,
 } from './ename.ts';
 
-// Direct tests of the ename data-access primitives and the pure post-allocation
-// rule (see ename-internals.md). insertEnameWithNextNumber requires an existing
-// subject (enames.subject_id FK), so each insert test seeds one through the
-// subject primitive.
+// Direct tests of the ename data-access primitives (see ename-internals.md).
+// insertEnameWithNextNumber requires an existing subject (enames.subject_id FK),
+// so each insert test seeds one through the subject primitive.
 const logger = pino({ level: 'silent' });
 
 useTestDb();
 
 async function seedSubject(): Promise<string> {
   const subjectId = generateUUIDv7();
-  await withTransaction(
+  await insertSubject(pool, { id: subjectId, kind: 'person', createdAt: new Date() });
+  return subjectId;
+}
+
+// Every allocation is one INSERT: called with the pool, each runs in its own
+// transaction, so no test opens one.
+async function allocate(params: {
+  enameId?: string;
+  subjectId: string;
+  namePart: string;
+  createdAt?: Date;
+}): Promise<number> {
+  return await insertEnameWithNextNumber(
     pool,
-    (client) => insertSubject(client, { id: subjectId, kind: 'person', createdAt: new Date() }),
+    {
+      enameId: params.enameId ?? generateUUIDv7(),
+      subjectId: params.subjectId,
+      namePart: params.namePart,
+      createdAt: params.createdAt ?? new Date(),
+    },
     logger,
   );
-  return subjectId;
 }
 
 test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEnameByNamePartAndNumberPart/findEnames', async () => {
@@ -41,19 +54,10 @@ test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEn
   const enameId = generateUUIDv7();
   const createdAt = new Date();
 
-  const numberPart = await withTransaction(
-    pool,
-    (client) =>
-      insertEnameWithNextNumber(
-        client,
-        { enameId, subjectId, namePart: 'jean-dupont', createdAt },
-        logger,
-      ),
-    logger,
-  );
+  const numberPart = await allocate({ enameId, subjectId, namePart: 'jean-dupont', createdAt });
   assert.equal(numberPart, 1);
 
-  const found = await getEnameByNamePartAndNumberPart({
+  const found = await getEnameByNamePartAndNumberPart(pool, {
     namePart: 'jean-dupont',
     numberPart: 1,
   });
@@ -64,7 +68,7 @@ test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEn
   assert.equal(found.numberPart, 1);
   assert.equal(found.createdAt.getTime(), createdAt.getTime());
 
-  assert.equal((await findEnames()).length, 1);
+  assert.equal((await findEnames(pool)).length, 1);
 });
 
 test('insertEnameWithNextNumber allocates consecutive numberParts per namePart', async () => {
@@ -72,31 +76,8 @@ test('insertEnameWithNextNumber allocates consecutive numberParts per namePart',
   const secondSubjectId = await seedSubject();
   const namePart = 'marie-curie';
 
-  const first = await withTransaction(
-    pool,
-    (client) =>
-      insertEnameWithNextNumber(
-        client,
-        { enameId: generateUUIDv7(), subjectId: firstSubjectId, namePart, createdAt: new Date() },
-        logger,
-      ),
-    logger,
-  );
-  const second = await withTransaction(
-    pool,
-    (client) =>
-      insertEnameWithNextNumber(
-        client,
-        {
-          enameId: generateUUIDv7(),
-          subjectId: secondSubjectId,
-          namePart,
-          createdAt: new Date(),
-        },
-        logger,
-      ),
-    logger,
-  );
+  const first = await allocate({ subjectId: firstSubjectId, namePart });
+  const second = await allocate({ subjectId: secondSubjectId, namePart });
 
   assert.equal(first, 1);
   assert.equal(second, 2);
@@ -106,29 +87,10 @@ test('insertEnameWithNextNumber rejects a duplicate namePart for the same subjec
   const subjectId = await seedSubject();
   const namePart = 'marie-curie';
 
-  await withTransaction(
-    pool,
-    (client) =>
-      insertEnameWithNextNumber(
-        client,
-        { enameId: generateUUIDv7(), subjectId, namePart, createdAt: new Date() },
-        logger,
-      ),
-    logger,
-  );
+  await allocate({ subjectId, namePart });
 
   await assert.rejects(
-    () =>
-      withTransaction(
-        pool,
-        (client) =>
-          insertEnameWithNextNumber(
-            client,
-            { enameId: generateUUIDv7(), subjectId, namePart, createdAt: new Date() },
-            logger,
-          ),
-        logger,
-      ),
+    () => allocate({ subjectId, namePart }),
     (error: unknown) =>
       error instanceof ConflictError &&
       error.message === 'This subject already has an ename with this namePart.',
@@ -137,45 +99,37 @@ test('insertEnameWithNextNumber rejects a duplicate namePart for the same subjec
 
 test('insertEnameWithNextNumber rejects an unknown subjectId', async () => {
   await assert.rejects(
-    () =>
-      withTransaction(
-        pool,
-        (client) =>
-          insertEnameWithNextNumber(
-            client,
-            {
-              enameId: generateUUIDv7(),
-              subjectId: generateUUIDv7(),
-              namePart: 'jean-dupont',
-              createdAt: new Date(),
-            },
-            logger,
-          ),
-        logger,
-      ),
+    () => allocate({ subjectId: generateUUIDv7(), namePart: 'jean-dupont' }),
     (error: unknown) => error instanceof NotFoundError && error.message === 'Subject not found.',
   );
 });
 
-test('getEnameByNamePartAndNumberPart returns undefined for an unknown ename', async () => {
-  assert.equal(
-    await getEnameByNamePartAndNumberPart({ namePart: 'nobody', numberPart: 1 }),
-    undefined,
+test('insertEnameWithNextNumber rejects an allocation whose full ename would exceed 52 characters, pointing at ename.namePart', async () => {
+  // 50 + "#" + 1 digit = 52 for numberParts 1..9; the tenth would be 53.
+  const namePart = 'a'.repeat(50);
+  for (let index = 0; index < 9; index += 1) {
+    await allocate({ subjectId: await seedSubject(), namePart });
+  }
+
+  const tenthSubjectId = await seedSubject();
+  await assert.rejects(
+    () => allocate({ subjectId: tenthSubjectId, namePart }),
+    (error: unknown) => {
+      assert.ok(error instanceof ValidationError);
+      assert.match(error.message, /52/);
+      assert.ok(
+        error.errors.some((issue) => issue.path[0] === 'ename' && issue.path[1] === 'namePart'),
+      );
+      return true;
+    },
   );
+  assert.equal((await findEnames(pool)).length, 9);
 });
 
-// enforceMaxEnameLength is a pure rule (no DB) — testable in isolation.
-test('enforceMaxEnameLength throws ValidationError only when the total exceeds 52 chars', () => {
-  // 50 + "#" + 1 digit = 52: allowed.
-  assert.doesNotThrow(() =>
-    enforceMaxEnameLength({ namePart: 'a'.repeat(50), numberPart: 1 }, logger),
-  );
-  // 50 + "#" + 2 digits = 53: rejected, pointing at ename.namePart.
-  assert.throws(
-    () => enforceMaxEnameLength({ namePart: 'a'.repeat(50), numberPart: 10 }, logger),
-    (error: unknown) =>
-      error instanceof ValidationError &&
-      error.errors.some((issue) => issue.path[0] === 'ename' && issue.path[1] === 'namePart'),
+test('getEnameByNamePartAndNumberPart returns undefined for an unknown ename', async () => {
+  assert.equal(
+    await getEnameByNamePartAndNumberPart(pool, { namePart: 'nobody', numberPart: 1 }),
+    undefined,
   );
 });
 

@@ -1,10 +1,12 @@
-import type { PoolClient } from 'pg';
 import type { Logger } from 'pino';
 import { z } from 'zod';
 
-import { isForeignKeyViolation, isUniqueViolation } from '../../database/errors.ts';
-import { pool } from '../../database/pool.ts';
-import { queryRows } from '../../database/query.ts';
+import {
+  isCheckViolation,
+  isForeignKeyViolation,
+  isUniqueViolation,
+} from '../../database/errors.ts';
+import { type Database, queryRows, withTransaction } from '../../database/query.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 import { ConflictError, ContentionError, NotFoundError, ValidationError } from '../errors.ts';
 
@@ -42,12 +44,14 @@ export const MAX_NUMBER_PART = 999_999_999_999;
 // (the wire is JSON, we control the serializer).
 export const NumberPartSchema = z.coerce.number().int().min(1).max(MAX_NUMBER_PART);
 
-// 52-char total budget on <namePart>#<numberPart>. Enforced after numberPart
-// allocation, since the digit count isn't known at request time.
-export const MAX_ENAME_LENGTH = 52;
+// 52-char total budget on <namePart>#<numberPart>, mirroring the
+// enames_total_length CHECK. The digit count of numberPart is only known once
+// allocated, so the database enforces the budget on the row and the allocation
+// translates the violation (see insertEnameWithNextNumber).
+const MAX_ENAME_LENGTH = 52;
 
 // Retry budget when the (name_part, number_part) UNIQUE constraint fires in the
-// SAVEPOINT loop. Under READ COMMITTED two transactions can read the same
+// allocation loop. Under READ COMMITTED two transactions can read the same
 // MAX(number_part) and race; each collision round eliminates ~one contender, so
 // the budget caps the concurrent burst on a single name_part. Beyond it, the
 // allocation gives up with a retryable ContentionError (503 + Retry-After) and
@@ -57,6 +61,7 @@ const MAX_NUMBER_PART_RETRIES = 20;
 const ENAMES_NUMBER_PART_CONSTRAINT = 'enames_name_part_number_part_key';
 const ENAMES_SUBJECT_NAME_PART_CONSTRAINT = 'enames_subject_id_name_part_key';
 const ENAMES_SUBJECT_ID_CONSTRAINT = 'enames_subject_id_fkey';
+const ENAMES_TOTAL_LENGTH_CONSTRAINT = 'enames_total_length';
 
 // ---------------------------------------------------------------------------
 // Ename domain type and lookups
@@ -76,12 +81,12 @@ export type Ename = z.infer<typeof EnameSchema>;
 
 const SELECT_ENAME_COLUMNS = 'id, subject_id, name_part, number_part, created_at';
 
-export async function getEnameByNamePartAndNumberPart(params: {
-  namePart: string;
-  numberPart: number;
-}): Promise<Ename | undefined> {
+export async function getEnameByNamePartAndNumberPart(
+  db: Database,
+  params: { namePart: string; numberPart: number },
+): Promise<Ename | undefined> {
   const rows = await queryRows(
-    pool,
+    db,
     `SELECT ${SELECT_ENAME_COLUMNS} FROM enames WHERE name_part = $1 AND number_part = $2`,
     [params.namePart, params.numberPart],
     EnameSchema,
@@ -91,9 +96,9 @@ export async function getEnameByNamePartAndNumberPart(params: {
 
 // Ordered by (created_at, id): deterministic; id (UUIDv7) breaks ties on
 // equal created_at.
-export async function findEnames(): Promise<Ename[]> {
+export async function findEnames(db: Database): Promise<Ename[]> {
   return await queryRows(
-    pool,
+    db,
     `SELECT ${SELECT_ENAME_COLUMNS} FROM enames ORDER BY created_at, id`,
     [],
     EnameSchema,
@@ -101,7 +106,7 @@ export async function findEnames(): Promise<Ename[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Insertion helpers and post-allocation guard
+// Insertion helpers
 // ---------------------------------------------------------------------------
 
 // Row shape for `INSERT enames ... RETURNING number_part`.
@@ -111,10 +116,12 @@ const NumberPartRowSchema = z.object({
 
 // INSERT the ename with the next number_part for this name_part, computed
 // atomically via COALESCE(MAX(...), 0)+1. Two backends can pick the same MAX,
-// so each attempt runs under a SAVEPOINT and retries on 23505 — the surrounding
-// transaction's other INSERTs survive across attempts.
+// so each attempt runs in a nested withTransaction — a savepoint inside the
+// caller's transaction, whose other writes survive across attempts — and the
+// 23505 is retried. Returns a numberPart whose full ename fits the 52-char
+// budget, or throws the domain error the violated constraint translates to.
 export async function insertEnameWithNextNumber(
-  client: PoolClient,
+  db: Database,
   params: {
     enameId: string;
     subjectId: string;
@@ -124,38 +131,9 @@ export async function insertEnameWithNextNumber(
   logger: Logger,
 ): Promise<number> {
   for (let attempt = 1; attempt <= MAX_NUMBER_PART_RETRIES; attempt += 1) {
-    await client.query('SAVEPOINT ename_attempt');
     try {
-      const rows = await queryRows(
-        client,
-        `INSERT INTO enames (id, subject_id, name_part, number_part, created_at)
-         SELECT $1, $2, $3, COALESCE(MAX(number_part), 0) + 1, $4
-         FROM enames WHERE name_part = $3
-         RETURNING number_part`,
-        [params.enameId, params.subjectId, params.namePart, params.createdAt],
-        NumberPartRowSchema,
-      );
-      const row = rows[0];
-      if (!row) {
-        // Unreachable in practice (a successful INSERT ... RETURNING returns a
-        // row); defensive against a future refactor. Thrown BEFORE RELEASE
-        // SAVEPOINT so the catch's ROLLBACK targets a still-existing savepoint.
-        throw new Error('insert enames returned no row');
-      }
-      await client.query('RELEASE SAVEPOINT ename_attempt');
-      return row.numberPart;
+      return await withTransaction(db, (db) => insertEnameOnce(db, params), logger);
     } catch (error) {
-      // Same defensive pattern as `withTransaction`: a SAVEPOINT rollback
-      // failure (typically a dead connection or an already-aborted txn)
-      // must not mask the original INSERT error.
-      try {
-        await client.query('ROLLBACK TO SAVEPOINT ename_attempt');
-      } catch (rollbackError) {
-        logger.error(
-          { err: rollbackError, namePart: params.namePart, attempt },
-          'rollback to savepoint failed; original error will be re-thrown',
-        );
-      }
       if (isUniqueViolation(error, ENAMES_NUMBER_PART_CONSTRAINT)) {
         logger.warn(
           { namePart: params.namePart, attempt },
@@ -174,6 +152,23 @@ export async function insertEnameWithNextNumber(
         logger.info({ subjectId: params.subjectId }, 'subject not found while inserting ename');
         throw new NotFoundError('Subject not found.');
       }
+      if (isCheckViolation(error, ENAMES_TOTAL_LENGTH_CONSTRAINT)) {
+        // The next numberPart has one digit too many for this namePart (→ 422).
+        // Specifics to the log; the thrown message stays client-safe.
+        logger.warn(
+          { namePart: params.namePart, namePartLength: params.namePart.length },
+          `${MAX_ENAME_LENGTH}-char overflow on ename creation`,
+        );
+        throw new ValidationError(
+          `The resulting ename would exceed the ${MAX_ENAME_LENGTH}-character limit; choose a shorter namePart.`,
+          [
+            {
+              path: ['ename', 'namePart'],
+              message: `namePart is too long: combined with the next available numberPart it would exceed ${MAX_ENAME_LENGTH} characters`,
+            },
+          ],
+        );
+      }
       throw error;
     }
   }
@@ -189,35 +184,27 @@ export async function insertEnameWithNextNumber(
   );
 }
 
-// Enforce the 52-char total budget on <namePart>#<numberPart>. Can't live in
-// Zod input validation: numberPart's digit count is only known after
-// allocation. Throws ValidationError (→ 422); specifics are logged, the public
-// detail stays generic.
-export function enforceMaxEnameLength(
-  params: { namePart: string; numberPart: number },
-  logger: Logger,
-): void {
-  const numberPartDigits = String(params.numberPart).length;
-  const totalLength = params.namePart.length + 1 + numberPartDigits;
-  if (totalLength > MAX_ENAME_LENGTH) {
-    logger.warn(
-      {
-        namePartLength: params.namePart.length,
-        numberPart: params.numberPart,
-        numberPartDigits,
-        totalLength,
-        maxEnameLength: MAX_ENAME_LENGTH,
-      },
-      `${MAX_ENAME_LENGTH}-char overflow on ename creation`,
-    );
-    throw new ValidationError(
-      `The resulting ename would exceed the ${MAX_ENAME_LENGTH}-character limit; choose a shorter namePart.`,
-      [
-        {
-          path: ['ename', 'namePart'],
-          message: `namePart is too long: combined with the next available numberPart it would exceed ${MAX_ENAME_LENGTH} characters`,
-        },
-      ],
-    );
+// One attempt: the INSERT and its RETURNING, raw — every error reaches the
+// retry loop above, which rolls the attempt back through withTransaction and
+// translates or retries.
+async function insertEnameOnce(
+  db: Database,
+  params: { enameId: string; subjectId: string; namePart: string; createdAt: Date },
+): Promise<number> {
+  const rows = await queryRows(
+    db,
+    `INSERT INTO enames (id, subject_id, name_part, number_part, created_at)
+     SELECT $1, $2, $3, COALESCE(MAX(number_part), 0) + 1, $4
+     FROM enames WHERE name_part = $3
+     RETURNING number_part`,
+    [params.enameId, params.subjectId, params.namePart, params.createdAt],
+    NumberPartRowSchema,
+  );
+  const row = rows[0];
+  if (!row) {
+    // Unreachable in practice (a successful INSERT ... RETURNING returns a
+    // row); defensive against a future refactor.
+    throw new Error('insert enames returned no row');
   }
+  return row.numberPart;
 }

@@ -1,6 +1,6 @@
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import type { ServiceContext } from '../context.ts';
-import { enforceMaxEnameLength, insertEnameWithNextNumber } from '../ename/index.ts';
+import { insertEnameWithNextNumber } from '../ename/index.ts';
 import {
   appendEvent,
   type EventRequest,
@@ -42,22 +42,19 @@ export async function registerSubject(
     {
       idempotencyKey: input.idempotencyKey,
       request: { subject, ename },
-      projectionWriter: async (client, createdAt) => {
+      projectionWriter: async (db, createdAt) => {
         const subjectId = generateUUIDv7();
         const enameId = generateUUIDv7();
-        await insertSubject(client, {
+        await insertSubject(db, {
           id: subjectId,
           kind: subject.kind,
           createdAt,
         });
         const numberPart = await insertEnameWithNextNumber(
-          client,
+          db,
           { enameId, subjectId, namePart: ename.namePart, createdAt },
           context.logger,
         );
-        // 52-char guard: depends on numberPart, so it cannot live in input
-        // validation. Throws ValidationError (→ 422), rolling the event back.
-        enforceMaxEnameLength({ namePart: ename.namePart, numberPart }, context.logger);
         return { subject: { id: subjectId }, ename: { id: enameId, numberPart } };
       },
     },

@@ -1,9 +1,7 @@
-import type { PoolClient } from 'pg';
 import { z } from 'zod';
 
 import { isUniqueViolation } from '../../database/errors.ts';
-import { pool } from '../../database/pool.ts';
-import { queryRows } from '../../database/query.ts';
+import { type Database, queryRows } from '../../database/query.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 
 // ---------------------------------------------------------------------------
@@ -34,9 +32,12 @@ export type Event = z.infer<typeof EventSchema>;
 
 const SELECT_EVENT_COLUMNS = 'sequence, idempotency_key, kind, request, outcome, created_at';
 
-export async function getEventByIdempotencyKey(idempotencyKey: string): Promise<Event | undefined> {
+export async function getEventByIdempotencyKey(
+  db: Database,
+  idempotencyKey: string,
+): Promise<Event | undefined> {
   const rows = await queryRows(
-    pool,
+    db,
     `SELECT ${SELECT_EVENT_COLUMNS} FROM events WHERE idempotency_key = $1`,
     [idempotencyKey],
     EventSchema,
@@ -46,9 +47,9 @@ export async function getEventByIdempotencyKey(idempotencyKey: string): Promise<
 
 // Ordered by sequence — the canonical log order, same as the future public
 // transparency-log endpoint.
-export async function findEvents(): Promise<Event[]> {
+export async function findEvents(db: Database): Promise<Event[]> {
   return await queryRows(
-    pool,
+    db,
     `SELECT ${SELECT_EVENT_COLUMNS} FROM events ORDER BY sequence`,
     [],
     EventSchema,
@@ -64,7 +65,7 @@ const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
 // INSERT one event row. On a UNIQUE collision on idempotency_key, throws
 // IdempotencyRaceError so the caller can roll back and reconcile from the winner.
 export async function insertEvent(
-  client: PoolClient,
+  db: Database,
   params: {
     idempotencyKey: string;
     kind: string;
@@ -74,7 +75,7 @@ export async function insertEvent(
   },
 ): Promise<void> {
   try {
-    await client.query(
+    await db.query(
       `INSERT INTO events (idempotency_key, kind, request, outcome, created_at)
        VALUES ($1, $2, $3, $4, $5)`,
       [params.idempotencyKey, params.kind, params.request, params.outcome, params.createdAt],

@@ -1,10 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
-import { pino } from 'pino';
-
 import { pool } from '../../database/pool.ts';
-import { withTransaction } from '../../database/query.ts';
 import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 
@@ -18,9 +15,8 @@ import {
 // Direct tests of the event data-access primitives (insert + read round-trip,
 // and the idempotency_key UNIQUE collision path). These primitives are tested
 // in isolation so use-case tests can read state back through them and trust the
-// result — see ename-internals.md.
-const logger = pino({ level: 'silent' });
-
+// result — see ename-internals.md. A single-statement write needs no
+// transaction, so the primitives are called with the pool directly.
 useTestDb();
 
 test('insertEvent then read back round-trips kind, request, outcome, idempotencyKey and createdAt', async () => {
@@ -32,20 +28,15 @@ test('insertEvent then read back round-trips kind, request, outcome, idempotency
     ename: { id: generateUUIDv7(), numberPart: 1 },
   };
 
-  await withTransaction(
-    pool,
-    (client) =>
-      insertEvent(client, {
-        idempotencyKey,
-        kind: 'subject.registered',
-        request,
-        outcome,
-        createdAt,
-      }),
-    logger,
-  );
+  await insertEvent(pool, {
+    idempotencyKey,
+    kind: 'subject.registered',
+    request,
+    outcome,
+    createdAt,
+  });
 
-  const found = await getEventByIdempotencyKey(idempotencyKey);
+  const found = await getEventByIdempotencyKey(pool, idempotencyKey);
   assert.ok(found);
   assert.equal(found.idempotencyKey, idempotencyKey);
   assert.equal(found.kind, 'subject.registered');
@@ -54,13 +45,13 @@ test('insertEvent then read back round-trips kind, request, outcome, idempotency
   assert.equal(found.createdAt.getTime(), createdAt.getTime());
   assert.ok(found.sequence >= 1);
 
-  const all = await findEvents();
+  const all = await findEvents(pool);
   assert.equal(all.length, 1);
   assert.equal(all[0]?.idempotencyKey, idempotencyKey);
 });
 
 test('getEventByIdempotencyKey returns undefined for an unknown key', async () => {
-  assert.equal(await getEventByIdempotencyKey(generateUUIDv7()), undefined);
+  assert.equal(await getEventByIdempotencyKey(pool, generateUUIDv7()), undefined);
 });
 
 test('insertEvent twice with the same idempotencyKey throws IdempotencyRaceError', async () => {
@@ -73,10 +64,10 @@ test('insertEvent twice with the same idempotencyKey throws IdempotencyRaceError
     createdAt: new Date(),
   };
 
-  await withTransaction(pool, (client) => insertEvent(client, params), logger);
+  await insertEvent(pool, params);
 
   await assert.rejects(
-    () => withTransaction(pool, (client) => insertEvent(client, params), logger),
+    () => insertEvent(pool, params),
     (error: unknown) => error instanceof IdempotencyRaceError,
   );
 });

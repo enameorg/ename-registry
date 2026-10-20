@@ -1,8 +1,6 @@
-import type { PoolClient } from 'pg';
 import { z } from 'zod';
 
-import { pool } from '../../database/pool.ts';
-import { queryRows } from '../../database/query.ts';
+import { type Database, queryRows } from '../../database/query.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 
 // ---------------------------------------------------------------------------
@@ -20,9 +18,9 @@ export type Subject = z.infer<typeof SubjectSchema>;
 
 const SELECT_SUBJECT_COLUMNS = 'id, kind, created_at';
 
-export async function getSubject(id: string): Promise<Subject | undefined> {
+export async function getSubject(db: Database, id: string): Promise<Subject | undefined> {
   const rows = await queryRows(
-    pool,
+    db,
     `SELECT ${SELECT_SUBJECT_COLUMNS} FROM subjects WHERE id = $1`,
     [id],
     SubjectSchema,
@@ -32,9 +30,9 @@ export async function getSubject(id: string): Promise<Subject | undefined> {
 
 // Ordered by (created_at, id): deterministic; id (UUIDv7) breaks ties on
 // equal created_at.
-export async function findSubjects(): Promise<Subject[]> {
+export async function findSubjects(db: Database): Promise<Subject[]> {
   return await queryRows(
-    pool,
+    db,
     `SELECT ${SELECT_SUBJECT_COLUMNS} FROM subjects ORDER BY created_at, id`,
     [],
     SubjectSchema,
@@ -48,10 +46,10 @@ export async function findSubjects(): Promise<Subject[]> {
 // Thin wrapper for symmetry with insertEnameWithNextNumber / insertEvent:
 // each table's write lives in the concept that owns it, even when trivial.
 export async function insertSubject(
-  client: PoolClient,
+  db: Database,
   params: { id: string; kind: 'person'; createdAt: Date },
 ): Promise<void> {
-  await client.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [
+  await db.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [
     params.id,
     params.kind,
     params.createdAt,

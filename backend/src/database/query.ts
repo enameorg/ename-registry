@@ -1,9 +1,22 @@
-import type { Pool, PoolClient, QueryConfig } from 'pg';
+import pg, { type Pool, type PoolClient, type QueryConfig } from 'pg';
 import type { Logger } from 'pino';
 import type { z } from 'zod';
 
+// What every function that talks to the database receives: the pool outside a
+// transaction, the transaction's client inside one. The union exposes only what
+// both share (running a statement), so a callee can neither check out nor
+// release a connection; Pool and PoolClient themselves stay inside src/database/.
+export type Database = Pool | PoolClient;
+
+// Open levels per connection: 1 once BEGIN ran, one more per nested block. The
+// depth names the savepoint, so each level targets its own and never an
+// enclosing one, and the set of statement texts stays bounded. Kept on the
+// connection (a WeakMap keyed by the client, released with it), the way sqlx
+// and Django track transaction depth — not a process-wide counter.
+const transactionDepths = new WeakMap<PoolClient, number>();
+
 export async function queryRows<T>(
-  db: Pool | PoolClient,
+  db: Database,
   sql: string,
   params: readonly unknown[],
   schema: z.ZodType<T>,
@@ -15,14 +28,31 @@ export async function queryRows<T>(
   return result.rows.map((row: Record<string, unknown>) => schema.parse(camelize(row)));
 }
 
+// Run `work` atomically. On a Pool, that is a transaction on a connection
+// checked out for its duration; on a PoolClient — which only ever exists inside
+// such a transaction — it is a savepoint, so a nested withTransaction is
+// contained: its failure rolls back to the savepoint, rethrows the original
+// error, and leaves the enclosing transaction usable (cf. ename-internals.md).
 export async function withTransaction<T>(
+  db: Database,
+  work: (db: Database) => Promise<T>,
+  logger: Logger,
+): Promise<T> {
+  if (db instanceof pg.Pool) {
+    return await runTransaction(db, work, logger);
+  }
+  return await runSavepoint(db, work, logger);
+}
+
+async function runTransaction<T>(
   pool: Pool,
-  work: (client: PoolClient) => Promise<T>,
+  work: (db: Database) => Promise<T>,
   logger: Logger,
 ): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    transactionDepths.set(client, 1);
     const result = await work(client);
     await client.query('COMMIT');
     return result;
@@ -42,7 +72,43 @@ export async function withTransaction<T>(
     }
     throw error;
   } finally {
+    transactionDepths.delete(client);
     client.release();
+  }
+}
+
+async function runSavepoint<T>(
+  client: PoolClient,
+  work: (db: Database) => Promise<T>,
+  logger: Logger,
+): Promise<T> {
+  const enclosingDepth = transactionDepths.get(client) ?? 1;
+  const depth = enclosingDepth + 1;
+  // Interpolated, not a placeholder: SAVEPOINT takes no parameter, and the
+  // name is built from the depth, never from input.
+  const savepoint = `savepoint_${depth - 1}`;
+  await client.query(`SAVEPOINT ${savepoint}`);
+  transactionDepths.set(client, depth);
+  try {
+    const result = await work(client);
+    await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+    return result;
+  } catch (error) {
+    // Same rule as the transaction: the cleanup never masks the original error.
+    // ROLLBACK TO keeps the savepoint, so it is released afterwards: the level
+    // leaves nothing open behind it, and a loop of failed blocks stays flat.
+    try {
+      await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+    } catch (rollbackError) {
+      logger.error(
+        { err: rollbackError, savepoint },
+        'rollback to savepoint failed; original error will be re-thrown',
+      );
+    }
+    throw error;
+  } finally {
+    transactionDepths.set(client, enclosingDepth);
   }
 }
 
@@ -50,7 +116,7 @@ export async function withTransaction<T>(
 // honors `query_timeout` on a query config at runtime; @types/pg omits it, hence
 // the widened type). Rejects on any failure, the timeout included; the caller
 // decides what that means.
-export async function pingDatabase(db: Pool, timeoutMs: number): Promise<void> {
+export async function pingDatabase(db: Database, timeoutMs: number): Promise<void> {
   const probe: QueryConfig & { query_timeout: number } = {
     text: 'SELECT 1',
     query_timeout: timeoutMs,

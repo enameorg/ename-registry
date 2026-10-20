@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { pino } from 'pino';
 import { z } from 'zod';
 
+import { pool } from '../../database/pool.ts';
 import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
@@ -48,12 +49,12 @@ test('happy path: adds one ename to an existing subject and emits subject.ename_
   assert.equal(result.ename.namePart, 'new-name');
   assert.equal(result.ename.numberPart, 1);
 
-  const subjects = await findSubjects();
+  const subjects = await findSubjects(pool);
   assert.equal(subjects.length, 1);
   assert.equal(subjects[0]?.id, registered.subject.id);
   assert.equal(subjects[0]?.createdAt.getTime(), registered.createdAt.getTime());
 
-  const enames = await findEnames();
+  const enames = await findEnames(pool);
   assert.equal(enames.length, 2);
   const addedEname = enames.find((ename) => ename.id === result.ename.id);
   assert.ok(addedEname);
@@ -61,7 +62,7 @@ test('happy path: adds one ename to an existing subject and emits subject.ename_
   assert.equal(addedEname.namePart, 'new-name');
   assert.equal(addedEname.createdAt.getTime(), result.createdAt.getTime());
 
-  const events = await findEvents();
+  const events = await findEvents(pool);
   assert.equal(events.length, 2);
   const addEvent = events[1];
   assert.equal(addEvent?.idempotencyKey, idempotencyKey);
@@ -130,9 +131,9 @@ test('duplicate namePart for the same subject throws ConflictError and writes no
       error.message === 'This subject already has an ename with this namePart.',
   );
 
-  assert.equal((await findSubjects()).length, 1);
-  assert.equal((await findEnames()).length, 1);
-  assert.equal((await findEvents()).length, 1);
+  assert.equal((await findSubjects(pool)).length, 1);
+  assert.equal((await findEnames(pool)).length, 1);
+  assert.equal((await findEvents(pool)).length, 1);
 });
 
 test('unknown subject throws NotFoundError and writes nothing', async () => {
@@ -149,9 +150,9 @@ test('unknown subject throws NotFoundError and writes nothing', async () => {
     (error: unknown) => error instanceof NotFoundError && error.message === 'Subject not found.',
   );
 
-  assert.equal((await findSubjects()).length, 0);
-  assert.equal((await findEnames()).length, 0);
-  assert.equal((await findEvents()).length, 0);
+  assert.equal((await findSubjects(pool)).length, 0);
+  assert.equal((await findEnames(pool)).length, 0);
+  assert.equal((await findEvents(pool)).length, 0);
 });
 
 test('concurrent duplicate adds with different idempotencyKeys produce one success and conflicts', async () => {
@@ -184,8 +185,8 @@ test('concurrent duplicate adds with different idempotencyKeys produce one succe
   );
   assert.equal(successes.length, 1);
   assert.equal(conflicts.length, concurrency - 1);
-  assert.equal((await findEvents()).length, 2);
-  assert.equal((await findEnames()).length, 2);
+  assert.equal((await findEvents(pool)).length, 2);
+  assert.equal((await findEnames(pool)).length, 2);
 });
 
 test('a namePart outside the grammar is rejected before anything is written', async () => {
@@ -217,6 +218,6 @@ test('a namePart outside the grammar is rejected before anything is written', as
     },
   );
 
-  assert.equal((await findEnames()).length, 1);
-  assert.equal((await findEvents()).length, 1);
+  assert.equal((await findEnames(pool)).length, 1);
+  assert.equal((await findEvents(pool)).length, 1);
 });

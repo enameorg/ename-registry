@@ -5,7 +5,6 @@ import { pino } from 'pino';
 import { ZodError } from 'zod';
 
 import { pool } from '../../database/pool.ts';
-import { withTransaction } from '../../database/query.ts';
 import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, IdempotencyConflictError } from '../errors.ts';
@@ -46,7 +45,7 @@ test('appends one event carrying the kind, the request, the outcome of the proje
     {
       idempotencyKey,
       request,
-      projectionWriter: (_client, createdAt) => {
+      projectionWriter: (_db, createdAt) => {
         createdAtSeenByWriter = createdAt;
         return Promise.resolve(outcome);
       },
@@ -58,7 +57,7 @@ test('appends one event carrying the kind, the request, the outcome of the proje
   assert.deepEqual(appended.outcome, outcome);
   assert.equal(appended.createdAt, createdAtSeenByWriter);
 
-  const events = await findEvents();
+  const events = await findEvents(pool);
   assert.equal(events.length, 1);
   const [event] = events;
   assert.ok(event);
@@ -96,7 +95,7 @@ test('replays the stored result for the same idempotencyKey and request, without
   assert.deepEqual(second.request, first.request);
   assert.deepEqual(second.outcome, first.outcome);
   assert.equal(second.createdAt.getTime(), first.createdAt.getTime());
-  assert.equal((await findEvents()).length, 1);
+  assert.equal((await findEvents(pool)).length, 1);
 });
 
 test('rejects the same idempotencyKey with a different request as an IdempotencyConflictError, without running the projection writer', async () => {
@@ -132,7 +131,7 @@ test('rejects the same idempotencyKey with a different request as an Idempotency
     },
   );
   assert.equal(writerRuns, 0);
-  assert.equal((await findEvents()).length, 1);
+  assert.equal((await findEvents(pool)).length, 1);
 });
 
 test('rejects the same idempotencyKey used by an event of another kind, before parsing its request', async () => {
@@ -140,18 +139,13 @@ test('rejects the same idempotencyKey used by an event of another kind, before p
   // Seed a subject.ename_added row directly: its request has no subject.kind,
   // so a parse with the subject.registered schema would throw a ZodError — the
   // kind check must come first.
-  await withTransaction(
-    pool,
-    (client) =>
-      insertEvent(client, {
-        idempotencyKey,
-        kind: SubjectEnameAddedEventKindDefinition.kind,
-        request: { subject: { id: generateUUIDv7() }, ename: { namePart: 'jean-dupont' } },
-        outcome: { ename: { id: generateUUIDv7(), numberPart: 2 } },
-        createdAt: new Date(),
-      }),
-    context.logger,
-  );
+  await insertEvent(pool, {
+    idempotencyKey,
+    kind: SubjectEnameAddedEventKindDefinition.kind,
+    request: { subject: { id: generateUUIDv7() }, ename: { namePart: 'jean-dupont' } },
+    outcome: { ename: { id: generateUUIDv7(), numberPart: 2 } },
+    createdAt: new Date(),
+  });
 
   await assert.rejects(
     () =>
@@ -181,26 +175,21 @@ test('loses the race at the events insert to a concurrent same-key commit, rolls
     {
       idempotencyKey,
       request,
-      projectionWriter: async (client, createdAt) => {
-        await insertSubject(client, {
+      projectionWriter: async (db, createdAt) => {
+        await insertSubject(db, {
           id: generateUUIDv7(),
           kind: 'person',
           createdAt,
         });
         // Another backend commits the same key, same request, on its own
         // connection, after our preliminary lookup and before our events insert.
-        await withTransaction(
-          pool,
-          (winnerClient) =>
-            insertEvent(winnerClient, {
-              idempotencyKey,
-              kind: SubjectRegisteredEventKindDefinition.kind,
-              request,
-              outcome: winnerOutcome,
-              createdAt: winnerCreatedAt,
-            }),
-          context.logger,
-        );
+        await insertEvent(pool, {
+          idempotencyKey,
+          kind: SubjectRegisteredEventKindDefinition.kind,
+          request,
+          outcome: winnerOutcome,
+          createdAt: winnerCreatedAt,
+        });
         return makeOutcome();
       },
     },
@@ -209,8 +198,8 @@ test('loses the race at the events insert to a concurrent same-key commit, rolls
 
   assert.deepEqual(appended.outcome, winnerOutcome);
   assert.equal(appended.createdAt.getTime(), winnerCreatedAt.getTime());
-  assert.equal((await findEvents()).length, 1);
-  assert.equal((await findSubjects()).length, 0);
+  assert.equal((await findEvents(pool)).length, 1);
+  assert.equal((await findSubjects(pool)).length, 0);
 });
 
 test('a domain error raised by the projection writer is reconciled against a concurrent same-key winner before it surfaces', async () => {
@@ -225,18 +214,13 @@ test('a domain error raised by the projection writer is reconciled against a con
       projectionWriter: async () => {
         // The winner commits first; our projection write then hits a
         // current-state conflict that the winner explains.
-        await withTransaction(
-          pool,
-          (winnerClient) =>
-            insertEvent(winnerClient, {
-              idempotencyKey,
-              kind: SubjectRegisteredEventKindDefinition.kind,
-              request,
-              outcome: winnerOutcome,
-              createdAt: new Date(),
-            }),
-          context.logger,
-        );
+        await insertEvent(pool, {
+          idempotencyKey,
+          kind: SubjectRegisteredEventKindDefinition.kind,
+          request,
+          outcome: winnerOutcome,
+          createdAt: new Date(),
+        });
         throw new ConflictError('This subject already has an ename with this namePart.');
       },
     },
@@ -244,7 +228,7 @@ test('a domain error raised by the projection writer is reconciled against a con
   );
 
   assert.deepEqual(appended.outcome, winnerOutcome);
-  assert.equal((await findEvents()).length, 1);
+  assert.equal((await findEvents(pool)).length, 1);
 });
 
 test('a domain error raised by the projection writer with no winner surfaces as is, and nothing is written', async () => {
@@ -255,8 +239,8 @@ test('a domain error raised by the projection writer with no winner surfaces as 
         {
           idempotencyKey: generateUUIDv7(),
           request,
-          projectionWriter: async (client, createdAt) => {
-            await insertSubject(client, {
+          projectionWriter: async (db, createdAt) => {
+            await insertSubject(db, {
               id: generateUUIDv7(),
               kind: 'person',
               createdAt,
@@ -268,8 +252,8 @@ test('a domain error raised by the projection writer with no winner surfaces as 
       ),
     (error: unknown) => error instanceof ConflictError,
   );
-  assert.equal((await findEvents()).length, 0);
-  assert.equal((await findSubjects()).length, 0);
+  assert.equal((await findEvents(pool)).length, 0);
+  assert.equal((await findSubjects(pool)).length, 0);
 });
 
 test('an invalid request fails before any write', async () => {
@@ -295,5 +279,5 @@ test('an invalid request fails before any write', async () => {
     (error: unknown) => error instanceof ZodError,
   );
   assert.equal(writerRuns, 0);
-  assert.equal((await findEvents()).length, 0);
+  assert.equal((await findEvents(pool)).length, 0);
 });

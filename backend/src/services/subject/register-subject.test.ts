@@ -11,6 +11,7 @@ import { z } from 'zod';
 // circular. Idempotency (replay, conflict, race) is appendEvent's and is tested
 // at its interface in services/event/append-event.test.ts. Test doctrine:
 // ename-internals.md.
+import { pool } from '../../database/pool.ts';
 import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
@@ -52,13 +53,13 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(result.ename.numberPart, 1);
 
   // `subjects` projection.
-  const subjects = await findSubjects();
+  const subjects = await findSubjects(pool);
   assert.equal(subjects.length, 1);
   assert.equal(subjects[0]?.id, result.subject.id);
   assert.equal(subjects[0]?.kind, 'person');
 
   // `enames` projection.
-  const enames = await findEnames();
+  const enames = await findEnames(pool);
   assert.equal(enames.length, 1);
   assert.equal(enames[0]?.id, result.ename.id);
   assert.equal(enames[0]?.subjectId, result.subject.id);
@@ -66,7 +67,7 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(enames[0]?.numberPart, 1);
 
   // Event log.
-  const events = await findEvents();
+  const events = await findEvents(pool);
   assert.equal(events.length, 1);
   assert.equal(events[0]?.idempotencyKey, idempotencyKey);
   assert.equal(events[0]?.kind, 'subject.registered');
@@ -147,15 +148,14 @@ test('concurrent registrations for the same namePart produce consecutive numberP
 });
 
 // ---------------------------------------------------------------------------
-// Domain validation: total length > 52 chars after numberPart allocation
+// Domain validation: total length > 52 chars once the numberPart is allocated
 // ---------------------------------------------------------------------------
 
-test('52-char post-allocation guard: throws ValidationError pointing at ename.namePart and rolls back the transaction', async () => {
+test('52-char budget: throws ValidationError pointing at ename.namePart and rolls back the transaction', async () => {
   // Seed via the public service surface — no test backdoor. With a 50-char
   // namePart, the first 9 registrations stay within the 52-char limit
   // (50 + 1 + 1-digit numberPart ≤ 52). The 10th attempt would allocate
-  // numberPart=10 (2 digits) → total 53 > 52, triggering the
-  // post-allocation guard.
+  // numberPart=10 (2 digits) → total 53 > 52, which the allocation refuses.
   const namePart = 'a'.repeat(50);
   for (let index = 0; index < 9; index += 1) {
     await registerSubject(
@@ -184,9 +184,9 @@ test('52-char post-allocation guard: throws ValidationError pointing at ename.na
   // Nothing extra was committed — the ROLLBACK undid the subjects/enames
   // INSERTs from the failed attempt. Only the 9 seeded entities remain in
   // each projection, and exactly 9 events in the log.
-  assert.equal((await findSubjects()).length, 9);
-  assert.equal((await findEnames()).length, 9);
-  assert.equal((await findEvents()).length, 9);
+  assert.equal((await findSubjects(pool)).length, 9);
+  assert.equal((await findEnames(pool)).length, 9);
+  assert.equal((await findEvents(pool)).length, 9);
 });
 
 // ---------------------------------------------------------------------------
@@ -213,7 +213,7 @@ test('a namePart outside the grammar is rejected before anything is written', as
     },
   );
 
-  assert.equal((await findSubjects()).length, 0);
-  assert.equal((await findEnames()).length, 0);
-  assert.equal((await findEvents()).length, 0);
+  assert.equal((await findSubjects(pool)).length, 0);
+  assert.equal((await findEnames(pool)).length, 0);
+  assert.equal((await findEvents(pool)).length, 0);
 });

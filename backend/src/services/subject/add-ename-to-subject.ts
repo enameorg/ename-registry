@@ -1,6 +1,6 @@
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import type { ServiceContext } from '../context.ts';
-import { enforceMaxEnameLength, insertEnameWithNextNumber } from '../ename/index.ts';
+import { insertEnameWithNextNumber } from '../ename/index.ts';
 import {
   appendEvent,
   type EventRequest,
@@ -38,14 +38,13 @@ export async function addEnameToSubject(
     {
       idempotencyKey: input.idempotencyKey,
       request: { subject, ename },
-      projectionWriter: async (client, createdAt) => {
+      projectionWriter: async (db, createdAt) => {
         const enameId = generateUUIDv7();
         const numberPart = await insertEnameWithNextNumber(
-          client,
+          db,
           { enameId, subjectId: subject.id, namePart: ename.namePart, createdAt },
           context.logger,
         );
-        enforceMaxEnameLength({ namePart: ename.namePart, numberPart }, context.logger);
         return { ename: { id: enameId, numberPart } };
       },
     },
