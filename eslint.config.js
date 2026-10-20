@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig(
   {
-    files: ['src/**/*.ts', 'scripts/**/*.ts'],
+    files: ['**/*.ts'],
 
     languageOptions: {
       parser: tseslint.parser,
@@ -46,7 +46,7 @@ export default defineConfig(
   {
     // Test files: node:test's `test(name, fn)` returns a tracked Promise that the
     // runner handles internally, so the floating-promises rule produces noise here.
-    files: ['src/**/*.test.ts'],
+    files: ['**/*.test.ts'],
     rules: {
       '@typescript-eslint/no-floating-promises': 'off',
     },

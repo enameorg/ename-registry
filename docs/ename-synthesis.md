@@ -7,12 +7,13 @@ This document is the internal source of truth for the **Ename** project: the hum
 This document is about the **Ename registry**. It describes platforms as an institutional category accredited by the registry, not as individual projects. The technical format of enames is described in [Ename — Format](./ename-format.md); the registry's internal implementation decisions (stack, hosting, schema) in [Ename — Registry Internals](./ename-internals.md); the project vocabulary in [`GLOSSARY.md`](../GLOSSARY.md) at the repository root. This synthesis does not restate those contents, but may refer to them.
 
 Conventions:
+
 - **Concept-based headings**, not numbered headings, so anchors survive reordering.
 - **Explicit status markers** on decisions: `[settled]`, `[settled in principle]`, `[working hypothesis]`, `[open]`.
 - **Stable Q-IDs** for open topics (`[Q-XXX]`), referenced from the body.
 - **No external-communication wording here**: no user promises, no pitches, no ornate prose. Dense, explicit text.
 - **Registry / platform distinction**: this document describes the registry. When a platform-side decision is mentioned, it is as a registry expectation (what the platform must do), not as platform-internal architecture.
-- **Ename / registry naming convention**: "Ename" by default means the organization (the nonprofit); "the registry" by default means the public database it maintains. Both terms may be used metonymically for either meaning (the organization is the registry, and vice versa), and are used interchangeably when context disambiguates. On the equivalent institutional role (ICANN model), see glossary entry *Registry*.
+- **Ename / registry naming convention**: "Ename" by default means the organization (the nonprofit); "the registry" by default means the public database it maintains. Both terms may be used metonymically for either meaning (the organization is the registry, and vice versa), and are used interchangeably when context disambiguates. On the equivalent institutional role (ICANN model), see glossary entry _Registry_.
 
 ---
 
@@ -29,6 +30,7 @@ The project's vocabulary lives in [`GLOSSARY.md`](../GLOSSARY.md) at the reposit
 The project addresses a fundamental double gap in digital life that no general mechanism has ever filled: the absence of an equivalent to what the physical world has in **civil identity** (a reliable identity to which social, economic, and legal relationships attach) and **signature** (a verifiable link between content and its author). Existing solutions — email addresses, handles on today's platforms, raw cryptographic identifiers, state-issued identities — address at best a fragment of the problem. In the age of generative AI, the absence of a general mechanism for authenticating authorship becomes critical: without a way to establish who wrote, photographed, filmed, or signed content, trust in information erodes.
 
 Decisions:
+
 - **Constitutive properties of the Ename identifier**: human (usable in daily life: easy to dictate, memorable), verified (attached to a person whose identity has been established), carrying a cryptographic key (to sign what that person produces), governed as a commons (neither private property nor state instrument). The four properties are inseparable; removing one breaks the model. `[settled]`
 - **Project scope**: foundation, not applications. Ename builds the substrate — registry + keys + standards — and leaves accredited platforms to build above it (user services, viewers, features). `[settled]`
 - **Identifier format**: `<name>#<number>`, defined in [Ename — Format](./ename-format.md). This document does not restate the syntax rules. `[settled]`
@@ -42,15 +44,17 @@ Rejected alternatives: see dedicated section.
 The organization pursues a single mission: **maintaining the public registry of enames and operating the infrastructure that makes it a useful commons for the ecosystem**. This mission breaks down into five operational objectives, which form an indivisible whole (each supports the others).
 
 Decisions:
+
 - **Five registry objectives**: (1) maintain the registry of enames, associated public keys, and home platform; (2) define and evolve identity rules (format, syntax, eligibility, attribution, cryptographic mechanisms); (3) define and evolve interoperability standards that platforms implement; (4) serve as the ecosystem's trusted cryptographic anchor; (5) accredit and supervise platforms. `[settled]`
 - **Negative boundary**: Ename **does not manage end users as customers or administrative subjects**. It does not sell enames, process end-user identity verification data or application data, or provide application services. Ordinary contractual relationships are with accredited platforms. `[settled]`
 - **Key custody**: the registry holds and publishes **public keys**. Private keys remain under the control of their holder, never transmitted to the registry or to platforms beyond what recovery mechanisms require (cf. platform responsibilities and [Q-KEYREC]). `[settled]`
 
 ### Registry / Platform Model
 
-The project adopts the proven model of domain-name registries — ICANN, AFNIC, VeriSign — and adapts it to digital identity. The Ename registry plays the institutional role equivalent to central registries in that model; platforms are the *registrars* of this model. The term "platform" is preferred to "registrar" because the role goes beyond distributing enames: a platform verifies identities, manages keys and hosts the user's portable data.
+The project adopts the proven model of domain-name registries — ICANN, AFNIC, VeriSign — and adapts it to digital identity. The Ename registry plays the institutional role equivalent to central registries in that model; platforms are the _registrars_ of this model. The term "platform" is preferred to "registrar" because the role goes beyond distributing enames: a platform verifies identities, manages keys and hosts the user's portable data.
 
 Decisions:
+
 - **Strict registry / platform decoupling**, each with a role the other cannot absorb. `[settled]`
 - **Registry role**: maintain the registry, define rules and standards, anchor cryptographic trust, accredit platforms. No end-user relationship (cf. negative boundary above). `[settled]`
 - **Platform role** (expectations formalized by the registry in accreditation): offer ename creation and renewal; verify registrants' identity under registry requirements; support key management (creation, rotation, revocation, recovery); host portable user data under Ename standards; implement inter-platform transfers; propose growing proprietary features for standardization; provide associated services; collect and process personal data in compliance with applicable regulations (GDPR in particular). `[settled]`
@@ -66,6 +70,7 @@ Original mechanism in the Ename model, with no equivalent in domain-name registr
 Principle: a platform may freely innovate with proprietary features. As long as the feature remains marginal, there is no obligation. Once it grows in usage, the platform contractually commits to proposing it for standardization by Ename within a defined period. Ename reviews the request: accepted if it is meant to enrich the commons, rejected if it serves only a single platform.
 
 Decisions:
+
 - **Mechanism scope**: features touching **portable user data**, i.e. data whose loss would create lock-in. Purely aesthetic or experiential elements (design, brand, ergonomics, internal workflows) remain proprietary without issue. `[settled]`
 - **Combined trigger criteria**: internal usage threshold (% of the platform's users) + externalization threshold (>=1 other interested platform) + absolute time threshold (feature age). Exact values and threshold logic remain open. `[settled in principle; values: Q-STAND-PARAM]`
 - **Delay between trigger and submission**: 12-month intuition. Shorter = punitive; longer = complacent. `[working hypothesis; Q-STAND-PARAM]`
@@ -79,6 +84,7 @@ Decisions:
 Fourth registry objective. Orthogonal layer superimposed on transport — it does not change the path of data, but ensures that what arrives can be trusted independently of the emitting platform.
 
 Decisions:
+
 - **Signature by the user, not by the platform**. Non-negotiable consequence of three project properties: multi-century durability (a platform may disappear; the registry endures), platform portability (no re-signature on migration), trust across platforms (verification happens against the Ename key, not the platform's reputation). `[settled]`
 - **Verification across platforms**: every signature, attestation, or transfer verification is performed against keys published by Ename, never against the emitting platform's reputation. Once an ename's key is published, a malicious platform can at worst omit (censor by invisibilization), not fabricate. The one exception is initial registration, which the platform alone submits: it can bind an ename to a key it controls, but never silently — the person cannot sign under their ename, so the attack is visible to its target. Proof of possession would not close this gap: a platform that generates the key pair proves possession trivially. `[settled]`
 - **Key history in the registry**: Ename publishes the public-key history of each ename, with validity periods. A signature remains verifiable as long as its timestamp falls within the validity period of the key that produced it. `[settled in principle]`
@@ -91,6 +97,7 @@ Decisions:
 The Ename organization is a nonprofit. The adopted bylaws set the legal framework; this section restates the structural decisions underlying them.
 
 Decisions:
+
 - **Legal form**: nonprofit organization. Chosen to align governance and mission (no profit distribution, neutrality by construction). `[settled]`
 - **Board composition — four colleges**: (1) accredited platforms, elected by their peers; (2) civil society (digital-rights associations, commons actors, consumer organizations); (3) technical experts (digital identity, security, Internet governance); (4) founding members, whose share decreases progressively over time. `[settled]`
 - **Initial board size**: twelve members, three seats per college (cf. bylaws art. 12). This size makes renewal by thirds legible (four outgoing members per term). `[settled]`
@@ -107,6 +114,7 @@ Decisions:
 The registry is funded by **accreditation fees and registry fees** paid by platforms. Each registered or renewed ename gives rise to a registry fee, collected by the platform from the user and remitted to Ename. Initial accreditation fees and annual membership fees, owed by each platform, are added to this.
 
 Decisions:
+
 - **Main source under consideration**: per-ename registry fees + accreditation fees + annual platform membership fees. No data resale, no advertising, no direct funding by end users (who pay the platform, which remits to the registry). The exact profile of the registry fee depends on the renewal-periodicity decision (cf. [Q-RENEW]) — hence the nuance "under consideration". `[settled in principle]`
 - **Articulation with the bylaws**: art. 9 of the bylaws lists resource categories without explicitly naming the "per-ename registry fee"; the implicit connection is the category "amounts received in exchange for services". Verify that no bylaw adjustment is needed as the model becomes more precise. `[settled in principle]`
 - **Three claimed advantages**: (1) sustainable over the long term, without dependence on one-off grants or a single patron; (2) alignment of interests between the registry and service quality/durability (not profitability); (3) independence from states as well as large economic actors. `[settled]`
@@ -133,8 +141,8 @@ The ename format (syntax, structure, transliteration rules, length, name changes
 
 - **General form `<name>#<number>`**, readable, easy to dictate, stable. `[settled]`
 - **Definitive person <-> ename link**: once assigned, an ename remains definitively linked to the same person, even if that person changes name (they then obtain a new ename; the old one remains linked to them). `[settled]`
-- **Central case: verified ename** of a natural person, only operational case at this stage (cf. glossary *verified ename*). `[settled]`
-- **Planned extensions** (operational frameworks to define, handled in section *Upcoming Workstreams*): organization enames, secondary enames (aliases), unverified enames, affiliation syntax (`person#1@organization#1`). `[settled in principle; Q-ORG, Q-ALIAS, Q-NONVERIF]`
+- **Central case: verified ename** of a natural person, only operational case at this stage (cf. glossary _verified ename_). `[settled]`
+- **Planned extensions** (operational frameworks to define, handled in section _Upcoming Workstreams_): organization enames, secondary enames (aliases), unverified enames, affiliation syntax (`person#1@organization#1`). `[settled in principle; Q-ORG, Q-ALIAS, Q-NONVERIF]`
 
 ### Upcoming Workstreams
 
@@ -158,7 +166,7 @@ Section to consult before suggesting options for the project — avoids re-propo
 
 ### Alternatives to the Identifier Itself
 
-- **Email address as identifier**: receives messages, but does not mean *being* someone. No anchoring to a verified identity, no associated cryptographic key, dependence on an email provider. Rejected by construction.
+- **Email address as identifier**: receives messages, but does not mean _being_ someone. No anchoring to a verified identity, no associated cryptographic key, dependence on an email provider. Rejected by construction.
 - **Handle on an ordinary platform** (`@jean.dupont` on a given network, outside any accreditation): property of a private company, which can delete it, resell it, or disappear with it. No portability, no durability. Rejected.
 - **Raw cryptographic identifier** (public key, DID, crypto address): portable but unreadable and unusable by the general public. Lacks the constitutive "human" dimension. Rejected as primary identifier; the cryptographic key is, however, attached to the ename.
 - **State-issued digital identity** (FranceConnect, EUDI Wallet): national, administrative, designed for official procedures. Not for everyday online life. No cross-border portability. Complementary (cf. EUDI workstream), not substitutable.

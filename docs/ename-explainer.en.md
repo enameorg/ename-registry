@@ -6,7 +6,7 @@ plausible: pa-NWFuzA3_hWw7CS_EfwUxR
 
 # Ename
 
-*Public registry of verified human identities, maintained by a nonprofit organization: the shared identity layer beneath the platforms, the one that lets you move between them without losing anything.*
+_Public registry of verified human identities, maintained by a nonprofit organization: the shared identity layer beneath the platforms, the one that lets you move between them without losing anything._
 
 Online, a name doesn't truly belong to the person who bears it: it lives in the database of a private company, free to suspend it, reassign it, or vanish along with it. Nor does it prove who wrote a message or took a photo, a gap that has grown critical now that machines produce text and images the way humans do. The physical world met both needs long ago, with civil records and the handwritten signature; the digital world has built neither. Ename closes both gaps by lifting identity out of each platform and placing it underneath, shared by all.
 
@@ -44,4 +44,4 @@ The horizon is measured in centuries. An ename created today must remain valid a
 
 ---
 
-*Get in touch: [contact@ename.ngo](mailto:contact@ename.ngo)*
+_Get in touch: [contact@ename.ngo](mailto:contact@ename.ngo)_

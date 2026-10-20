@@ -7,32 +7,37 @@ This codebase is the **Node phase** of the implementation. A future Rust port (a
 ## Requirements
 
 - **Node.js ≥ 26.1**: relies on native TypeScript execution (no build step), stable `node:test`, and native UUIDv7 generation (`crypto.randomUUIDv7`).
-- **npm ≥ 12**: configured via `.npmrc` for supply-chain hardening (3-day release cooldown, dependency install scripts blocked unless allowlisted in `package.json`).
+- **npm ≥ 12**: configured via the repository-root `.npmrc` for supply-chain hardening (3-day release cooldown, dependency install scripts blocked unless allowlisted in the root `package.json`).
 - A running local PostgreSQL: provisioned and migrated by the sibling [`database/`](../database/) package.
 
-Both versions are pinned in `mise.toml` for [mise](https://mise.jdx.dev) users.
+Both versions are pinned in the repository-root `mise.toml` for [mise](https://mise.jdx.dev) users.
 
 ## Setup
 
+From the repository root:
+
 ```bash
-# Install dependencies. A dependency whose install scripts are not yet covered
-# by "allowScripts" in package.json fails the install: review it, then run
-# `npm install-scripts approve <pkg>` or `npm install-scripts deny <pkg>`.
+# Install every package's dependencies. A dependency whose install scripts are
+# not yet covered by "allowScripts" in the root package.json fails the install:
+# review it, then run `npm install-scripts approve <pkg>` or
+# `npm install-scripts deny <pkg>`.
 npm install
 
 # Copy the local environment file and adjust if needed.
-cp .env.example .env
+cp backend/.env.example backend/.env
 
 # Start PostgreSQL and run migrations (see ../database/README.md for details).
-( cd ../database && npm install && npm run db:up )
+npm run db:up -w database
 
-# Generate the canonical OpenAPI spec (writes openapi.json).
-npm run openapi:generate
+# Generate the canonical OpenAPI spec (writes backend/openapi.json).
+npm run openapi:generate -w backend
 ```
 
 The local database is managed by the [`database/`](../database/) package: a single PostgreSQL 18 cluster (matching Scaleway Serverless SQL) hosting two logical databases — `ename_dev` (used by the app) and `ename_test` (used by the test runner).
 
 ## Common commands
+
+Run from this directory, or from the repository root with `-w backend` (`npm run dev -w backend`).
 
 | Command                    | What it does                                               |
 | -------------------------- | ---------------------------------------------------------- |
@@ -65,7 +70,7 @@ After `npm run dev`, open <http://localhost:3000/api/v1/docs> in a browser to br
 
 ## Project structure
 
-This directory is the backend package of the Ename monorepo. The repository root holds project-wide documentation (`docs/`) and may host other packages later (CLI, dashboards, etc.).
+This directory is the backend package of the Ename monorepo. The repository root is the npm workspace root (toolchain, lockfile, shared configs) and holds project-wide documentation (`docs/`) and the other packages.
 
 ```
 backend/
@@ -133,8 +138,7 @@ backend/
 ├── scripts/
 │   └── generate-openapi.ts           # Regenerates the canonical OpenAPI spec
 ├── openapi.json                      # Canonical versioned copy of the generated OpenAPI spec (the audit trail)
-├── eslint.config.js
-├── tsconfig.json
+├── tsconfig.json                     # Extends the repository-root tsconfig.base.json
 ├── package.json
 └── README.md
 ```

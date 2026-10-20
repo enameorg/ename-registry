@@ -1,7 +1,5 @@
 {
-  "eslint.workingDirectories": [{ "pattern": "backend" }],
-
-  "typescript.tsdk": "backend/node_modules/typescript/lib",
+  "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
 
   "editor.formatOnSave": true,

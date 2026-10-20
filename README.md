@@ -8,7 +8,13 @@ For the reference synthesis, see [Ename — Reference Synthesis](./docs/ename-sy
 
 ## Repository layout
 
-This repository is a monorepo. Each top-level package is built and versioned independently.
+This repository is an npm workspaces monorepo: one `npm install` at the root installs every package, and each package keeps its own version, scripts and README.
+
+```bash
+npm install                  # every package's dependencies, from the repository root
+npm run db:up -w database    # local PostgreSQL and migrations
+npm run check                # typecheck, lint, format and tests of every package
+```
 
 - **[`database/`](./database/)** — Schema, migrations, local PostgreSQL cluster, and the migration runner. Consumed today by the Node backend and later by the Rust backend, which reimplements the runner. See [`database/README.md`](./database/README.md) for setup and usage.
 - **[`backend/`](./backend/)** — Registry backend service. Phase 1 is Node.js + TypeScript; a Rust port (axum + sqlx) is planned for phase 2 once a dedicated team is recruited. See [`backend/README.md`](./backend/README.md) for setup and usage.

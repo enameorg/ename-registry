@@ -15,7 +15,7 @@ The connection is an explicit argument, `Pool | PoolClient`, first on every prim
 
 ## Considered options
 
-- **An ambient connection via async context.** Rejected. The write protocol's idempotency rests on its preliminary lookup and its reconciliation running *outside* the transaction; with an ambient connection that guarantee holds only while nobody calls the protocol from a transaction of their own, and the breach is silent. The propagation model admits no hidden channel. The ergonomic gain is real; these two costs outweigh it.
+- **An ambient connection via async context.** Rejected. The write protocol's idempotency rests on its preliminary lookup and its reconciliation running _outside_ the transaction; with an ambient connection that guarantee holds only while nobody calls the protocol from a transaction of their own, and the breach is silent. The propagation model admits no hidden channel. The ergonomic gain is real; these two costs outweigh it.
 - **A client-only signature for the allocation.** Rejected: nesting in the helper makes the exception unnecessary.
 
 ## Consequences

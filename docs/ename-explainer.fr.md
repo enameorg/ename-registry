@@ -6,7 +6,7 @@ plausible: pa-NWFuzA3_hWw7CS_EfwUxR
 
 # Ename
 
-*Registre public d'identités humaines vérifiées, tenu par une organisation à but non lucratif : la couche d'identité commune sous les plateformes, celle qui permet de changer de plateforme sans rien perdre.*
+_Registre public d'identités humaines vérifiées, tenu par une organisation à but non lucratif : la couche d'identité commune sous les plateformes, celle qui permet de changer de plateforme sans rien perdre._
 
 En ligne, un nom n'appartient pas vraiment à la personne qui le porte : il réside dans la base de données d'une entreprise privée, libre de le suspendre, de le réattribuer ou de disparaître avec lui. Il ne prouve pas non plus qui a écrit un message ou pris une photo, une lacune devenue critique maintenant que des machines produisent textes et images comme des humains. Le monde physique a comblé ces deux manques de longue date, avec l'état civil et la signature ; le numérique n'a construit ni l'un ni l'autre. Ename comble cet écart en sortant l'identité de chaque plateforme pour la placer en dessous, commune à toutes.
 
@@ -44,4 +44,4 @@ L'horizon se mesure en siècles. Un ename créé aujourd'hui doit rester valide 
 
 ---
 
-*Nous écrire : [contact@ename.ngo](mailto:contact@ename.ngo)*
+_Nous écrire : [contact@ename.ngo](mailto:contact@ename.ngo)_
