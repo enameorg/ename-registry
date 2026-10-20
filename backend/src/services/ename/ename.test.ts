@@ -1,10 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { beforeEach, test } from 'node:test';
 
 import { pino } from 'pino';
 
 import { pool } from '../../database/pool.ts';
-import { useTestDb } from '../../database/testing.ts';
+import { withTransaction } from '../../database/query.ts';
+import { useTestDb, waitForLockedStatement } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
 import { insertSubject } from '../subject/index.ts';
@@ -19,9 +20,26 @@ import {
 // Direct tests of the ename data-access primitives (see ename-internals.md).
 // insertEnameWithNextNumber requires an existing subject (enames.subject_id FK),
 // so each insert test seeds one through the subject primitive.
-const logger = pino({ level: 'silent' });
+//
+// What the primitive writes to the logger it receives is part of its observable
+// surface: the logger captures every warning as a parsed line, and a test
+// asserts on the lines it expects (cf. ename-internals.md).
+type LogLine = { msg: string } & Record<string, unknown>;
+const logLines: LogLine[] = [];
+const logger = pino(
+  { level: 'warn' },
+  {
+    write(line: string) {
+      logLines.push(JSON.parse(line) as LogLine);
+    },
+  },
+);
 
 useTestDb();
+
+beforeEach(() => {
+  logLines.length = 0;
+});
 
 async function seedSubject(): Promise<string> {
   const subjectId = generateUUIDv7();
@@ -81,6 +99,49 @@ test('insertEnameWithNextNumber allocates consecutive numberParts per namePart',
 
   assert.equal(first, 1);
   assert.equal(second, 2);
+});
+
+// Two allocations for one namePart read the same MAX(number_part) and collide
+// on the UNIQUE constraint; the loser must retry and take the next number. The
+// collision is forced, not hoped for: a holder keeps (martin, 1) uncommitted
+// while the loser allocates on the pool — it reads MAX over committed rows
+// only, picks 1 too, and its INSERT waits on the holder's index entry. The
+// holder commits once the catalog shows the loser waiting, so the loser gets
+// the unique violation, retries, and reads 1 → 2. Without the retry the loser
+// would reject instead of returning 2.
+test('insertEnameWithNextNumber retries a number_part collision: the loser takes the next number and logs the collision', async () => {
+  const holderSubjectId = await seedSubject();
+  const loserSubjectId = await seedSubject();
+  const namePart = 'martin';
+
+  let loser: Promise<number> | undefined;
+  await withTransaction(
+    pool,
+    async (db) => {
+      const holderNumberPart = await insertEnameWithNextNumber(
+        db,
+        { enameId: generateUUIDv7(), subjectId: holderSubjectId, namePart, createdAt: new Date() },
+        logger,
+      );
+      assert.equal(holderNumberPart, 1);
+
+      loser = allocate({ subjectId: loserSubjectId, namePart });
+      await waitForLockedStatement();
+      // Returning commits the holder.
+    },
+    logger,
+  );
+
+  assert.equal(await loser, 2);
+  assert.deepEqual((await findEnames(pool)).map((ename) => ename.numberPart).sort(), [1, 2]);
+
+  const collisions = logLines.filter(
+    (line) => line.msg === 'number_part collision on enames insert, retrying',
+  );
+  assert.deepEqual(
+    collisions.map((line) => ({ namePart: line['namePart'], attempt: line['attempt'] })),
+    [{ namePart: 'martin', attempt: 1 }],
+  );
 });
 
 test('insertEnameWithNextNumber rejects a duplicate namePart for the same subject', async () => {

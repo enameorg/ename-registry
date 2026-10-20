@@ -15,7 +15,7 @@ import { pool } from '../../database/pool.ts';
 import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
-import { ValidationError } from '../errors.ts';
+import { ContentionError, ValidationError } from '../errors.ts';
 import { findEvents, SubjectRegisteredEventKindDefinition } from '../event/index.ts';
 
 import { registerSubject } from './register-subject.ts';
@@ -150,6 +150,56 @@ test('concurrent registrations for the same namePart produce consecutive numberP
 // ---------------------------------------------------------------------------
 // Domain validation: total length > 52 chars once the numberPart is allocated
 // ---------------------------------------------------------------------------
+
+// Beyond the retry budget, a burst on one namePart ends in ContentionError
+// for the losers — a retryable domain error, never an unexpected one — while
+// the rest get distinct numberParts. The 503 this maps to is pinned in
+// api/errors.test.ts; this test only shows that the real allocation path
+// reaches the budget, and that is statistical by nature. It rests on three
+// values: this concurrency, the pool size the test script pins
+// (DATABASE_POOL_SIZE=10 in package.json, an environment variable outranking
+// .env) and MAX_NUMBER_PART_RETRIES = 20 in the ename primitive. The pool
+// bounds how many transactions contend at once; each round one wins and
+// commits, every other in-flight contender burns one attempt, and a waiting
+// registration replaces the winner with a fresh budget — so no counting
+// argument guarantees that one contender loses 20 rounds in a row, however
+// likely. Measured on the local cluster, 40 registrations yield: 0 contention
+// errors at pool size 2 or 3, 0 to 1 at 5, 2 to 5 at 10, 8 to 11 at 20, 11 to
+// 14 at 80. A larger pool only strengthens the assertion; a smaller one
+// weakens it, and the failure message below says so.
+test('concurrent registrations for the same namePart beyond the retry budget fail with ContentionError, the rest succeed', async () => {
+  const namePart = 'martin';
+  const concurrency = 40;
+
+  const outcomes = await Promise.allSettled(
+    Array.from({ length: concurrency }, () =>
+      registerSubject(
+        {
+          idempotencyKey: generateUUIDv7(),
+          subject: { kind: 'person' },
+          ename: { namePart },
+        },
+        context,
+      ),
+    ),
+  );
+
+  const fulfilled = outcomes.filter((outcome) => outcome.status === 'fulfilled');
+  const rejected = outcomes.filter((outcome) => outcome.status === 'rejected');
+  assert.ok(
+    rejected.every((outcome) => outcome.reason instanceof ContentionError),
+    'every failure under the burst must be a ContentionError',
+  );
+  assert.ok(fulfilled.length > 0, 'at least one registration must succeed under the burst');
+  assert.ok(
+    rejected.length > 0,
+    `the retry budget must be exhausted at this concurrency (expected ≥1 ContentionError at ${concurrency} registrations with DATABASE_POOL_SIZE=10, see the comment above)`,
+  );
+
+  const numberParts = fulfilled.map((outcome) => outcome.value.ename.numberPart);
+  assert.equal(new Set(numberParts).size, numberParts.length);
+  assert.equal((await findEnames(pool)).length, fulfilled.length);
+});
 
 test('52-char budget: throws ValidationError pointing at ename.namePart and rolls back the transaction', async () => {
   // Seed via the public service surface — no test backdoor. With a 50-char

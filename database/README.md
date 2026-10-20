@@ -2,7 +2,7 @@
 
 Database tooling for the [Ename](https://ename.ngo) registry: schema, migrations, local development PostgreSQL cluster, and the migration runner.
 
-This package is intentionally separated from `backend/` so the same migration corpus, schema dump, and seed data feed every consumer of the registry's PostgreSQL — the current Node phase, the upcoming Rust phase (axum + sqlx), and any future operational tooling. See [`../docs/ename-internals.md`](../docs/ename-internals.md) for the long-term architecture invariants.
+This package is intentionally separated from `backend/` so the same migration corpus and schema dump feed every consumer of the registry's PostgreSQL — the current Node phase, the upcoming Rust phase (axum + sqlx), and any future operational tooling. See [`../docs/ename-internals.md`](../docs/ename-internals.md) for the long-term architecture invariants.
 
 ## Requirements
 

@@ -9,7 +9,7 @@ Recorded retroactively; the decision dates from the events table (commits `8a7f9
 
 ## Context
 
-The registry is a public commons meant to survive centuries without resting on institutional trust alone. Every mutation — registration today, key rotation, revocation, recovery and deactivation later — must stay auditable, and the future cryptographic layer must be able to prove that an event is in the history and that the history has not been rewritten.
+The registry is a public commons meant to survive centuries without resting on institutional trust alone. Every mutation — registration and ename addition today, key rotation, revocation, recovery and deactivation later — must stay auditable, and the future cryptographic layer must be able to prove that an event is in the history and that the history has not been rewritten.
 
 ## Decision
 

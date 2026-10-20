@@ -16,8 +16,8 @@
     "lint:fix": "eslint --fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "test": "NODE_ENV=test LOG_LEVEL=silent node --env-file-if-exists=.env --test --test-concurrency=1",
-    "test:coverage": "NODE_ENV=test LOG_LEVEL=silent node --env-file-if-exists=.env --test --test-concurrency=1 --experimental-test-coverage",
+    "test": "NODE_ENV=test LOG_LEVEL=silent DATABASE_POOL_SIZE=10 node --env-file-if-exists=.env --test --test-concurrency=1",
+    "test:coverage": "NODE_ENV=test LOG_LEVEL=silent DATABASE_POOL_SIZE=10 node --env-file-if-exists=.env --test --test-concurrency=1 --experimental-test-coverage",
     "openapi:generate": "node --env-file-if-exists=.env scripts/generate-openapi.ts",
     "check": "npm run typecheck && npm run lint && npm run format && npm run test"
   },

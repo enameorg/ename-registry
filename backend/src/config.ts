@@ -5,6 +5,9 @@ const ConfigSchema = z.object({
   nodeEnv: z.enum(['development', 'test', 'production']).default('development'),
   logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   databaseUrl: z.url(),
+  // Connections one process may hold at once. Follows the deployment, not the
+  // code (cf. ename-internals.md); the default is a local size.
+  databasePoolSize: z.coerce.number().int().min(1).default(10),
 });
 
 // Pick the right database URL for the current NODE_ENV. The two are kept as
@@ -20,6 +23,7 @@ const parsed = ConfigSchema.safeParse({
   nodeEnv: rawNodeEnv,
   logLevel: process.env['LOG_LEVEL'],
   databaseUrl: rawDatabaseUrl,
+  databasePoolSize: process.env['DATABASE_POOL_SIZE'],
 });
 
 if (!parsed.success) {

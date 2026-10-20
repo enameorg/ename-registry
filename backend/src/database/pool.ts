@@ -3,10 +3,12 @@ import pg from 'pg';
 import { config } from '../config.ts';
 import { logger } from '../logger.ts';
 
-// Singleton Pool initialized at module load. Same configuration in dev and prod —
-// statement_timeout / query_timeout are intentionally identical so slow queries
-// surface during development, not in production. Sized for one container at a time;
-// revisit only on observed queueing.
+// Singleton Pool initialized at module load. The timeouts are hard-coded and
+// identical in dev and prod — statement_timeout / query_timeout are the code's
+// latency SLA, so slow queries surface during development, not in production.
+// The size comes from configuration: it follows the deployment (cf.
+// ename-internals.md). Connections open on demand up to the size and close
+// after idleTimeoutMillis, so the size is a cap, not a cost at rest.
 export const pool = new pg.Pool({
   connectionString: config.databaseUrl,
   application_name: 'ename-backend',
@@ -14,7 +16,7 @@ export const pool = new pg.Pool({
   query_timeout: 10_000,
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 10_000,
-  max: 10,
+  max: config.databasePoolSize,
 });
 
 // pg emits 'error' on the pool when an idle client loses its connection (server

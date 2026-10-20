@@ -24,4 +24,4 @@ Two layers. The API layer is the HTTP surface and holds no business logic. The S
 
 - Nothing above a primitive branches on a SQLSTATE or a constraint name.
 - Transactions are owned by the Service layer (the write protocol that runs every use case's writes); generic driver mechanics live in `src/database/`; the API layer never imports it.
-- Prefer write-plus-constraint-translation over read-before-write; a pre-check is justified only for a rule the database cannot express.
+- Prefer write-plus-constraint-translation over read-before-write; a pre-check is justified only when it enforces a rule the database cannot express, avoids expensive work before a known failure, or improves semantics without replacing the database constraint.

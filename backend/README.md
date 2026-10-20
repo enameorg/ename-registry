@@ -85,18 +85,18 @@ backend/
 │   │   │   └── *.test.ts             # HTTP-level integration tests
 │   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, ApiContext
 │   │   ├── errors.ts                 # Error policy: RFC 9457 Problem Details shape, validation hook, error → response mapping, 404/405 responders, gate responses
-│   │   ├── errors.test.ts            # The 500 fallback and the unmapped HTTPException, through a throwaway sub-app
+│   │   ├── errors.test.ts            # The 500 fallback, the unmapped HTTPException and the 503 mapping, through a throwaway sub-app; their logs captured
 │   │   ├── index.ts                  # v1 mount table: middleware order, routes, fallbacks, OpenAPI document
 │   │   ├── index.test.ts             # Contract of the v1 gates, fallbacks and OpenAPI components
 │   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs; the body-size cap
 │   │   └── openapi-metadata.ts       # OpenAPI info object
 │   ├── database/                     # Low-level DB plumbing (singletons + helpers consumed by services)
 │   │   ├── errors.ts                 # pg driver error narrowing (isUniqueViolation, isForeignKeyViolation, isCheckViolation)
-│   │   ├── pool.ts                   # Singleton pg.Pool (resolves dev vs test URL via NODE_ENV)
+│   │   ├── pool.ts                   # Singleton pg.Pool; timeouts hard-coded, size from config
 │   │   ├── pool.test.ts              # Idle-client connection loss is logged, never fatal
-│   │   ├── query.ts                  # Database type, queryRows(), withTransaction() (nests as a savepoint), camelize at boundary
+│   │   ├── query.ts                  # Database type, queryRows(), withTransaction() (nests as a savepoint), pingDatabase(), camelize at boundary
 │   │   ├── query.test.ts             # withTransaction nesting: contained failure, release, outer rollback
-│   │   └── testing.ts                # Test DB reset + pool shutdown; refuses reset outside NODE_ENV=test
+│   │   └── testing.ts                # Test DB reset + pool shutdown (refuses reset outside NODE_ENV=test); the lock probe that forces a concurrency path
 │   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
 │   │   ├── subject/
 │   │   │   ├── index.ts              # barrel: the concept's public surface
@@ -121,7 +121,7 @@ backend/
 │   │   │   ├── application.ts        # health(), checkDatabase(), closeDatabase()
 │   │   │   └── application.test.ts
 │   │   ├── context.ts                # ServiceContext (request-scoped values passed from the API layer)
-│   │   └── errors.ts                 # Domain error classes (DomainError, ValidationError, IdempotencyConflictError, ContentionError)
+│   │   └── errors.ts                 # Domain error classes (DomainError, ValidationError, NotFoundError, ConflictError, IdempotencyConflictError, ContentionError)
 │   ├── utilities/                    # Pure modules both layers import (no I/O, no singleton), one file per concept
 │   │   ├── uuid.ts                   # UUIDv7 generation, validation regex and the pure UUIDv7Schema
 │   │   ├── date-time.ts              # DateTimeSchema: a timestamp on the wire (RFC 3339, UTC)
@@ -132,7 +132,7 @@ backend/
 │   └── server.ts                     # Node runtime entry: serve + graceful shutdown
 ├── scripts/
 │   └── generate-openapi.ts           # Regenerates the canonical OpenAPI spec
-├── openapi.json                      # Canonical OpenAPI spec (versioned source of truth)
+├── openapi.json                      # Canonical versioned copy of the generated OpenAPI spec (the audit trail)
 ├── eslint.config.js
 ├── tsconfig.json
 ├── package.json

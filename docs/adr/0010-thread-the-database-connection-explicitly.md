@@ -11,7 +11,7 @@ Every data-access primitive runs on a connection: the pool outside a transaction
 
 ## Decision
 
-The connection stays an explicit argument, `Pool | PoolClient`, first on every primitive. The transaction helper takes it too, and nests by its type: a transaction on the pool, a savepoint on a client, whose existence already means "inside a transaction". A nested block that fails rolls back to its savepoint and rethrows its own error; the enclosing transaction stays usable and its caller decides. The helper is the only place that knows the words `BEGIN`, `COMMIT` and `SAVEPOINT`; the counter allocation runs each attempt in a nested block and so accepts the pool like every other primitive.
+The connection is an explicit argument, `Pool | PoolClient`, first on every primitive. The transaction helper takes it too, and nests by its type: a transaction on the pool, a savepoint on a client, whose existence already means "inside a transaction". A nested block that fails rolls back to its savepoint and rethrows its own error; the enclosing transaction stays usable and its caller decides. The helper is the only place that knows the words `BEGIN`, `COMMIT` and `SAVEPOINT`; the counter allocation runs each attempt in a nested block and so accepts the pool like every other primitive.
 
 ## Considered options
 
@@ -20,6 +20,6 @@ The connection stays an explicit argument, `Pool | PoolClient`, first on every p
 
 ## Consequences
 
-- A projection writer can still pass the pool by mistake inside its transaction; the type does not forbid it. The import of the pool singleton is the thing to watch in review.
+- A projection writer can pass the pool by mistake inside its transaction; the type does not forbid it. The import of the pool singleton is the thing to watch in review.
 - No parallel statements inside one transaction: two nested blocks on the same client interleave their savepoints, and releasing the first drops the second.
 - A loop releases its savepoint at each turn: PostgreSQL degrades past 64 open subtransactions in one transaction.
