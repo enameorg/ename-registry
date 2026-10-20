@@ -6,7 +6,7 @@ This package is intentionally separated from `backend/` so the same migration co
 
 ## Requirements
 
-- **Node.js ≥ 26**: relies on native TypeScript execution (no build step).
+- **Node.js ≥ 26.1**: the floor every package of the repository shares; this one relies on native TypeScript execution (no build step).
 - **npm ≥ 12**: configured via the repository-root `.npmrc` for supply-chain hardening (3-day release cooldown, dependency install scripts blocked unless allowlisted in the root `package.json`).
 - **Docker** (Desktop, OrbStack, or compatible): runs the local PostgreSQL via this package's [`compose.yml`](./compose.yml).
 
