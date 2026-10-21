@@ -51,7 +51,7 @@ CREATE TABLE public.events (
     request jsonb NOT NULL,
     outcome jsonb NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    CONSTRAINT events_kind_allowed CHECK ((kind = ANY (ARRAY['subject.registered'::text, 'subject.ename_added'::text])))
+    CONSTRAINT events_kind_allowed CHECK ((kind = ANY (ARRAY['subject.registered'::text, 'subject.ename-added'::text])))
 );
 
 

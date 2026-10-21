@@ -25,7 +25,7 @@ export type AddEnameToSubjectResult = {
 // addEnameToSubject — public use case
 // ---------------------------------------------------------------------------
 
-// Add one ename to an existing subject, emitting one subject.ename_added event.
+// Add one ename to an existing subject, emitting one subject.ename-added event.
 // Idempotency (replay, 409 on a different request, race reconciliation, replay
 // winning over a current-state conflict) is appendEvent's.
 export async function addEnameToSubject(

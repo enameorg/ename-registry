@@ -56,7 +56,7 @@ export const SubjectRegisteredEventKindDefinition = {
 } as const satisfies EventKindDefinition;
 
 export const SubjectEnameAddedEventKindDefinition = {
-  kind: 'subject.ename_added',
+  kind: 'subject.ename-added',
   requestSchema: z.object({
     subject: z.object({
       id: UUIDv7Schema,

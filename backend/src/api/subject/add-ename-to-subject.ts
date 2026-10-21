@@ -47,7 +47,7 @@ export const addEnameToSubjectRoute = createRoute({
   summary: 'Add an ename to an existing subject',
   description:
     'Adds one ename to an existing subject without replacing its previous enames. ' +
-    'Emits one `subject.ename_added` event in the registry log. ' +
+    'Emits one `subject.ename-added` event in the registry log. ' +
     'A subject cannot hold two enames with the same `namePart`; reusing the same `namePart` for the same subject returns `409 Conflict`. ' +
     'Idempotent via `idempotencyKey`: retrying with the same key returns the original result; ' +
     'reusing the same key with a different path or body returns `409 Conflict`.',

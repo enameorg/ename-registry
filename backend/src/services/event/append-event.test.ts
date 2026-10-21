@@ -136,7 +136,7 @@ test('rejects the same idempotencyKey with a different request as an Idempotency
 
 test('rejects the same idempotencyKey used by an event of another kind, before parsing its request', async () => {
   const idempotencyKey = generateUUIDv7();
-  // Seed a subject.ename_added row directly: its request has no subject.kind,
+  // Seed a subject.ename-added row directly: its request has no subject.kind,
   // so a parse with the subject.registered schema would throw a ZodError — the
   // kind check must come first.
   await insertEvent(pool, {

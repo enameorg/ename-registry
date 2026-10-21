@@ -24,7 +24,7 @@ const context = { logger: silentLogger };
 
 useTestDb();
 
-test('happy path: adds one ename to an existing subject and emits subject.ename_added', async () => {
+test('happy path: adds one ename to an existing subject and emits subject.ename-added', async () => {
   const registered = await registerSubject(
     {
       idempotencyKey: generateUUIDv7(),
@@ -66,7 +66,7 @@ test('happy path: adds one ename to an existing subject and emits subject.ename_
   assert.equal(events.length, 2);
   const addEvent = events[1];
   assert.equal(addEvent?.idempotencyKey, idempotencyKey);
-  assert.equal(addEvent?.kind, 'subject.ename_added');
+  assert.equal(addEvent?.kind, 'subject.ename-added');
   const request = SubjectEnameAddedEventKindDefinition.requestSchema.parse(addEvent?.request);
   assert.equal(request.subject.id, registered.subject.id);
   assert.equal(request.ename.namePart, 'new-name');

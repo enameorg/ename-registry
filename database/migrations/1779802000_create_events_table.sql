@@ -13,5 +13,5 @@ CREATE TABLE events (
   outcome         JSONB       NOT NULL,
   created_at      TIMESTAMPTZ NOT NULL,
 
-  CONSTRAINT events_kind_allowed CHECK (kind IN ('subject.registered', 'subject.ename_added'))
+  CONSTRAINT events_kind_allowed CHECK (kind IN ('subject.registered', 'subject.ename-added'))
 );

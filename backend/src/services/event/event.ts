@@ -12,7 +12,7 @@ import { UUIDv7Schema } from '../../utilities/uuid.ts';
 // truth; see ename-internals.md).
 //
 // request and outcome are typed `unknown`: the table holds heterogeneous kinds
-// (subject.registered, subject.ename_added, future key rotation, …), each with
+// (subject.registered, subject.ename-added, future key rotation, …), each with
 // its own pair of schemas. Callers narrow by kind and parse each column with
 // the kind's definition (see event-kinds.ts).
 //

@@ -99,7 +99,7 @@ One immutable record of a registry mutation in the append-only log, the single s
 _Avoid_: transaction, mutation, log entry, record
 
 **Event kind**:
-The named category of an event (`subject.registered`, `subject.ename_added`), declared once with the pair of schemas that parse its request and outcome. Every event has exactly one kind.
+The named category of an event (`subject.registered`, `subject.ename-added`), declared once with the pair of schemas that parse its request and outcome. Every event has exactly one kind.
 _Avoid_: event type
 
 **Idempotency key**:

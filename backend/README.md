@@ -60,7 +60,7 @@ Schema, migration, and local cluster commands (`db:up`, `db:migrate`, `db:new`, 
 | Method | Path                          | Description                                                                                                                                |
 | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `POST` | `/api/v1/subjects`            | Register a new subject together with its first ename atomically. Idempotent via `idempotencyKey`. Produces one `subject.registered` event. |
-| `POST` | `/api/v1/subjects/:id/enames` | Add one ename to an existing subject. Idempotent via `idempotencyKey`. Produces one `subject.ename_added` event.                           |
+| `POST` | `/api/v1/subjects/:id/enames` | Add one ename to an existing subject. Idempotent via `idempotencyKey`. Produces one `subject.ename-added` event.                           |
 | `GET`  | `/api/v1/health`              | Liveness check: the process answers, nothing else is checked. Returns 200 + `{"status":"ok"}` or 503 + `{"status":"unhealthy"}`.           |
 | `GET`  | `/api/v1/health/deep`         | Deep check: the database must answer a trivial query within 1 s. Same body shape, 200 or 503. For monitoring, never the container probe.   |
 | `GET`  | `/api/v1/openapi.json`        | OpenAPI 3.1 specification of the v1 contract.                                                                                              |
@@ -108,7 +108,7 @@ backend/
 │   │   │   ├── subject.ts            # Subject type/schema + data-access primitives (get/find/insert)
 │   │   │   ├── subject.test.ts       # primitive round-trip tests
 │   │   │   ├── register-subject.ts   # registerSubject() use case (emits subject.registered)
-│   │   │   ├── add-ename-to-subject.ts # addEnameToSubject() use case (emits subject.ename_added)
+│   │   │   ├── add-ename-to-subject.ts # addEnameToSubject() use case (emits subject.ename-added)
 │   │   │   └── *.test.ts             # use-case tests (projections, concurrency)
 │   │   ├── ename/
 │   │   │   ├── index.ts
