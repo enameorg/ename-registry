@@ -203,17 +203,17 @@ test('Content-Type with a charset parameter is still accepted (201)', async () =
 // `idempotencyKey` when `namePart` is at fault) fails the test loudly.
 for (const scenario of [
   {
-    name: 'missing ename block entirely',
+    name: 'missing ename object entirely',
     body: { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' } },
     expectedPath: ['ename'],
   },
   {
-    name: 'missing namePart inside ename block',
+    name: 'missing namePart inside ename object',
     body: { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: {} },
     expectedPath: ['ename', 'namePart'],
   },
   {
-    name: 'missing subject block entirely',
+    name: 'missing subject object entirely',
     body: { idempotencyKey: generateUUIDv7(), ename: { namePart: 'jean' } },
     expectedPath: ['subject'],
   },
@@ -304,7 +304,7 @@ for (const scenario of [
     expectedPath: [],
   },
   {
-    name: 'unknown field inside subject block',
+    name: 'unknown field inside subject object',
     body: {
       ...(makeBody({}) as Record<string, unknown>),
       subject: { kind: 'person', hidden: true },

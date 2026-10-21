@@ -19,7 +19,7 @@ const AddEnameToSubjectParamsSchema = z.strictObject({
 
 // Strict at every level: an unknown field is a 422 naming the key, never
 // silently dropped, so the validated request is exactly what the client sent
-// (cf. ename-internals.md). The ename block is the shared wire component.
+// (cf. ename-internals.md). The `ename` object is the shared wire component.
 const AddEnameToSubjectRequestSchema = z
   .strictObject({
     idempotencyKey: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),

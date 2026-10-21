@@ -85,8 +85,8 @@ backend/
 │   │   │   ├── index.ts              # barrel: the folder's routes, handlers and wire schemas
 │   │   │   ├── register-subject.ts   # POST /subjects route, handler, and request/response envelopes
 │   │   │   ├── add-ename-to-subject.ts # POST /subjects/:id/enames route, handler, and envelopes
-│   │   │   ├── subject.ts            # Subject, SubjectReference, SubjectInput wire schemas (OpenAPI components)
-│   │   │   ├── ename.ts              # Ename, EnameInput wire schemas; NamePartSchema wraps the Service rule
+│   │   │   ├── subject.ts            # Subject wire schema; SubjectInput and SubjectReference wrap the Service input schemas
+│   │   │   ├── ename.ts              # Ename wire schema; EnameInput and NamePartSchema wrap the Service input schema and rule
 │   │   │   └── *.test.ts             # HTTP-level integration tests
 │   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, ApiContext
 │   │   ├── errors.ts                 # Error policy: RFC 9457 Problem Details shape, validation hook, error → response mapping, 404/405 responders, gate responses
@@ -105,20 +105,20 @@ backend/
 │   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
 │   │   ├── subject/
 │   │   │   ├── index.ts              # barrel: the concept's public surface
-│   │   │   ├── subject.ts            # Subject type/schema + data-access primitives (get/find/insert)
+│   │   │   ├── subject.ts            # Subject type/schema, the strict input schemas, data-access primitives (get/find/insert)
 │   │   │   ├── subject.test.ts       # primitive round-trip tests
-│   │   │   ├── register-subject.ts   # registerSubject() use case (emits subject.registered)
-│   │   │   ├── add-ename-to-subject.ts # addEnameToSubject() use case (emits subject.ename-added)
+│   │   │   ├── register-subject.ts   # subject.registered kind definition + registerSubject() use case
+│   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition + addEnameToSubject() use case
 │   │   │   └── *.test.ts             # use-case tests (projections, concurrency)
 │   │   ├── ename/
 │   │   │   ├── index.ts
-│   │   │   ├── ename.ts              # Ename type/schema, NamePartSchema and format rules, primitives
+│   │   │   ├── ename.ts              # Ename type/schema, NamePartSchema and format rules, the strict input schema, primitives
 │   │   │   └── ename.test.ts
 │   │   ├── event/
 │   │   │   ├── index.ts
 │   │   │   ├── event.ts              # Event type/schema + primitives (the append-only log)
 │   │   │   ├── event.test.ts
-│   │   │   ├── event-kinds.ts        # Event kind definitions: kind literal + request/outcome schemas
+│   │   │   ├── event-kind.ts         # The shape of an event kind definition (kind literal + strict request/outcome schemas)
 │   │   │   ├── append-event.ts       # appendEvent(): the idempotent-write protocol every use case runs
 │   │   │   └── append-event.test.ts  # protocol tests (replay, conflict, race, domain error vs winner)
 │   │   ├── application/
@@ -143,7 +143,7 @@ backend/
 └── README.md
 ```
 
-`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel: the concept-named file holds its type and data-access primitives, each use case has its own operation-named file, and `event` holds the write protocol every use case goes through. `src/database/` is the runtime DB plumbing (pool, query and transaction helpers, test reset) the services build on.
+`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel: the concept-named file holds its type and data-access primitives, each use case has its own operation-named file that also declares the event kind it emits, and `event` holds the write protocol every use case goes through. `src/database/` is the runtime DB plumbing (pool, query and transaction helpers, test reset) the services build on.
 
 Note: the in-repo `src/database/` directory above is **runtime DB plumbing** consumed by the backend service; do not confuse it with the sibling [`database/`](../database/) **package**, which owns the schema, migrations, the migration runner, and the local PostgreSQL cluster.
 

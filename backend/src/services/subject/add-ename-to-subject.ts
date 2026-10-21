@@ -1,11 +1,32 @@
-import { generateUUIDv7 } from '../../utilities/uuid.ts';
+import { z } from 'zod';
+
+import { generateUUIDv7, UUIDv7Schema } from '../../utilities/uuid.ts';
 import type { ServiceContext } from '../context.ts';
-import { insertEnameWithNextNumber } from '../ename/index.ts';
-import {
-  appendEvent,
-  type EventRequest,
-  SubjectEnameAddedEventKindDefinition,
-} from '../event/index.ts';
+import { EnameInputSchema, insertEnameWithNextNumber, NumberPartSchema } from '../ename/index.ts';
+import { appendEvent, type EventKindDefinition, type EventRequest } from '../event/index.ts';
+
+import { SubjectReferenceSchema } from './subject.ts';
+
+// ---------------------------------------------------------------------------
+// subject.ename-added — the event kind this use case emits
+// ---------------------------------------------------------------------------
+
+// What the write records: the kind literal and the strict pair of schemas that
+// parse its request and outcome (cf. ename-internals.md, event-kind.ts). The
+// request composes the concepts' input schemas.
+export const SubjectEnameAddedEventKindDefinition = {
+  kind: 'subject.ename-added',
+  requestSchema: z.strictObject({
+    subject: SubjectReferenceSchema,
+    ename: EnameInputSchema,
+  }),
+  outcomeSchema: z.strictObject({
+    ename: z.strictObject({
+      id: UUIDv7Schema,
+      numberPart: NumberPartSchema,
+    }),
+  }),
+} as const satisfies EventKindDefinition;
 
 // ---------------------------------------------------------------------------
 // addEnameToSubject — public types

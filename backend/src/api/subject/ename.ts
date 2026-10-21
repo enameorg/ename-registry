@@ -1,9 +1,6 @@
 import { z } from '@hono/zod-openapi';
 
-import {
-  MAX_NUMBER_PART,
-  NamePartSchema as NamePartRuleSchema,
-} from '../../services/ename/index.ts';
+import * as enameService from '../../services/ename/index.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 
 // Wire schemas of the ename concept. Enames live under /subjects on the wire, so
@@ -12,15 +9,14 @@ import { UUIDv7Schema } from '../../utilities/uuid.ts';
 // The namePart on the wire: the Service's grammar, wrapped with its OpenAPI
 // example. The rule and its message are never re-assembled here; `pattern`,
 // `minLength` and `maxLength` derive from the wrapped schema.
-export const NamePartSchema = NamePartRuleSchema.openapi({ example: 'jean-dupont' });
+export const NamePartSchema = enameService.NamePartSchema.openapi({ example: 'jean-dupont' });
 
-// Strict: an unknown field is a 422 naming the key, never silently dropped (cf.
-// ename-internals.md).
-export const EnameInputSchema = z
-  .strictObject({
-    namePart: NamePartSchema,
-  })
-  .openapi('EnameInput');
+// The input schema is the Service's, strict, wrapped in place with its example
+// (a clone; the Service schema stays untouched): the contract cannot drift
+// from what the event kinds store (cf. ename-internals.md).
+export const EnameInputSchema = enameService.EnameInputSchema.openapi('EnameInput', {
+  example: { namePart: 'jean-dupont' },
+});
 
 export const EnameSchema = z
   .object({
@@ -29,6 +25,6 @@ export const EnameSchema = z
     // Upper bound mirrors the DB CHECK (`enames_number_part_range`), surfaced so
     // SDK generators document the bound. Non-coerce on purpose: the wire is
     // JSON and we control the serializer.
-    numberPart: z.number().int().min(1).max(MAX_NUMBER_PART).openapi({ example: 1 }),
+    numberPart: z.number().int().min(1).max(enameService.MAX_NUMBER_PART).openapi({ example: 1 }),
   })
   .openapi('Ename');

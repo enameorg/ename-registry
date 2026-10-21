@@ -5,9 +5,4 @@ export type { AppendEventResult } from './append-event.ts';
 // (cf. ename-internals.md).
 export { EventSchema, findEvents, getEventByIdempotencyKey } from './event.ts';
 export type { Event } from './event.ts';
-export {
-  eventKindDefinitions,
-  SubjectEnameAddedEventKindDefinition,
-  SubjectRegisteredEventKindDefinition,
-} from './event-kinds.ts';
-export type { EventKind, EventKindDefinition, EventOutcome, EventRequest } from './event-kinds.ts';
+export type { EventKindDefinition, EventOutcome, EventRequest } from './event-kind.ts';

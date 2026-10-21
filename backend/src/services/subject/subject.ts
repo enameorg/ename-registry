@@ -16,6 +16,20 @@ export const SubjectSchema = z.object({
 
 export type Subject = z.infer<typeof SubjectSchema>;
 
+// What a client submits for a subject, declared once and strict: the event kinds
+// compose these schemas into their request, the API wraps them in place as its
+// OpenAPI components (cf. ename-internals.md). An unknown field fails here, at the
+// seam that stores the request, never stripped.
+export const SubjectInputSchema = z.strictObject({
+  kind: z.literal('person'),
+});
+
+// Names an existing subject by id alone: what an operation that acts on a
+// subject without creating it carries.
+export const SubjectReferenceSchema = z.strictObject({
+  id: UUIDv7Schema,
+});
+
 const SELECT_SUBJECT_COLUMNS = 'id, kind, created_at';
 
 export async function getSubject(db: Database, id: string): Promise<Subject | undefined> {

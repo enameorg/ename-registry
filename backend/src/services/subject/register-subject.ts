@@ -1,19 +1,45 @@
-import { generateUUIDv7 } from '../../utilities/uuid.ts';
-import type { ServiceContext } from '../context.ts';
-import { insertEnameWithNextNumber } from '../ename/index.ts';
-import {
-  appendEvent,
-  type EventRequest,
-  SubjectRegisteredEventKindDefinition,
-} from '../event/index.ts';
+import { z } from 'zod';
 
-import { insertSubject } from './subject.ts';
+import { generateUUIDv7, UUIDv7Schema } from '../../utilities/uuid.ts';
+import type { ServiceContext } from '../context.ts';
+import { EnameInputSchema, insertEnameWithNextNumber, NumberPartSchema } from '../ename/index.ts';
+import { appendEvent, type EventKindDefinition, type EventRequest } from '../event/index.ts';
+
+import { insertSubject, SubjectInputSchema } from './subject.ts';
+
+// ---------------------------------------------------------------------------
+// subject.registered — the event kind this use case emits
+// ---------------------------------------------------------------------------
+
+// What the write records: the kind literal and the strict pair of schemas that
+// parse its request and outcome (cf. ename-internals.md, event-kind.ts). The
+// request composes the concepts' input schemas, so the grammar they carry holds
+// for every caller of the use case, not only the HTTP body, and a request
+// re-parsed from the log can't pass what the original would have failed.
+export const SubjectRegisteredEventKindDefinition = {
+  kind: 'subject.registered',
+  requestSchema: z.strictObject({
+    subject: SubjectInputSchema,
+    ename: EnameInputSchema,
+  }),
+  outcomeSchema: z.strictObject({
+    subject: z.strictObject({
+      id: UUIDv7Schema,
+    }),
+    ename: z.strictObject({
+      id: UUIDv7Schema,
+      // Same chain as the projection schema, so a numberPart re-parsed from the
+      // event log can't pass what the original INSERT would have rejected.
+      numberPart: NumberPartSchema,
+    }),
+  }),
+} as const satisfies EventKindDefinition;
 
 // ---------------------------------------------------------------------------
 // registerSubject — public types
 // ---------------------------------------------------------------------------
 
-// Entity blocks (subject, ename) mirror the event's request shape and the API
+// The `subject` and `ename` objects mirror the event's request shape and the API
 // body. The input minus idempotencyKey is exactly what lands in events.request.
 export type RegisterSubjectInput = {
   idempotencyKey: string;

@@ -7,7 +7,7 @@ import { type Database, withTransaction } from '../../database/query.ts';
 import type { ServiceContext } from '../context.ts';
 import { DomainError, IdempotencyConflictError } from '../errors.ts';
 
-import type { EventKindDefinition, EventOutcome, EventRequest } from './event-kinds.ts';
+import type { EventKindDefinition, EventOutcome, EventRequest } from './event-kind.ts';
 import {
   type Event,
   getEventByIdempotencyKey,
@@ -60,7 +60,12 @@ export async function appendEvent<Definition extends EventKindDefinition>(
       pool,
       async (db) => {
         // Step 3 — the use case's projection writes, inside the event's transaction.
-        const outcome = await params.projectionWriter(db, createdAt);
+        // The outcome is parsed with the kind's strict schema before it is stored:
+        // a field the writer returns and the kind does not declare rolls the
+        // event back rather than entering the log.
+        const outcome = definition.outcomeSchema.parse(
+          await params.projectionWriter(db, createdAt),
+        ) as EventOutcome<Definition>;
 
         // Step 4 — INSERT events. A 23505 on idempotency_key means another
         // backend won the race since step 1; insertEvent raises

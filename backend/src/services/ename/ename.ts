@@ -34,6 +34,13 @@ export const NamePartSchema = z.string().min(1).max(MAX_NAME_PART_LENGTH).regex(
     'must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)',
 });
 
+// What a client submits for an ename, declared once and strict: the event kinds
+// compose this schema into their request, the API wraps it in place as its OpenAPI
+// component (cf. ename-internals.md).
+export const EnameInputSchema = z.strictObject({
+  namePart: NamePartSchema,
+});
+
 // Upper bound for numberPart, mirroring the enames_number_part_range CHECK
 // (1..999_999_999_999). Well under 2^53, so it round-trips as a JSON integer.
 export const MAX_NUMBER_PART = 999_999_999_999;

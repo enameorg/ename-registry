@@ -8,13 +8,14 @@ import { pool } from '../../database/pool.ts';
 import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, IdempotencyConflictError } from '../errors.ts';
-import { findSubjects, insertSubject } from '../subject/index.ts';
-
-import { appendEvent } from './append-event.ts';
 import {
+  findSubjects,
+  insertSubject,
   SubjectEnameAddedEventKindDefinition,
   SubjectRegisteredEventKindDefinition,
-} from './event-kinds.ts';
+} from '../subject/index.ts';
+
+import { appendEvent } from './append-event.ts';
 import { findEvents, insertEvent } from './event.ts';
 
 // Tests of the idempotent-write protocol at its own interface, with a real
@@ -280,4 +281,60 @@ test('an invalid request fails before any write', async () => {
   );
   assert.equal(writerRuns, 0);
   assert.equal((await findEvents(pool)).length, 0);
+});
+
+test('a request carrying a field the kind does not declare fails before any write, never stripped', async () => {
+  let writerRuns = 0;
+  await assert.rejects(
+    () =>
+      appendEvent(
+        SubjectRegisteredEventKindDefinition,
+        {
+          idempotencyKey: generateUUIDv7(),
+          // Cast: a field the kind does not know, nested in an entity object —
+          // what a wire schema ahead of the kind definition would let through.
+          request: {
+            subject: { kind: 'person', publicKey: 'not-yet-a-field' },
+            ename: { namePart: 'jean-dupont' },
+          } as unknown as typeof request,
+          projectionWriter: () => {
+            writerRuns += 1;
+            return Promise.resolve(makeOutcome());
+          },
+        },
+        context,
+      ),
+    (error: unknown) => error instanceof ZodError,
+  );
+  assert.equal(writerRuns, 0);
+  assert.equal((await findEvents(pool)).length, 0);
+});
+
+test('an outcome carrying a field the kind does not declare rolls the event back, projection writes included', async () => {
+  await assert.rejects(
+    () =>
+      appendEvent(
+        SubjectRegisteredEventKindDefinition,
+        {
+          idempotencyKey: generateUUIDv7(),
+          request,
+          projectionWriter: async (db, createdAt) => {
+            await insertSubject(db, {
+              id: generateUUIDv7(),
+              kind: 'person',
+              createdAt,
+            });
+            // Cast: a field the writer allocates but the kind does not declare.
+            return {
+              ...makeOutcome(),
+              platform: { id: generateUUIDv7() },
+            } as unknown as ReturnType<typeof makeOutcome>;
+          },
+        },
+        context,
+      ),
+    (error: unknown) => error instanceof ZodError,
+  );
+  assert.equal((await findEvents(pool)).length, 0);
+  assert.equal((await findSubjects(pool)).length, 0);
 });

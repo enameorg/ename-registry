@@ -16,9 +16,9 @@ import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ContentionError, ValidationError } from '../errors.ts';
-import { findEvents, SubjectRegisteredEventKindDefinition } from '../event/index.ts';
+import { findEvents } from '../event/index.ts';
 
-import { registerSubject } from './register-subject.ts';
+import { registerSubject, SubjectRegisteredEventKindDefinition } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
 // Silent logger: these tests assert behavior, not log output. Keeping the

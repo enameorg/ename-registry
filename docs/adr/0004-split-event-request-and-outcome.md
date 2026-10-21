@@ -13,7 +13,7 @@ The cryptographic layer is not built yet, but it fixes two distinct scopes: what
 
 ## Decision
 
-An event carries two JSONB columns. `request` is exactly what the actor submitted, nested by entity block; `outcome` is what the server allocated. Both exclude the idempotency key and the timestamp, which have their own columns. So that the stored `request` is exactly what the client submitted and nothing else, HTTP input objects are strict at every nesting level: an unknown field is rejected, never dropped.
+An event carries two JSONB columns. `request` is exactly what the actor submitted, nested by entity; `outcome` is what the server allocated. Both exclude the idempotency key and the timestamp, which have their own columns. So that the stored `request` is exactly what the client submitted and nothing else, HTTP input objects are strict at every nesting level: an unknown field is rejected, never dropped.
 
 ## Considered options
 
@@ -22,6 +22,7 @@ An event carries two JSONB columns. `request` is exactly what the actor submitte
 
 ## Consequences
 
-- Request and response bodies are nested by entity block, mirroring the event: one mental model from wire to log.
+- Request and response bodies are nested by entity, mirroring the event: one mental model from wire to log.
 - An unknown field in a request body is a 422 naming the key.
+- The exactness of `request` is enforced at the seam that stores it, not only at the HTTP seam: the strict schemas of what a client submits are declared once, in the Service, composed by the event kinds and wrapped by the API, so no field can pass the wire and be stripped on its way into the log.
 - Idempotency reconciliation compares the submitted request with the stored `request` by structural equality (ADR-0005).

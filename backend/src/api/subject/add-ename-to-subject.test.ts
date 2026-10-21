@@ -216,12 +216,12 @@ test('non-JSON Content-Type returns 415 problem+json', async () => {
 
 for (const scenario of [
   {
-    name: 'missing ename block entirely',
+    name: 'missing ename object entirely',
     body: { idempotencyKey: generateUUIDv7() },
     expectedPath: ['ename'],
   },
   {
-    name: 'missing namePart inside ename block',
+    name: 'missing namePart inside ename object',
     body: { idempotencyKey: generateUUIDv7(), ename: {} },
     expectedPath: ['ename', 'namePart'],
   },
@@ -274,7 +274,7 @@ for (const scenario of [
     expectedPath: [],
   },
   {
-    name: 'unknown field inside ename block',
+    name: 'unknown field inside ename object',
     body: {
       ...(makeAddBody({}) as Record<string, unknown>),
       ename: { namePart: 'new-name', hidden: true },

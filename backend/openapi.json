@@ -195,14 +195,16 @@
             "type": "string",
             "enum": [
               "person"
-            ],
-            "example": "person"
+            ]
           }
         },
         "required": [
           "kind"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "example": {
+          "kind": "person"
+        }
       },
       "EnameInput": {
         "type": "object",
@@ -211,14 +213,16 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 50,
-            "pattern": "^[a-z]+(-[a-z]+)*$",
-            "example": "jean-dupont"
+            "pattern": "^[a-z]+(-[a-z]+)*$"
           }
         },
         "required": [
           "namePart"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "example": {
+          "namePart": "jean-dupont"
+        }
       },
       "AddEnameToSubjectResponse": {
         "type": "object",
@@ -246,13 +250,16 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e1a"
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
           }
         },
         "required": [
           "id"
-        ]
+        ],
+        "additionalProperties": false,
+        "example": {
+          "id": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e1a"
+        }
       },
       "AddEnameToSubjectRequest": {
         "type": "object",

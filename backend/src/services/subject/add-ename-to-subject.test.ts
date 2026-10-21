@@ -9,9 +9,9 @@ import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ConflictError, NotFoundError } from '../errors.ts';
-import { findEvents, SubjectEnameAddedEventKindDefinition } from '../event/index.ts';
+import { findEvents } from '../event/index.ts';
 
-import { addEnameToSubject } from './add-ename-to-subject.ts';
+import { addEnameToSubject, SubjectEnameAddedEventKindDefinition } from './add-ename-to-subject.ts';
 import { registerSubject } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 

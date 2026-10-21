@@ -15,7 +15,7 @@ import { SubjectInputSchema, SubjectSchema } from './subject.ts';
 
 // Strict at every level: an unknown field is a 422 naming the key, never
 // silently dropped, so the validated request is exactly what the client sent
-// (cf. ename-internals.md). The entity blocks are the shared wire components.
+// (cf. ename-internals.md). The `subject` and `ename` objects are the shared wire components.
 const RegisterSubjectRequestSchema = z
   .strictObject({
     idempotencyKey: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),

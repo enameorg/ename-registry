@@ -173,7 +173,7 @@ test('the v1 components name each wire shape once, shared across the write route
     'SubjectReference',
   ]);
 
-  // Both write routes submit the same ename block and return the same ename;
+  // Both write routes submit the same `ename` object and return the same ename;
   // registration returns the full subject, adding an ename only names it.
   const reference = (component: string, property: string) =>
     schemas[component]?.properties[property]?.$ref;

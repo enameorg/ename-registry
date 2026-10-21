@@ -14,7 +14,8 @@ import { UUIDv7Schema } from '../../utilities/uuid.ts';
 // request and outcome are typed `unknown`: the table holds heterogeneous kinds
 // (subject.registered, subject.ename-added, future key rotation, …), each with
 // its own pair of schemas. Callers narrow by kind and parse each column with
-// the kind's definition (see event-kinds.ts).
+// the kind's definition, declared by the use case that emits it (see
+// event-kind.ts).
 //
 // idempotencyKey is exposed for service-internal use (replay lookup, race
 // reconciliation) and admin reads; it is transport metadata, projected out of

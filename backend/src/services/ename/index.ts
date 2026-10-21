@@ -1,5 +1,6 @@
 // Public surface of the `ename` concept
 export {
+  EnameInputSchema,
   EnameSchema,
   findEnames,
   getEnameByNamePartAndNumberPart,
