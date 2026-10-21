@@ -105,7 +105,7 @@ backend/
 │   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
 │   │   ├── subject/
 │   │   │   ├── index.ts              # barrel: the concept's public surface
-│   │   │   ├── subject.ts            # Subject type/schema, the strict input schemas, data-access primitives (get/find/insert)
+│   │   │   ├── subject.ts            # Subject type/schema, SubjectKindSchema, the strict input schemas, data-access primitives (get/find/insert)
 │   │   │   ├── subject.test.ts       # primitive round-trip tests
 │   │   │   ├── register-subject.ts   # subject.registered kind definition + registerSubject() use case
 │   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition + addEnameToSubject() use case

@@ -4,13 +4,28 @@ import { type Database, queryRows } from '../../database/query.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 
 // ---------------------------------------------------------------------------
+// Subject kind rule
+// ---------------------------------------------------------------------------
+
+// The kinds of subject the registry admits, as a pure schema: the single
+// declaration of the rule. The projection row, the input a client submits, the
+// insert and the use-case result all derive from it, and the API wraps it with
+// its OpenAPI example (cf. ename-internals.md). A natural person is the only
+// kind today; organizations are [Q-ORG] in ename-synthesis.md. The
+// subjects_kind_allowed CHECK holds the same list, so a new kind lands with a
+// migration, not here alone.
+export const SubjectKindSchema = z.enum(['person']);
+
+export type SubjectKind = z.infer<typeof SubjectKindSchema>;
+
+// ---------------------------------------------------------------------------
 // Subject domain type and lookups
 // ---------------------------------------------------------------------------
 
 // Domain-shaped Subject. Mirrors the `subjects` projection table.
 export const SubjectSchema = z.object({
   id: UUIDv7Schema,
-  kind: z.literal('person'),
+  kind: SubjectKindSchema,
   createdAt: z.date(),
 });
 
@@ -21,7 +36,7 @@ export type Subject = z.infer<typeof SubjectSchema>;
 // OpenAPI components (cf. ename-internals.md). An unknown field fails here, at the
 // seam that stores the request, never stripped.
 export const SubjectInputSchema = z.strictObject({
-  kind: z.literal('person'),
+  kind: SubjectKindSchema,
 });
 
 // Names an existing subject by id alone: what an operation that acts on a
@@ -61,7 +76,7 @@ export async function findSubjects(db: Database): Promise<Subject[]> {
 // each table's write lives in the concept that owns it, even when trivial.
 export async function insertSubject(
   db: Database,
-  params: { id: string; kind: 'person'; createdAt: Date },
+  params: { id: string; kind: SubjectKind; createdAt: Date },
 ): Promise<void> {
   await db.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [
     params.id,

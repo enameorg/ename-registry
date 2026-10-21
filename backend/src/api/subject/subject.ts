@@ -9,8 +9,6 @@ import { UUIDv7Schema } from '../../utilities/uuid.ts';
 // `Subject` is the full subject as the registry returns it; `SubjectReference`
 // names an existing subject by id alone.
 
-const SubjectKindSchema = z.literal('person').openapi({ example: 'person' });
-
 // The input schemas are the Service's, strict, wrapped in place with their
 // example (a clone; the Service schema stays untouched): the contract cannot
 // drift from what the event kinds store (cf. ename-internals.md).
@@ -28,6 +26,6 @@ export const SubjectReferenceSchema = subjectService.SubjectReferenceSchema.open
 export const SubjectSchema = z
   .object({
     id: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e1a' }),
-    kind: SubjectKindSchema,
+    kind: subjectService.SubjectKindSchema.openapi({ example: 'person' }),
   })
   .openapi('Subject');

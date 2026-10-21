@@ -5,7 +5,7 @@ import type { ServiceContext } from '../context.ts';
 import { EnameInputSchema, insertEnameWithNextNumber, NumberPartSchema } from '../ename/index.ts';
 import { appendEvent, type EventKindDefinition, type EventRequest } from '../event/index.ts';
 
-import { insertSubject, SubjectInputSchema } from './subject.ts';
+import { insertSubject, SubjectInputSchema, type SubjectKind } from './subject.ts';
 
 // ---------------------------------------------------------------------------
 // subject.registered — the event kind this use case emits
@@ -47,7 +47,7 @@ export type RegisterSubjectInput = {
 
 export type RegisterSubjectResult = {
   createdAt: Date;
-  subject: { id: string; kind: 'person' };
+  subject: { id: string; kind: SubjectKind };
   ename: { id: string; namePart: string; numberPart: number };
 };
 
