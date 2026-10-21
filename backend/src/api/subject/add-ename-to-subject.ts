@@ -1,6 +1,6 @@
 import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
 
-import { addEnameToSubject, type AddEnameToSubjectResult } from '../../services/subject/index.ts';
+import { addEnameToSubject } from '../../services/subject/index.ts';
 import { DateTimeSchema } from '../../utilities/date-time.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 import type { HonoEnv } from '../context.ts';
@@ -90,21 +90,18 @@ export const addEnameToSubjectHandler: RouteHandler<
   const body = context.req.valid('json');
   const logger = context.var.logger;
 
-  const result = await addEnameToSubject(
+  const ename = await addEnameToSubject(
     { idempotencyKey: body.idempotencyKey, subject: { id }, ename: body.ename },
     { logger },
   );
-  return context.json(resultToResponse(result), 201);
-};
-
-function resultToResponse(result: AddEnameToSubjectResult) {
-  return {
-    createdAt: result.createdAt.toISOString(),
-    subject: { id: result.subject.id },
-    ename: {
-      id: result.ename.id,
-      namePart: result.ename.namePart,
-      numberPart: result.ename.numberPart,
+  // Field by field, never a spread. The subject is named by the row's subjectId,
+  // the same id on a first write and on a replay.
+  return context.json(
+    {
+      createdAt: ename.createdAt.toISOString(),
+      subject: { id: ename.subjectId },
+      ename: { id: ename.id, namePart: ename.namePart, numberPart: ename.numberPart },
     },
-  };
-}
+    201,
+  );
+};

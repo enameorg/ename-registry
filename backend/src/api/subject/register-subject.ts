@@ -1,6 +1,6 @@
 import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
 
-import { registerSubject, type RegisterSubjectResult } from '../../services/subject/index.ts';
+import { registerSubject } from '../../services/subject/index.ts';
 import { DateTimeSchema } from '../../utilities/date-time.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 import type { HonoEnv } from '../context.ts';
@@ -81,18 +81,15 @@ export const registerSubjectHandler: RouteHandler<typeof registerSubjectRoute, H
   const input = context.req.valid('json');
   const logger = context.var.logger;
 
-  const result = await registerSubject(input, { logger });
-  return context.json(resultToResponse(result), 201);
-};
-
-function resultToResponse(result: RegisterSubjectResult) {
-  return {
-    createdAt: result.createdAt.toISOString(),
-    subject: { id: result.subject.id, kind: result.subject.kind },
-    ename: {
-      id: result.ename.id,
-      namePart: result.ename.namePart,
-      numberPart: result.ename.numberPart,
+  const { subject, ename } = await registerSubject(input, { logger });
+  // Field by field, never a spread: the wire carries the event's timestamp once,
+  // not each row's createdAt, and not the ename's subjectId.
+  return context.json(
+    {
+      createdAt: subject.createdAt.toISOString(),
+      subject: { id: subject.id, kind: subject.kind },
+      ename: { id: ename.id, namePart: ename.namePart, numberPart: ename.numberPart },
     },
-  };
-}
+    201,
+  );
+};

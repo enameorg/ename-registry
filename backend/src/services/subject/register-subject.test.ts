@@ -63,6 +63,7 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(enames.length, 1);
   assert.equal(enames[0]?.id, result.ename.id);
   assert.equal(enames[0]?.subjectId, result.subject.id);
+  assert.equal(result.ename.subjectId, result.subject.id);
   assert.equal(enames[0]?.namePart, namePart);
   assert.equal(enames[0]?.numberPart, 1);
 
@@ -81,14 +82,14 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(outcome.ename.numberPart, 1);
 
   // The three created_at values are strictly equal — required for
-  // deterministic projection-by-replay.
+  // deterministic projection-by-replay — and the returned rows carry it.
   const subjectAt = subjects[0]?.createdAt.getTime();
   const enameAt = enames[0]?.createdAt.getTime();
   const eventAt = events[0]?.createdAt.getTime();
-  const resultAt = result.createdAt.getTime();
   assert.equal(subjectAt, eventAt);
   assert.equal(enameAt, eventAt);
-  assert.equal(resultAt, eventAt);
+  assert.equal(result.subject.createdAt.getTime(), eventAt);
+  assert.equal(result.ename.createdAt.getTime(), eventAt);
 });
 
 // ---------------------------------------------------------------------------

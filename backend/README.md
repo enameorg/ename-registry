@@ -83,8 +83,8 @@ backend/
 │   │   │   └── *.test.ts             # HTTP-level tests
 │   │   ├── subject/                  # endpoints rooted at /subjects (one file per route) and their wire schemas
 │   │   │   ├── index.ts              # barrel: the folder's routes, handlers and wire schemas
-│   │   │   ├── register-subject.ts   # POST /subjects route, handler, and request/response envelopes
-│   │   │   ├── add-ename-to-subject.ts # POST /subjects/:id/enames route, handler, and envelopes
+│   │   │   ├── register-subject.ts   # POST /subjects route, handler (maps the rows to the wire), and request/response envelopes
+│   │   │   ├── add-ename-to-subject.ts # POST /subjects/:id/enames route, handler (maps the row to the wire), and envelopes
 │   │   │   ├── subject.ts            # Subject wire schema; SubjectInput and SubjectReference wrap the Service input schemas
 │   │   │   ├── ename.ts              # Ename wire schema; EnameInput and NamePartSchema wrap the Service input schema and rule
 │   │   │   └── *.test.ts             # HTTP-level integration tests
@@ -107,8 +107,8 @@ backend/
 │   │   │   ├── index.ts              # barrel: the concept's public surface
 │   │   │   ├── subject.ts            # Subject type/schema, SubjectKindSchema, the strict input schemas, data-access primitives (get/find/insert)
 │   │   │   ├── subject.test.ts       # primitive round-trip tests
-│   │   │   ├── register-subject.ts   # subject.registered kind definition + registerSubject() use case
-│   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition + addEnameToSubject() use case
+│   │   │   ├── register-subject.ts   # subject.registered kind definition + registerSubject() use case, returning the Subject and Ename rows
+│   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition + addEnameToSubject() use case, returning the Ename row
 │   │   │   └── *.test.ts             # use-case tests (projections, concurrency)
 │   │   ├── ename/
 │   │   │   ├── index.ts

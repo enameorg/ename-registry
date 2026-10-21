@@ -44,19 +44,19 @@ test('happy path: adds one ename to an existing subject and emits subject.ename-
     context,
   );
 
-  assert.equal(result.subject.id, registered.subject.id);
-  assert.match(result.ename.id, UUIDV7_REGEX);
-  assert.equal(result.ename.namePart, 'new-name');
-  assert.equal(result.ename.numberPart, 1);
+  assert.equal(result.subjectId, registered.subject.id);
+  assert.match(result.id, UUIDV7_REGEX);
+  assert.equal(result.namePart, 'new-name');
+  assert.equal(result.numberPart, 1);
 
   const subjects = await findSubjects(pool);
   assert.equal(subjects.length, 1);
   assert.equal(subjects[0]?.id, registered.subject.id);
-  assert.equal(subjects[0]?.createdAt.getTime(), registered.createdAt.getTime());
+  assert.equal(subjects[0]?.createdAt.getTime(), registered.subject.createdAt.getTime());
 
   const enames = await findEnames(pool);
   assert.equal(enames.length, 2);
-  const addedEname = enames.find((ename) => ename.id === result.ename.id);
+  const addedEname = enames.find((ename) => ename.id === result.id);
   assert.ok(addedEname);
   assert.equal(addedEname.subjectId, registered.subject.id);
   assert.equal(addedEname.namePart, 'new-name');
@@ -71,7 +71,7 @@ test('happy path: adds one ename to an existing subject and emits subject.ename-
   assert.equal(request.subject.id, registered.subject.id);
   assert.equal(request.ename.namePart, 'new-name');
   const outcome = SubjectEnameAddedEventKindDefinition.outcomeSchema.parse(addEvent?.outcome);
-  assert.equal(outcome.ename.id, result.ename.id);
+  assert.equal(outcome.ename.id, result.id);
   assert.equal(outcome.ename.numberPart, 1);
   assert.equal(addEvent?.createdAt.getTime(), result.createdAt.getTime());
 });
@@ -103,7 +103,7 @@ test('same namePart on a different subject receives the next global numberPart',
     context,
   );
 
-  assert.equal(added.ename.numberPart, 2);
+  assert.equal(added.numberPart, 2);
 });
 
 test('duplicate namePart for the same subject throws ConflictError and writes nothing', async () => {

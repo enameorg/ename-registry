@@ -2,10 +2,15 @@ import { z } from 'zod';
 
 import { generateUUIDv7, UUIDv7Schema } from '../../utilities/uuid.ts';
 import type { ServiceContext } from '../context.ts';
-import { EnameInputSchema, insertEnameWithNextNumber, NumberPartSchema } from '../ename/index.ts';
+import {
+  type Ename,
+  EnameInputSchema,
+  insertEnameWithNextNumber,
+  NumberPartSchema,
+} from '../ename/index.ts';
 import { appendEvent, type EventKindDefinition, type EventRequest } from '../event/index.ts';
 
-import { insertSubject, SubjectInputSchema, type SubjectKind } from './subject.ts';
+import { insertSubject, type Subject, SubjectInputSchema } from './subject.ts';
 
 // ---------------------------------------------------------------------------
 // subject.registered — the event kind this use case emits
@@ -45,23 +50,17 @@ export type RegisterSubjectInput = {
   idempotencyKey: string;
 } & EventRequest<typeof SubjectRegisteredEventKindDefinition>;
 
-export type RegisterSubjectResult = {
-  createdAt: Date;
-  subject: { id: string; kind: SubjectKind };
-  ename: { id: string; namePart: string; numberPart: number };
-};
-
 // ---------------------------------------------------------------------------
 // registerSubject — public use case
 // ---------------------------------------------------------------------------
 
 // Register a new subject and its first ename atomically, emitting one
-// subject.registered event. Idempotency (replay, 409 on a different request,
-// race reconciliation) is appendEvent's.
+// subject.registered event, and return the two rows it wrote. Idempotency
+// (replay, 409 on a different request, race reconciliation) is appendEvent's.
 export async function registerSubject(
   input: RegisterSubjectInput,
   context: ServiceContext,
-): Promise<RegisterSubjectResult> {
+): Promise<{ subject: Subject; ename: Ename }> {
   const { subject, ename } = input;
   const { request, outcome, createdAt } = await appendEvent(
     SubjectRegisteredEventKindDefinition,
@@ -86,13 +85,16 @@ export async function registerSubject(
     },
     context,
   );
+  // The rows are rebuilt from the event rather than kept from the writer, so a
+  // replay (which runs no writer) returns the same thing as a first write.
   return {
-    createdAt,
-    subject: { id: outcome.subject.id, kind: request.subject.kind },
+    subject: { id: outcome.subject.id, kind: request.subject.kind, createdAt },
     ename: {
       id: outcome.ename.id,
+      subjectId: outcome.subject.id,
       namePart: request.ename.namePart,
       numberPart: outcome.ename.numberPart,
+      createdAt,
     },
   };
 }
