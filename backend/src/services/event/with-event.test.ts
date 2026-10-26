@@ -11,24 +11,38 @@ import { ConflictError, IdempotencyConflictError } from '../errors.ts';
 import {
   findSubjects,
   insertSubject,
+  type RegisterSubjectResult,
   SubjectEnameAddedEventKindDefinition,
   SubjectRegisteredEventKindDefinition,
 } from '../subject/index.ts';
 
-import { appendEvent } from './append-event.ts';
+import { defineEventKind } from './event-kind.ts';
 import { findEvents, insertEvent } from './event.ts';
+import { withEvent } from './with-event.ts';
 
 // Tests of the idempotent-write protocol at its own interface, with a real
-// kind (the events.kind CHECK admits no test kind) and a projection writer the
-// test controls: it can return an outcome without touching a projection, throw a
-// domain error, or wait for a concurrent commit, which makes every branch of
-// the protocol deterministic. Test doctrine: ename-internals.md.
+// kind (the events.kind CHECK admits no test kind) and a work the test
+// controls: it can return rows without touching a projection, throw a domain
+// error, or wait for a concurrent commit, which makes every branch of the
+// protocol deterministic. A first write returns the work's rows; a replay
+// returns what the kind's fromEvent reads from the stored event. Test
+// doctrine: ename-internals.md.
 const context = { logger: pino({ level: 'silent' }) };
 
 useTestDb();
 
 const request = { subject: { kind: 'person' as const }, ename: { namePart: 'jean-dupont' } };
 
+// The rows a work returns, consistent with `request` and the event's createdAt.
+function makeRows(createdAt = new Date()): RegisterSubjectResult {
+  const subjectId = generateUUIDv7();
+  return {
+    subject: { id: subjectId, kind: 'person', createdAt },
+    ename: { id: generateUUIDv7(), subjectId, namePart: 'jean-dupont', numberPart: 1, createdAt },
+  };
+}
+
+// The outcome a concurrent winner stored.
 function makeOutcome() {
   return {
     subject: { id: generateUUIDv7() },
@@ -36,27 +50,25 @@ function makeOutcome() {
   };
 }
 
-test('appends one event carrying the kind, the request, the outcome of the projection writer and a single createdAt', async () => {
+test('appends one event carrying the kind, the request, the outcome kept from the rows the work returned and a single createdAt', async () => {
   const idempotencyKey = generateUUIDv7();
-  const outcome = makeOutcome();
-  let createdAtSeenByWriter: Date | undefined;
+  let rows: RegisterSubjectResult | undefined;
 
-  const appended = await appendEvent(
+  const appended = await withEvent(
     SubjectRegisteredEventKindDefinition,
     {
       idempotencyKey,
       request,
-      projectionWriter: (_db, createdAt) => {
-        createdAtSeenByWriter = createdAt;
-        return Promise.resolve(outcome);
+      work: (_db, createdAt) => {
+        rows = makeRows(createdAt);
+        return Promise.resolve(rows);
       },
     },
     context,
   );
 
-  assert.deepEqual(appended.request, request);
-  assert.deepEqual(appended.outcome, outcome);
-  assert.equal(appended.createdAt, createdAtSeenByWriter);
+  assert.ok(rows);
+  assert.deepEqual(appended, rows);
 
   const events = await findEvents(pool);
   assert.equal(events.length, 1);
@@ -65,59 +77,58 @@ test('appends one event carrying the kind, the request, the outcome of the proje
   assert.equal(event.kind, 'subject.registered');
   assert.equal(event.idempotencyKey, idempotencyKey);
   assert.deepEqual(event.request, request);
-  assert.deepEqual(event.outcome, outcome);
-  assert.equal(event.createdAt.getTime(), appended.createdAt.getTime());
+  assert.deepEqual(event.outcome, SubjectRegisteredEventKindDefinition.toOutcome(rows));
+  assert.equal(event.createdAt.getTime(), rows.subject.createdAt.getTime());
 });
 
-test('replays the stored result for the same idempotencyKey and request, without running the projection writer again', async () => {
+test('replays the stored result for the same idempotencyKey and request, without running the work again', async () => {
   const idempotencyKey = generateUUIDv7();
-  const outcome = makeOutcome();
-  const first = await appendEvent(
+  const first = await withEvent(
     SubjectRegisteredEventKindDefinition,
-    { idempotencyKey, request, projectionWriter: () => Promise.resolve(outcome) },
+    { idempotencyKey, request, work: (_db, createdAt) => Promise.resolve(makeRows(createdAt)) },
     context,
   );
 
-  let writerRuns = 0;
-  const second = await appendEvent(
+  let workRuns = 0;
+  const second = await withEvent(
     SubjectRegisteredEventKindDefinition,
     {
       idempotencyKey,
       request,
-      projectionWriter: () => {
-        writerRuns += 1;
-        return Promise.resolve(makeOutcome());
+      work: (_db, createdAt) => {
+        workRuns += 1;
+        return Promise.resolve(makeRows(createdAt));
       },
     },
     context,
   );
 
-  assert.equal(writerRuns, 0);
-  assert.deepEqual(second.request, first.request);
-  assert.deepEqual(second.outcome, first.outcome);
-  assert.equal(second.createdAt.getTime(), first.createdAt.getTime());
+  assert.equal(workRuns, 0);
+  // The replay reads the stored event back through fromEvent: the two paths
+  // agree, the law each kind's test pins, here on the real kind.
+  assert.deepEqual(second, first);
   assert.equal((await findEvents(pool)).length, 1);
 });
 
-test('rejects the same idempotencyKey with a different request as an IdempotencyConflictError, without running the projection writer', async () => {
+test('rejects the same idempotencyKey with a different request as an IdempotencyConflictError, without running the work', async () => {
   const idempotencyKey = generateUUIDv7();
-  await appendEvent(
+  await withEvent(
     SubjectRegisteredEventKindDefinition,
-    { idempotencyKey, request, projectionWriter: () => Promise.resolve(makeOutcome()) },
+    { idempotencyKey, request, work: () => Promise.resolve(makeRows()) },
     context,
   );
 
-  let writerRuns = 0;
+  let workRuns = 0;
   await assert.rejects(
     () =>
-      appendEvent(
+      withEvent(
         SubjectRegisteredEventKindDefinition,
         {
           idempotencyKey,
           request: { ...request, ename: { namePart: 'other-name' } },
-          projectionWriter: () => {
-            writerRuns += 1;
-            return Promise.resolve(makeOutcome());
+          work: () => {
+            workRuns += 1;
+            return Promise.resolve(makeRows());
           },
         },
         context,
@@ -131,7 +142,7 @@ test('rejects the same idempotencyKey with a different request as an Idempotency
       return true;
     },
   );
-  assert.equal(writerRuns, 0);
+  assert.equal(workRuns, 0);
   assert.equal((await findEvents(pool)).length, 1);
 });
 
@@ -150,9 +161,9 @@ test('rejects the same idempotencyKey used by an event of another kind, before p
 
   await assert.rejects(
     () =>
-      appendEvent(
+      withEvent(
         SubjectRegisteredEventKindDefinition,
-        { idempotencyKey, request, projectionWriter: () => Promise.resolve(makeOutcome()) },
+        { idempotencyKey, request, work: () => Promise.resolve(makeRows()) },
         context,
       ),
     (error: unknown) => {
@@ -171,12 +182,12 @@ test('loses the race at the events insert to a concurrent same-key commit, rolls
   const winnerOutcome = makeOutcome();
   const winnerCreatedAt = new Date();
 
-  const appended = await appendEvent(
+  const appended = await withEvent(
     SubjectRegisteredEventKindDefinition,
     {
       idempotencyKey,
       request,
-      projectionWriter: async (db, createdAt) => {
+      work: async (db, createdAt) => {
         await insertSubject(db, {
           id: generateUUIDv7(),
           kind: 'person',
@@ -191,28 +202,34 @@ test('loses the race at the events insert to a concurrent same-key commit, rolls
           outcome: winnerOutcome,
           createdAt: winnerCreatedAt,
         });
-        return makeOutcome();
+        return makeRows(createdAt);
       },
     },
     context,
   );
 
-  assert.deepEqual(appended.outcome, winnerOutcome);
-  assert.equal(appended.createdAt.getTime(), winnerCreatedAt.getTime());
+  assert.deepEqual(
+    appended,
+    SubjectRegisteredEventKindDefinition.fromEvent({
+      request,
+      outcome: winnerOutcome,
+      createdAt: winnerCreatedAt,
+    }),
+  );
   assert.equal((await findEvents(pool)).length, 1);
   assert.equal((await findSubjects(pool)).length, 0);
 });
 
-test('a domain error raised by the projection writer is reconciled against a concurrent same-key winner before it surfaces', async () => {
+test('a domain error raised by the work is reconciled against a concurrent same-key winner before it surfaces', async () => {
   const idempotencyKey = generateUUIDv7();
   const winnerOutcome = makeOutcome();
 
-  const appended = await appendEvent(
+  const appended = await withEvent(
     SubjectRegisteredEventKindDefinition,
     {
       idempotencyKey,
       request,
-      projectionWriter: async () => {
+      work: async () => {
         // The winner commits first; our projection write then hits a
         // current-state conflict that the winner explains.
         await insertEvent(pool, {
@@ -228,19 +245,20 @@ test('a domain error raised by the projection writer is reconciled against a con
     context,
   );
 
-  assert.deepEqual(appended.outcome, winnerOutcome);
+  assert.equal(appended.subject.id, winnerOutcome.subject.id);
+  assert.equal(appended.ename.id, winnerOutcome.ename.id);
   assert.equal((await findEvents(pool)).length, 1);
 });
 
-test('a domain error raised by the projection writer with no winner surfaces as is, and nothing is written', async () => {
+test('a domain error raised by the work with no winner surfaces as is, and nothing is written', async () => {
   await assert.rejects(
     () =>
-      appendEvent(
+      withEvent(
         SubjectRegisteredEventKindDefinition,
         {
           idempotencyKey: generateUUIDv7(),
           request,
-          projectionWriter: async (db, createdAt) => {
+          work: async (db, createdAt) => {
             await insertSubject(db, {
               id: generateUUIDv7(),
               kind: 'person',
@@ -258,10 +276,10 @@ test('a domain error raised by the projection writer with no winner surfaces as 
 });
 
 test('an invalid request fails before any write', async () => {
-  let writerRuns = 0;
+  let workRuns = 0;
   await assert.rejects(
     () =>
-      appendEvent(
+      withEvent(
         SubjectRegisteredEventKindDefinition,
         {
           idempotencyKey: generateUUIDv7(),
@@ -270,24 +288,24 @@ test('an invalid request fails before any write', async () => {
             subject: { kind: 'robot' },
             ename: { namePart: 'x' },
           } as unknown as typeof request,
-          projectionWriter: () => {
-            writerRuns += 1;
-            return Promise.resolve(makeOutcome());
+          work: () => {
+            workRuns += 1;
+            return Promise.resolve(makeRows());
           },
         },
         context,
       ),
     (error: unknown) => error instanceof ZodError,
   );
-  assert.equal(writerRuns, 0);
+  assert.equal(workRuns, 0);
   assert.equal((await findEvents(pool)).length, 0);
 });
 
 test('a request carrying a field the kind does not declare fails before any write, never stripped', async () => {
-  let writerRuns = 0;
+  let workRuns = 0;
   await assert.rejects(
     () =>
-      appendEvent(
+      withEvent(
         SubjectRegisteredEventKindDefinition,
         {
           idempotencyKey: generateUUIDv7(),
@@ -297,38 +315,44 @@ test('a request carrying a field the kind does not declare fails before any writ
             subject: { kind: 'person', publicKey: 'not-yet-a-field' },
             ename: { namePart: 'jean-dupont' },
           } as unknown as typeof request,
-          projectionWriter: () => {
-            writerRuns += 1;
-            return Promise.resolve(makeOutcome());
+          work: () => {
+            workRuns += 1;
+            return Promise.resolve(makeRows());
           },
         },
         context,
       ),
     (error: unknown) => error instanceof ZodError,
   );
-  assert.equal(writerRuns, 0);
+  assert.equal(workRuns, 0);
   assert.equal((await findEvents(pool)).length, 0);
+});
+
+// The real kind with a toOutcome that keeps a field the kind does not declare:
+// what a kind whose outcome schema lags behind its toOutcome would do.
+const leakyDefinition = defineEventKind({
+  ...SubjectRegisteredEventKindDefinition,
+  toOutcome: (result: RegisterSubjectResult) => ({
+    ...SubjectRegisteredEventKindDefinition.toOutcome(result),
+    platform: { id: generateUUIDv7() },
+  }),
 });
 
 test('an outcome carrying a field the kind does not declare rolls the event back, projection writes included', async () => {
   await assert.rejects(
     () =>
-      appendEvent(
-        SubjectRegisteredEventKindDefinition,
+      withEvent(
+        leakyDefinition,
         {
           idempotencyKey: generateUUIDv7(),
           request,
-          projectionWriter: async (db, createdAt) => {
+          work: async (db, createdAt) => {
             await insertSubject(db, {
               id: generateUUIDv7(),
               kind: 'person',
               createdAt,
             });
-            // Cast: a field the writer allocates but the kind does not declare.
-            return {
-              ...makeOutcome(),
-              platform: { id: generateUUIDv7() },
-            } as unknown as ReturnType<typeof makeOutcome>;
+            return makeRows(createdAt);
           },
         },
         context,

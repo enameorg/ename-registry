@@ -91,7 +91,7 @@ export async function insertEvent(
 
 // Sentinel raised by insertEvent when the events.idempotency_key UNIQUE
 // constraint fires: another transaction won the idempotency race. Not a
-// DomainError — it's internal control flow, caught by appendEvent to roll back
+// DomainError — it's internal control flow, caught by withEvent to roll back
 // and reconcile from the winner's row. Never leaves the event concept.
 export class IdempotencyRaceError extends Error {
   public override readonly name = 'IdempotencyRaceError';

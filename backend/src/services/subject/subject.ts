@@ -72,15 +72,25 @@ export async function findSubjects(db: Database): Promise<Subject[]> {
 // Insertion helper
 // ---------------------------------------------------------------------------
 
-// Thin wrapper for symmetry with insertEnameWithNextNumber / insertEvent:
-// each table's write lives in the concept that owns it, even when trivial.
+// Each table's write lives in the concept that owns it, even when trivial.
+// Returns the row as the database wrote it, so a caller never rebuilds it from
+// the parameters.
 export async function insertSubject(
   db: Database,
   params: { id: string; kind: SubjectKind; createdAt: Date },
-): Promise<void> {
-  await db.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [
-    params.id,
-    params.kind,
-    params.createdAt,
-  ]);
+): Promise<Subject> {
+  const rows = await queryRows(
+    db,
+    `INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)
+     RETURNING ${SELECT_SUBJECT_COLUMNS}`,
+    [params.id, params.kind, params.createdAt],
+    SubjectSchema,
+  );
+  const row = rows[0];
+  if (!row) {
+    // Unreachable in practice (a successful INSERT ... RETURNING returns a
+    // row); defensive against a future refactor.
+    throw new Error('insert subjects returned no row');
+  }
+  return row;
 }

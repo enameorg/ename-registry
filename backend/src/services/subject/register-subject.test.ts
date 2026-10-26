@@ -8,8 +8,8 @@ import { z } from 'zod';
 // read back through the Service's own functions (findSubjects, findEnames,
 // findEvents) — no raw pool/SQL. Those read primitives are themselves covered
 // by their concept's *.test.ts, so reading state through them here is not
-// circular. Idempotency (replay, conflict, race) is appendEvent's and is tested
-// at its interface in services/event/append-event.test.ts. Test doctrine:
+// circular. Idempotency (replay, conflict, race) is withEvent's and is tested
+// at its interface in services/event/with-event.test.ts. Test doctrine:
 // ename-internals.md.
 import { pool } from '../../database/pool.ts';
 import { useTestDb } from '../../database/testing.ts';
@@ -18,7 +18,11 @@ import { findEnames } from '../ename/index.ts';
 import { ContentionError, ValidationError } from '../errors.ts';
 import { findEvents } from '../event/index.ts';
 
-import { registerSubject, SubjectRegisteredEventKindDefinition } from './register-subject.ts';
+import {
+  registerSubject,
+  type RegisterSubjectResult,
+  SubjectRegisteredEventKindDefinition,
+} from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
 // Silent logger: these tests assert behavior, not log output. Keeping the
@@ -28,6 +32,31 @@ const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
 useTestDb();
+
+// ---------------------------------------------------------------------------
+// The kind's mapping: pure, no database
+// ---------------------------------------------------------------------------
+
+// The law withEvent rests on: what toOutcome keeps of the rows, read back with
+// the request and the timestamp, is the rows again — a replay returns what the
+// first write did.
+test('toOutcome keeps what the server allocated, and fromEvent reads it back as the rows written', () => {
+  const subjectId = generateUUIDv7();
+  const enameId = generateUUIDv7();
+  const createdAt = new Date('2026-05-27T14:32:11.123Z');
+  const request = { subject: { kind: 'person' as const }, ename: { namePart: 'jean-dupont' } };
+  const rows: RegisterSubjectResult = {
+    subject: { id: subjectId, kind: 'person', createdAt },
+    ename: { id: enameId, subjectId, namePart: 'jean-dupont', numberPart: 3, createdAt },
+  };
+
+  const outcome = SubjectRegisteredEventKindDefinition.toOutcome(rows);
+  assert.deepEqual(outcome, { subject: { id: subjectId }, ename: { id: enameId, numberPart: 3 } });
+  assert.deepEqual(
+    SubjectRegisteredEventKindDefinition.fromEvent({ request, outcome, createdAt }),
+    rows,
+  );
+});
 
 // ---------------------------------------------------------------------------
 // Happy path: full inspection of projections and event log

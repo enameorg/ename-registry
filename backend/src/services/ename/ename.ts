@@ -117,17 +117,13 @@ export async function findEnames(db: Database): Promise<Ename[]> {
 // Insertion helpers
 // ---------------------------------------------------------------------------
 
-// Row shape for `INSERT enames ... RETURNING number_part`.
-const NumberPartRowSchema = z.object({
-  numberPart: NumberPartSchema,
-});
-
 // INSERT the ename with the next number_part for this name_part, computed
 // atomically via COALESCE(MAX(...), 0)+1. Two backends can pick the same MAX,
 // so each attempt runs in a nested withTransaction — a savepoint inside the
 // caller's transaction, whose other writes survive across attempts — and the
-// 23505 is retried. Returns a numberPart whose full ename fits the 52-char
-// budget, or throws the domain error the violated constraint translates to.
+// 23505 is retried. Returns the row as the database wrote it, whose full ename
+// fits the 52-char budget, or throws the domain error the violated constraint
+// translates to.
 export async function insertEnameWithNextNumber(
   db: Database,
   params: {
@@ -137,7 +133,7 @@ export async function insertEnameWithNextNumber(
     createdAt: Date;
   },
   logger: Logger,
-): Promise<number> {
+): Promise<Ename> {
   for (let attempt = 1; attempt <= MAX_NUMBER_PART_RETRIES; attempt += 1) {
     try {
       return await withTransaction(db, (db) => insertEnameOnce(db, params), logger);
@@ -198,15 +194,15 @@ export async function insertEnameWithNextNumber(
 async function insertEnameOnce(
   db: Database,
   params: { enameId: string; subjectId: string; namePart: string; createdAt: Date },
-): Promise<number> {
+): Promise<Ename> {
   const rows = await queryRows(
     db,
     `INSERT INTO enames (id, subject_id, name_part, number_part, created_at)
      SELECT $1, $2, $3, COALESCE(MAX(number_part), 0) + 1, $4
      FROM enames WHERE name_part = $3
-     RETURNING number_part`,
+     RETURNING ${SELECT_ENAME_COLUMNS}`,
     [params.enameId, params.subjectId, params.namePart, params.createdAt],
-    NumberPartRowSchema,
+    EnameSchema,
   );
   const row = rows[0];
   if (!row) {
@@ -214,5 +210,5 @@ async function insertEnameOnce(
     // row); defensive against a future refactor.
     throw new Error('insert enames returned no row');
   }
-  return row.numberPart;
+  return row;
 }

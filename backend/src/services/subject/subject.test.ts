@@ -17,10 +17,11 @@ test('insertSubject then read back by id and via findSubjects', async () => {
   const id = generateUUIDv7();
   const createdAt = new Date();
 
-  await insertSubject(pool, { id, kind: 'person', createdAt });
+  const inserted = await insertSubject(pool, { id, kind: 'person', createdAt });
 
   const found = await getSubject(pool, id);
   assert.ok(found);
+  assert.deepEqual(inserted, found);
   assert.equal(found.id, id);
   assert.equal(found.kind, 'person');
   assert.match(found.id, UUIDV7_REGEX);

@@ -107,9 +107,9 @@ backend/
 │   │   │   ├── index.ts              # barrel: the concept's public surface
 │   │   │   ├── subject.ts            # Subject type/schema, SubjectKindSchema, the strict input schemas, data-access primitives (get/find/insert)
 │   │   │   ├── subject.test.ts       # primitive round-trip tests
-│   │   │   ├── register-subject.ts   # subject.registered kind definition + registerSubject() use case, returning the Subject and Ename rows
-│   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition + addEnameToSubject() use case, returning the Ename row
-│   │   │   └── *.test.ts             # use-case tests (projections, concurrency)
+│   │   │   ├── register-subject.ts   # subject.registered kind definition (schemas + toOutcome/fromEvent) + registerSubject() use case, returning the Subject and Ename rows
+│   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition (schemas + toOutcome/fromEvent) + addEnameToSubject() use case, returning the Ename row
+│   │   │   └── *.test.ts             # use-case tests (the kind's mapping law, projections, concurrency)
 │   │   ├── ename/
 │   │   │   ├── index.ts
 │   │   │   ├── ename.ts              # Ename type/schema, NamePartSchema and format rules, the strict input schema, primitives
@@ -118,9 +118,9 @@ backend/
 │   │   │   ├── index.ts
 │   │   │   ├── event.ts              # Event type/schema + primitives (the append-only log)
 │   │   │   ├── event.test.ts
-│   │   │   ├── event-kind.ts         # The shape of an event kind definition (kind literal + strict request/outcome schemas)
-│   │   │   ├── append-event.ts       # appendEvent(): the idempotent-write protocol every use case runs
-│   │   │   └── append-event.test.ts  # protocol tests (replay, conflict, race, domain error vs winner)
+│   │   │   ├── event-kind.ts         # The shape of an event kind definition (kind literal + strict request/outcome schemas + toOutcome/fromEvent) and defineEventKind()
+│   │   │   ├── with-event.ts         # withEvent(): the idempotent-write protocol every use case runs, returning the work's rows (a replay: the kind's fromEvent)
+│   │   │   └── with-event.test.ts    # protocol tests (replay, conflict, race, domain error vs winner)
 │   │   ├── application/
 │   │   │   ├── index.ts
 │   │   │   ├── application.ts        # health(), checkDatabase(), closeDatabase()

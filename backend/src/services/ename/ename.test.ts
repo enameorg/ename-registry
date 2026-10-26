@@ -11,6 +11,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
 import { insertSubject } from '../subject/index.ts';
 
 import {
+  type Ename,
   findEnames,
   getEnameByNamePartAndNumberPart,
   insertEnameWithNextNumber,
@@ -54,7 +55,7 @@ async function allocate(params: {
   subjectId: string;
   namePart: string;
   createdAt?: Date;
-}): Promise<number> {
+}): Promise<Ename> {
   return await insertEnameWithNextNumber(
     pool,
     {
@@ -72,14 +73,15 @@ test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEn
   const enameId = generateUUIDv7();
   const createdAt = new Date();
 
-  const numberPart = await allocate({ enameId, subjectId, namePart: 'jean-dupont', createdAt });
-  assert.equal(numberPart, 1);
+  const inserted = await allocate({ enameId, subjectId, namePart: 'jean-dupont', createdAt });
+  assert.equal(inserted.numberPart, 1);
 
   const found = await getEnameByNamePartAndNumberPart(pool, {
     namePart: 'jean-dupont',
     numberPart: 1,
   });
   assert.ok(found);
+  assert.deepEqual(inserted, found);
   assert.equal(found.id, enameId);
   assert.equal(found.subjectId, subjectId);
   assert.equal(found.namePart, 'jean-dupont');
@@ -97,8 +99,8 @@ test('insertEnameWithNextNumber allocates consecutive numberParts per namePart',
   const first = await allocate({ subjectId: firstSubjectId, namePart });
   const second = await allocate({ subjectId: secondSubjectId, namePart });
 
-  assert.equal(first, 1);
-  assert.equal(second, 2);
+  assert.equal(first.numberPart, 1);
+  assert.equal(second.numberPart, 2);
 });
 
 // Two allocations for one namePart read the same MAX(number_part) and collide
@@ -114,7 +116,7 @@ test('insertEnameWithNextNumber retries a number_part collision: the loser takes
   const loserSubjectId = await seedSubject();
   const namePart = 'martin';
 
-  let loser: Promise<number> | undefined;
+  let loser: Promise<Ename> | undefined;
   await withTransaction(
     pool,
     async (db) => {
@@ -123,7 +125,7 @@ test('insertEnameWithNextNumber retries a number_part collision: the loser takes
         { enameId: generateUUIDv7(), subjectId: holderSubjectId, namePart, createdAt: new Date() },
         logger,
       );
-      assert.equal(holderNumberPart, 1);
+      assert.equal(holderNumberPart.numberPart, 1);
 
       loser = allocate({ subjectId: loserSubjectId, namePart });
       await waitForLockedStatement();
@@ -132,7 +134,8 @@ test('insertEnameWithNextNumber retries a number_part collision: the loser takes
     logger,
   );
 
-  assert.equal(await loser, 2);
+  assert.ok(loser);
+  assert.equal((await loser).numberPart, 2);
   assert.deepEqual((await findEnames(pool)).map((ename) => ename.numberPart).sort(), [1, 2]);
 
   const collisions = logLines.filter(

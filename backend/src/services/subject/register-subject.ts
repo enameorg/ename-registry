@@ -8,20 +8,73 @@ import {
   insertEnameWithNextNumber,
   NumberPartSchema,
 } from '../ename/index.ts';
-import { appendEvent, type EventKindDefinition, type EventRequest } from '../event/index.ts';
+import { defineEventKind, type EventRequest, withEvent } from '../event/index.ts';
 
 import { insertSubject, type Subject, SubjectInputSchema } from './subject.ts';
 
 // ---------------------------------------------------------------------------
-// subject.registered — the event kind this use case emits
+// registerSubject — public types
 // ---------------------------------------------------------------------------
 
-// What the write records: the kind literal and the strict pair of schemas that
-// parse its request and outcome (cf. ename-internals.md, event-kind.ts). The
-// request composes the concepts' input schemas, so the grammar they carry holds
-// for every caller of the use case, not only the HTTP body, and a request
-// re-parsed from the log can't pass what the original would have failed.
-export const SubjectRegisteredEventKindDefinition = {
+// The `subject` and `ename` objects mirror the event's request shape and the API
+// body. The input minus idempotencyKey is exactly what lands in events.request.
+export type RegisterSubjectInput = {
+  idempotencyKey: string;
+} & EventRequest<typeof SubjectRegisteredEventKindDefinition>;
+
+// What the use case writes and returns: the two rows, in the concept's types.
+export type RegisterSubjectResult = { subject: Subject; ename: Ename };
+
+// ---------------------------------------------------------------------------
+// registerSubject — public use case
+// ---------------------------------------------------------------------------
+
+// Register a new subject and its first ename atomically, emitting one
+// subject.registered event, and return the two rows it wrote. Idempotency
+// (replay, 409 on a different request, race reconciliation) is withEvent's.
+export async function registerSubject(
+  input: RegisterSubjectInput,
+  context: ServiceContext,
+): Promise<RegisterSubjectResult> {
+  return await withEvent(
+    SubjectRegisteredEventKindDefinition,
+    {
+      idempotencyKey: input.idempotencyKey,
+      request: { subject: input.subject, ename: input.ename },
+      work: async (db, createdAt) => {
+        const subject = await insertSubject(db, {
+          id: generateUUIDv7(),
+          kind: input.subject.kind,
+          createdAt,
+        });
+        const ename = await insertEnameWithNextNumber(
+          db,
+          {
+            enameId: generateUUIDv7(),
+            subjectId: subject.id,
+            namePart: input.ename.namePart,
+            createdAt,
+          },
+          context.logger,
+        );
+        return { subject, ename };
+      },
+    },
+    context,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// subject.registered — the event kind registerSubject emits
+// ---------------------------------------------------------------------------
+
+// What the write records: the kind literal, the strict pair of schemas that
+// parse its request and outcome (cf. ename-internals.md, event-kind.ts), and
+// the mapping between the rows written and the event. The request composes the
+// concepts' input schemas, so the grammar they carry holds for every caller of
+// the use case, not only the HTTP body, and a request re-parsed from the log
+// can't pass what the original would have failed.
+export const SubjectRegisteredEventKindDefinition = defineEventKind({
   kind: 'subject.registered',
   requestSchema: z.strictObject({
     subject: SubjectInputSchema,
@@ -38,56 +91,11 @@ export const SubjectRegisteredEventKindDefinition = {
       numberPart: NumberPartSchema,
     }),
   }),
-} as const satisfies EventKindDefinition;
-
-// ---------------------------------------------------------------------------
-// registerSubject — public types
-// ---------------------------------------------------------------------------
-
-// The `subject` and `ename` objects mirror the event's request shape and the API
-// body. The input minus idempotencyKey is exactly what lands in events.request.
-export type RegisterSubjectInput = {
-  idempotencyKey: string;
-} & EventRequest<typeof SubjectRegisteredEventKindDefinition>;
-
-// ---------------------------------------------------------------------------
-// registerSubject — public use case
-// ---------------------------------------------------------------------------
-
-// Register a new subject and its first ename atomically, emitting one
-// subject.registered event, and return the two rows it wrote. Idempotency
-// (replay, 409 on a different request, race reconciliation) is appendEvent's.
-export async function registerSubject(
-  input: RegisterSubjectInput,
-  context: ServiceContext,
-): Promise<{ subject: Subject; ename: Ename }> {
-  const { subject, ename } = input;
-  const { request, outcome, createdAt } = await appendEvent(
-    SubjectRegisteredEventKindDefinition,
-    {
-      idempotencyKey: input.idempotencyKey,
-      request: { subject, ename },
-      projectionWriter: async (db, createdAt) => {
-        const subjectId = generateUUIDv7();
-        const enameId = generateUUIDv7();
-        await insertSubject(db, {
-          id: subjectId,
-          kind: subject.kind,
-          createdAt,
-        });
-        const numberPart = await insertEnameWithNextNumber(
-          db,
-          { enameId, subjectId, namePart: ename.namePart, createdAt },
-          context.logger,
-        );
-        return { subject: { id: subjectId }, ename: { id: enameId, numberPart } };
-      },
-    },
-    context,
-  );
-  // The rows are rebuilt from the event rather than kept from the writer, so a
-  // replay (which runs no writer) returns the same thing as a first write.
-  return {
+  toOutcome: ({ subject, ename }: RegisterSubjectResult) => ({
+    subject: { id: subject.id },
+    ename: { id: ename.id, numberPart: ename.numberPart },
+  }),
+  fromEvent: ({ request, outcome, createdAt }): RegisterSubjectResult => ({
     subject: { id: outcome.subject.id, kind: request.subject.kind, createdAt },
     ename: {
       id: outcome.ename.id,
@@ -96,5 +104,5 @@ export async function registerSubject(
       numberPart: outcome.ename.numberPart,
       createdAt,
     },
-  };
-}
+  }),
+});

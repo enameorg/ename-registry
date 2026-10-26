@@ -11,18 +11,46 @@ import { findEnames } from '../ename/index.ts';
 import { ConflictError, NotFoundError } from '../errors.ts';
 import { findEvents } from '../event/index.ts';
 
-import { addEnameToSubject, SubjectEnameAddedEventKindDefinition } from './add-ename-to-subject.ts';
+import {
+  addEnameToSubject,
+  type AddEnameToSubjectResult,
+  SubjectEnameAddedEventKindDefinition,
+} from './add-ename-to-subject.ts';
 import { registerSubject } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
 // Idempotency (replay, conflict, race, replay winning over a current-state
-// conflict) is appendEvent's and is tested at its interface in
-// services/event/append-event.test.ts; the tests below cover what this use case
-// adds: the projection writes and their own domain errors.
+// conflict) is withEvent's and is tested at its interface in
+// services/event/with-event.test.ts; the tests below cover what this use case
+// adds: its kind's mapping to and from the event, the projection writes and
+// their own domain errors.
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
 useTestDb();
+
+// The law withEvent rests on: what toOutcome keeps of the row, read back with
+// the request and the timestamp, is the row again.
+test('toOutcome keeps what the server allocated, and fromEvent reads it back as the ename row written', () => {
+  const subjectId = generateUUIDv7();
+  const enameId = generateUUIDv7();
+  const createdAt = new Date('2026-05-30T14:32:11.123Z');
+  const request = { subject: { id: subjectId }, ename: { namePart: 'new-name' } };
+  const row: AddEnameToSubjectResult = {
+    id: enameId,
+    subjectId,
+    namePart: 'new-name',
+    numberPart: 2,
+    createdAt,
+  };
+
+  const outcome = SubjectEnameAddedEventKindDefinition.toOutcome(row);
+  assert.deepEqual(outcome, { ename: { id: enameId, numberPart: 2 } });
+  assert.deepEqual(
+    SubjectEnameAddedEventKindDefinition.fromEvent({ request, outcome, createdAt }),
+    row,
+  );
+});
 
 test('happy path: adds one ename to an existing subject and emits subject.ename-added', async () => {
   const registered = await registerSubject(

@@ -20,5 +20,5 @@ The connection is an explicit argument, `Pool | PoolClient`, first on every prim
 
 ## Consequences
 
-- A projection writer can pass the pool by mistake inside its transaction; the type does not forbid it. The import of the pool singleton is the thing to watch in review.
+- A use case's work can pass the pool by mistake inside its transaction; the type does not forbid it. The import of the pool singleton is the thing to watch in review.
 - Nesting by savepoint constrains callers — no parallel statements inside one transaction, one release per loop turn; the internals state those rules.
