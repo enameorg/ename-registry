@@ -126,7 +126,7 @@ backend/
 │   │   │   ├── application.ts        # health(), checkDatabase(), closeDatabase()
 │   │   │   └── application.test.ts
 │   │   ├── context.ts                # ServiceContext (request-scoped values passed from the API layer)
-│   │   └── errors.ts                 # Domain error classes (DomainError, ValidationError, NotFoundError, ConflictError, IdempotencyConflictError, ContentionError)
+│   │   └── errors.ts                 # Domain error classes (DomainError, ValidationError, NotFoundError, ConflictError, IdempotencyConflictError, ContentionError) and the translation of a Zod failure into a ValidationError
 │   ├── utilities/                    # Pure modules both layers import (no I/O, no singleton), one file per concept
 │   │   ├── uuid.ts                   # UUIDv7 generation, validation regex and the pure UUIDv7Schema
 │   │   ├── date-time.ts              # DateTimeSchema: a timestamp on the wire (RFC 3339, UTC)

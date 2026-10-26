@@ -1,3 +1,5 @@
+import type { ZodError } from 'zod';
+
 // Domain errors raised by the Service layer, which knows nothing about HTTP; the
 // API layer's error module maps each to a Problem Details response (see api/errors.ts).
 // Discriminated classes (not a tagged union) so instanceof works in the handler.
@@ -20,6 +22,25 @@ export type ValidationIssue = {
   path: Array<string | number>;
   message: string;
 };
+
+// The one translation of a Zod failure into the domain's vocabulary. The write
+// protocol raises it when a request fails its kind's strict parse, and the
+// API's validation hook builds its 422 from it, so a malformed request yields
+// the same detail and issues whatever the caller (cf. ename-internals.md).
+export function validationErrorFromZodError(error: ZodError): ValidationError {
+  const issues = error.issues.map((issue) => ({
+    // Cast: Zod types issue.path as PropertyKey[] (includes symbol), but a
+    // parsed JSON structure only ever has string/number paths. Narrowing
+    // keeps ValidationIssue JSON-safe.
+    path: [...issue.path] as Array<string | number>,
+    message: issue.message,
+  }));
+  const issueCount = issues.length;
+  return new ValidationError(
+    `${issueCount} validation error${issueCount === 1 ? '' : 's'}.`,
+    issues,
+  );
+}
 
 export class NotFoundError extends DomainError {
   public override readonly name = 'NotFoundError';

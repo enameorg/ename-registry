@@ -5,7 +5,7 @@ import type { Logger } from 'pino';
 import { pool } from '../../database/pool.ts';
 import { type Database, withTransaction } from '../../database/query.ts';
 import type { ServiceContext } from '../context.ts';
-import { DomainError, IdempotencyConflictError } from '../errors.ts';
+import { DomainError, IdempotencyConflictError, validationErrorFromZodError } from '../errors.ts';
 
 import type { EventKindDefinition, EventOutcome, EventRequest, EventResult } from './event-kind.ts';
 import {
@@ -36,9 +36,17 @@ export async function withEvent<Definition extends EventKindDefinition>(
   context: ServiceContext,
 ): Promise<EventResult<Definition>> {
   const { logger } = context;
-  // Cast: the definition's schema is generic, so TypeScript cannot relate
-  // parse()'s return type to EventRequest<Definition>; parse() is what defines it.
-  const request = definition.requestSchema.parse(params.request) as EventRequest<Definition>;
+  // A request that fails the kind's strict parse is the caller's fault, raised
+  // in the domain's vocabulary so a non-HTTP caller gets a ValidationError,
+  // never a library error. The outcome and replay parses below stay raw: a
+  // failure there is a bug or a corrupted event, not a malformed request.
+  const parsedRequest = definition.requestSchema.safeParse(params.request);
+  if (!parsedRequest.success) {
+    throw validationErrorFromZodError(parsedRequest.error);
+  }
+  // Cast: the definition's schema is generic, so TypeScript cannot relate the
+  // parsed data to EventRequest<Definition>; the schema is what defines it.
+  const request = parsedRequest.data as EventRequest<Definition>;
 
   // Step 1 — preliminary lookup, outside any transaction.
   const existing = await getEventByIdempotencyKey(pool, params.idempotencyKey);

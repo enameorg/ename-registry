@@ -9,6 +9,7 @@ import {
   IdempotencyConflictError,
   NotFoundError,
   ValidationError,
+  validationErrorFromZodError,
 } from '../services/errors.ts';
 import { UUIDv7Schema } from '../utilities/uuid.ts';
 
@@ -109,26 +110,16 @@ export const gateProblemResponses = {
 
 // Maps Zod request-validation failures to an RFC 9457 422 before the handler
 // runs (the sub-app's defaultHook). Without it @hono/zod-openapi emits its own
-// shape, drifting from our contract.
+// shape, drifting from our contract. The failure goes through the Service's
+// own translation, so this 422 and the one handleError builds from a
+// ValidationError carry the same detail and issues.
 export const validationHook: NonNullable<OpenAPIHonoOptions<HonoEnv>['defaultHook']> = (
   result,
   context,
 ) => {
   if (!result.success) {
-    const issues = result.error.issues.map((issue) => ({
-      // Cast: Zod types issue.path as PropertyKey[] (includes symbol), but a
-      // parsed JSON structure only ever has string/number paths. Narrowing
-      // keeps the ProblemDetails shape JSON-safe.
-      path: [...issue.path] as Array<string | number>,
-      message: issue.message,
-    }));
-    const issueCount = issues.length;
-    return buildProblemJson(
-      context,
-      422,
-      `${issueCount} validation error${issueCount === 1 ? '' : 's'}.`,
-      { errors: issues },
-    );
+    const error = validationErrorFromZodError(result.error);
+    return buildProblemJson(context, 422, error.message, { errors: error.errors });
   }
   // Type contract of defaultHook: must return Response | void. On the success
   // path we let the handler run by returning nothing.

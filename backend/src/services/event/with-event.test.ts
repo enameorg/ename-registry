@@ -7,7 +7,7 @@ import { ZodError } from 'zod';
 import { pool } from '../../database/pool.ts';
 import { useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
-import { ConflictError, IdempotencyConflictError } from '../errors.ts';
+import { ConflictError, IdempotencyConflictError, ValidationError } from '../errors.ts';
 import {
   findSubjects,
   insertSubject,
@@ -149,8 +149,8 @@ test('rejects the same idempotencyKey with a different request as an Idempotency
 test('rejects the same idempotencyKey used by an event of another kind, before parsing its request', async () => {
   const idempotencyKey = generateUUIDv7();
   // Seed a subject.ename-added row directly: its request has no subject.kind,
-  // so a parse with the subject.registered schema would throw a ZodError — the
-  // kind check must come first.
+  // so a parse with the subject.registered schema would fail — the kind check
+  // must come first.
   await insertEvent(pool, {
     idempotencyKey,
     kind: SubjectEnameAddedEventKindDefinition.kind,
@@ -295,7 +295,13 @@ test('an invalid request fails before any write', async () => {
         },
         context,
       ),
-    (error: unknown) => error instanceof ZodError,
+    (error: unknown) => {
+      assert.ok(error instanceof ValidationError);
+      assert.ok(
+        error.errors.some((issue) => issue.path[0] === 'subject' && issue.path[1] === 'kind'),
+      );
+      return true;
+    },
   );
   assert.equal(workRuns, 0);
   assert.equal((await findEvents(pool)).length, 0);
@@ -322,14 +328,20 @@ test('a request carrying a field the kind does not declare fails before any writ
         },
         context,
       ),
-    (error: unknown) => error instanceof ZodError,
+    (error: unknown) => {
+      assert.ok(error instanceof ValidationError);
+      assert.ok(error.errors.some((issue) => issue.message.includes('"publicKey"')));
+      return true;
+    },
   );
   assert.equal(workRuns, 0);
   assert.equal((await findEvents(pool)).length, 0);
 });
 
 // The real kind with a toOutcome that keeps a field the kind does not declare:
-// what a kind whose outcome schema lags behind its toOutcome would do.
+// what a kind whose outcome schema lags behind its toOutcome would do. A fault
+// of the kind, not of the caller, so it surfaces as the raw ZodError, never as
+// a ValidationError.
 const leakyDefinition = defineEventKind({
   ...SubjectRegisteredEventKindDefinition,
   toOutcome: (result: RegisterSubjectResult) => ({

@@ -2,7 +2,6 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
 import { pino } from 'pino';
-import { z } from 'zod';
 
 // Service integration tests: assert the return value and the persisted state
 // read back through the Service's own functions (findSubjects, findEnames,
@@ -285,9 +284,9 @@ test('a namePart outside the grammar is rejected before anything is written', as
         context,
       ),
     (error: unknown) => {
-      assert.ok(error instanceof z.ZodError);
+      assert.ok(error instanceof ValidationError);
       assert.ok(
-        error.issues.some((issue) => issue.path[0] === 'ename' && issue.path[1] === 'namePart'),
+        error.errors.some((issue) => issue.path[0] === 'ename' && issue.path[1] === 'namePart'),
       );
       return true;
     },
