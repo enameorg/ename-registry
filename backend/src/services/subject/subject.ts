@@ -13,7 +13,7 @@ import { UUIDv7Schema } from '../../utilities/uuid.ts';
 // its OpenAPI example (cf. ename-internals.md). A natural person is the only
 // kind today; organizations are [Q-ORG] in ename-synthesis.md. The
 // subjects_kind_allowed CHECK holds the same list, so a new kind lands with a
-// migration, not here alone.
+// migration, not here alone; subject.test.ts pins that the two agree.
 export const SubjectKindSchema = z.enum(['person']);
 
 export type SubjectKind = z.infer<typeof SubjectKindSchema>;

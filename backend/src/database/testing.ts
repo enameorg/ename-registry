@@ -70,3 +70,25 @@ export async function waitForLockedStatement(timeoutMs = 2_000): Promise<void> {
     await sleep(10);
   }
 }
+
+// Read the values a CHECK constraint enumerates: the `'…'::text` literals of
+// the expression the catalog renders — `kind = ANY (ARRAY['a'::text,
+// 'b'::text])`, or `kind = 'a'::text` for a single value. Meaningful only for
+// a CHECK that is a list of values, the shape of every vocabulary column (cf.
+// ename-internals.md); a concept's test compares it with the vocabulary its
+// code declares, in both directions. Throws when no CHECK has that name, so a
+// renamed constraint is reported rather than read as empty. Test-only, like
+// the helpers above.
+export async function readCheckConstraintValues(constraintName: string): Promise<string[]> {
+  const result = await pool.query<{ definition: string }>(
+    `SELECT pg_get_constraintdef(oid) AS definition
+     FROM pg_constraint
+     WHERE contype = 'c' AND conname = $1`,
+    [constraintName],
+  );
+  const definition = result.rows[0]?.definition;
+  if (definition === undefined) {
+    throw new Error(`no CHECK constraint named ${constraintName}`);
+  }
+  return [...definition.matchAll(/'([^']*)'::text/g)].flatMap((match) => match[1] ?? []);
+}

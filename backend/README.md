@@ -101,12 +101,12 @@ backend/
 │   │   ├── pool.test.ts              # Idle-client connection loss is logged, never fatal
 │   │   ├── query.ts                  # Database type, queryRows(), withTransaction() (nests as a savepoint), pingDatabase(), camelize at boundary
 │   │   ├── query.test.ts             # withTransaction nesting: contained failure, release, outer rollback
-│   │   └── testing.ts                # Test DB reset + pool shutdown (refuses reset outside NODE_ENV=test); the lock probe that forces a concurrency path
+│   │   └── testing.ts                # Test DB reset + pool shutdown (refuses reset outside NODE_ENV=test); the lock probe that forces a concurrency path; the CHECK reader behind the vocabulary tests
 │   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
 │   │   ├── subject/
 │   │   │   ├── index.ts              # barrel: the concept's public surface
 │   │   │   ├── subject.ts            # Subject type/schema, SubjectKindSchema, the strict input schemas, data-access primitives (get/find/insert)
-│   │   │   ├── subject.test.ts       # primitive round-trip tests
+│   │   │   ├── subject.test.ts       # primitive round-trip tests; SubjectKindSchema against the subjects.kind CHECK
 │   │   │   ├── register-subject.ts   # subject.registered kind definition (schemas + toOutcome/fromEvent) + registerSubject() use case, returning the Subject and Ename rows
 │   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition (schemas + toOutcome/fromEvent) + addEnameToSubject() use case, returning the Ename row
 │   │   │   └── *.test.ts             # use-case tests (the kind's mapping law, projections, concurrency)
@@ -117,7 +117,7 @@ backend/
 │   │   ├── event/
 │   │   │   ├── index.ts
 │   │   │   ├── event.ts              # Event type/schema + primitives (the append-only log)
-│   │   │   ├── event.test.ts
+│   │   │   ├── event.test.ts         # primitive round-trip tests; the kind definitions against the events.kind CHECK
 │   │   │   ├── event-kind.ts         # The shape of an event kind definition (kind literal + strict request/outcome schemas + toOutcome/fromEvent) and defineEventKind()
 │   │   │   ├── with-event.ts         # withEvent(): the idempotent-write protocol every use case runs, returning the work's rows (a replay: the kind's fromEvent)
 │   │   │   └── with-event.test.ts    # protocol tests (replay, conflict, race, domain error vs winner)

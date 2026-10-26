@@ -17,9 +17,10 @@ import type { z } from 'zod';
 // accepts but the kind does not know fails loudly instead of being lost. A
 // kind is declared by the use case that emits it
 // (`services/subject/register-subject.ts`), so this concept imports no
-// aggregate; the events.kind CHECK is the authoritative list of kinds.
-// withEvent takes a definition to write and reconcile one event; a reader
-// narrows a row by kind and parses each column with the same pair.
+// aggregate; the events.kind CHECK is the authoritative list of kinds, and
+// event.test.ts pins that the definitions agree with it. withEvent takes a
+// definition to write and reconcile one event; a reader narrows a row by kind
+// and parses each column with the same pair.
 export type EventKindDefinition<
   RequestSchema extends z.ZodType = z.ZodType,
   OutcomeSchema extends z.ZodType = z.ZodType,
