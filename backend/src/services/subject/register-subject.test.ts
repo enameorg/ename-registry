@@ -109,8 +109,8 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(outcome.ename.id, result.ename.id);
   assert.equal(outcome.ename.numberPart, 1);
 
-  // The three created_at values are strictly equal — required for
-  // deterministic projection-by-replay — and the returned rows carry it.
+  // The three created_at values are strictly equal — required for a
+  // deterministic rebuild — and the returned rows carry it.
   const subjectAt = subjects[0]?.createdAt.getTime();
   const enameAt = enames[0]?.createdAt.getTime();
   const eventAt = events[0]?.createdAt.getTime();

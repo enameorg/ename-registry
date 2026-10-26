@@ -103,9 +103,17 @@ The named category of an event (`subject.registered`, `subject.ename-added`), de
 _Avoid_: event type
 
 **Idempotency key**:
-The client-supplied identifier carried in every write request and stored with the event it produces: a replay of the same request returns the prior result, and the same key with a different request is a conflict.
+The client-supplied identifier carried in every write request and stored with the event it produces: the same request sent again gets a replay of the prior result, and the same key with a different request is a conflict.
 _Avoid_: request id (the server-generated correlation id), nonce
 
+**Replay**:
+The registry's answer to a write request whose idempotency key and request match a stored event: the result of the first write, read back from that event, with nothing executed again. The client sends the request again; the server replays the result, not the write.
+_Avoid_: retry (the client's resend; also the counter allocation's retry), duplicate (a conflicting value, answered by 409), cached response
+
 **Projection**:
-A table reconstructible by replaying the event log, serving fast reads.
+A table that can be rebuilt from the event log, serving fast reads.
 _Avoid_: read model, cache, view
+
+**Rebuild**:
+The reconstruction of the projections from the event log: the projections emptied, then the rows each event records written again, in log order.
+_Avoid_: replay (the idempotent answer to a write), rehydration

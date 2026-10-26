@@ -73,8 +73,8 @@ export async function findSubjects(db: Database): Promise<Subject[]> {
 // ---------------------------------------------------------------------------
 
 // Each table's write lives in the concept that owns it, even when trivial.
-// Returns the row as the database wrote it, so a caller never rebuilds it from
-// the parameters.
+// Returns the row as the database wrote it, so a caller never reassembles it
+// from the parameters.
 export async function insertSubject(
   db: Database,
   params: { id: string; kind: SubjectKind; createdAt: Date },

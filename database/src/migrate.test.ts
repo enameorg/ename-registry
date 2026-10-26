@@ -221,8 +221,8 @@ interface Fixture {
 }
 
 // One throwaway database and one empty migrations directory per test: the
-// runner creates, breaks and replays migrations, so it never shares ename_test
-// with the backend suite. The database is created on the cluster of
+// runner creates, breaks and re-applies migrations, so it never shares
+// ename_test with the backend suite. The database is created on the cluster of
 // DATABASE_URL and dropped afterwards.
 async function withFixture(body: (fixture: Fixture) => Promise<void>): Promise<void> {
   const clusterUrl = process.env['DATABASE_URL'];

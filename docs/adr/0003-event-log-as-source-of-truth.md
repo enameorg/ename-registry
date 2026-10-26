@@ -13,7 +13,7 @@ The registry is a public commons meant to survive centuries without resting on i
 
 ## Decision
 
-Every mutation is recorded as an immutable event in an append-only `events` table, the single source of truth. The entity tables (`subjects`, `enames`) are projections, fully reconstructible by replaying the log. The log is public and downloadable.
+Every mutation is recorded as an immutable event in an append-only `events` table, the single source of truth. The entity tables (`subjects`, `enames`) are projections, which can be fully rebuilt from the log. The log is public and downloadable.
 
 ## Considered options
 
@@ -22,5 +22,5 @@ Every mutation is recorded as an immutable event in an append-only `events` tabl
 
 ## Consequences
 
-- Replay must be deterministic, so no projection row carries a value the log does not: the internals state the schema discipline that follows (no database-generated timestamp or id, no update in place).
+- A rebuild must be deterministic, so no projection row carries a value the log does not: the internals state the schema discipline that follows (no database-generated timestamp or id, no update in place).
 - The registry stores only what binding and verification require; profile data stays on the platforms, which keeps the auditable, non-erasable surface minimal.

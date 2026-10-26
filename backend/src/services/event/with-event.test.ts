@@ -177,7 +177,7 @@ test('rejects the same idempotencyKey used by an event of another kind, before p
   );
 });
 
-test('loses the race at the events insert to a concurrent same-key commit, rolls back the projection writes and replays the winner', async () => {
+test("loses the race at the events insert to a concurrent same-key commit, rolls back the projection writes and replays the winner's result", async () => {
   const idempotencyKey = generateUUIDv7();
   const winnerOutcome = makeOutcome();
   const winnerCreatedAt = new Date();

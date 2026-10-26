@@ -23,5 +23,5 @@ The key is a mandatory `idempotencyKey` field in the JSON body. It is stored in 
 ## Consequences
 
 - Generated SDKs expose the key as a body field, not a transport option.
-- A replay with the same key and body returns the prior result; the same key with a different body or path is a 409.
+- The same key and body sent again get a replay of the prior result; the same key with a different body or path is a 409.
 - Key uniqueness is global in v1 and becomes per platform once platforms are authenticated, for isolation between them, not only collision avoidance.
