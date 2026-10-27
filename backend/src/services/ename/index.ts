@@ -4,6 +4,7 @@ export {
   EnameSchema,
   findEnames,
   getEnameByNamePartAndNumberPart,
+  insertEname,
   insertEnameWithNextNumber,
   MAX_NUMBER_PART,
   NamePartSchema,

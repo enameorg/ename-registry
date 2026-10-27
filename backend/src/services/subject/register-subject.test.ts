@@ -7,15 +7,17 @@ import { pino } from 'pino';
 // read back through the Service's own functions (findSubjects, findEnames,
 // findEvents) — no raw pool/SQL. Those read primitives are themselves covered
 // by their concept's *.test.ts, so reading state through them here is not
-// circular. Idempotency (replay, conflict, race) is withEvent's and is tested
-// at its interface in services/event/with-event.test.ts. Test doctrine:
-// ename-internals.md.
+// circular. The kind's mapping and its rebuild from the log are tested here
+// too, beside the use case. Idempotency (replay, conflict, race) is
+// withEvent's and is tested at its interface in
+// services/event/with-event.test.ts. Test doctrine: ename-internals.md.
 import { pool } from '../../database/pool.ts';
-import { useTestDb } from '../../database/testing.ts';
+import { withTransaction } from '../../database/query.ts';
+import { truncateProjections, useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ContentionError, ValidationError } from '../errors.ts';
-import { findEvents } from '../event/index.ts';
+import { findEvents, parseEvent, rebuildEvent } from '../event/index.ts';
 
 import {
   registerSubject,
@@ -101,10 +103,10 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(events[0]?.idempotencyKey, idempotencyKey);
   assert.equal(events[0]?.kind, 'subject.registered');
   // request = what the client submitted; outcome = what the server allocated.
-  const request = SubjectRegisteredEventKindDefinition.requestSchema.parse(events[0]?.request);
+  assert.ok(events[0]);
+  const { request, outcome } = parseEvent(SubjectRegisteredEventKindDefinition, events[0]);
   assert.equal(request.subject.kind, 'person');
   assert.equal(request.ename.namePart, namePart);
-  const outcome = SubjectRegisteredEventKindDefinition.outcomeSchema.parse(events[0]?.outcome);
   assert.equal(outcome.subject.id, result.subject.id);
   assert.equal(outcome.ename.id, result.ename.id);
   assert.equal(outcome.ename.numberPart, 1);
@@ -118,6 +120,76 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(enameAt, eventAt);
   assert.equal(result.subject.createdAt.getTime(), eventAt);
   assert.equal(result.ename.createdAt.getTime(), eventAt);
+});
+
+// ---------------------------------------------------------------------------
+// Rebuild from the log
+// ---------------------------------------------------------------------------
+
+// The second way this kind's rows get written (cf. ename-internals.md): with
+// the projections emptied, rebuilding every event in sequence order writes the
+// same rows the use case wrote, ids, numberParts and createdAt included, and
+// leaves the log as it was. Homonyms make the allocated numberParts differ.
+test('rebuilding the log writes back exactly the subjects and enames registerSubject wrote', async () => {
+  for (const namePart of ['jean-dupont', 'jean-dupont', 'marie-curie']) {
+    await registerSubject(
+      { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
+      context,
+    );
+  }
+  const subjects = await findSubjects(pool);
+  const enames = await findEnames(pool);
+  const events = await findEvents(pool);
+
+  await truncateProjections();
+  assert.deepEqual(await findSubjects(pool), []);
+  assert.deepEqual(await findEnames(pool), []);
+
+  await withTransaction(
+    pool,
+    async (db) => {
+      for (const event of events) {
+        assert.equal(event.kind, SubjectRegisteredEventKindDefinition.kind);
+        await rebuildEvent(db, SubjectRegisteredEventKindDefinition, event);
+      }
+    },
+    silentLogger,
+  );
+
+  assert.deepEqual(await findSubjects(pool), subjects);
+  assert.deepEqual(await findEnames(pool), enames);
+  assert.deepEqual(await findEvents(pool), events);
+});
+
+// A rebuild writes the numberPart the event recorded and allocates nothing:
+// rebuilt alone into empty projections, the second homonym is #2, where the
+// live allocation (COALESCE(MAX)+1) would pick #1.
+test('a rebuilt event writes the numberPart it recorded, never the next free one', async () => {
+  for (let index = 0; index < 2; index += 1) {
+    await registerSubject(
+      {
+        idempotencyKey: generateUUIDv7(),
+        subject: { kind: 'person' },
+        ename: { namePart: 'jean-dupont' },
+      },
+      context,
+    );
+  }
+  const second = (await findEvents(pool))[1];
+  assert.ok(second);
+
+  await truncateProjections();
+  await withTransaction(
+    pool,
+    (db) => rebuildEvent(db, SubjectRegisteredEventKindDefinition, second),
+    silentLogger,
+  );
+
+  const { outcome } = parseEvent(SubjectRegisteredEventKindDefinition, second);
+  const enames = await findEnames(pool);
+  assert.equal(enames.length, 1);
+  assert.equal(enames[0]?.id, outcome.ename.id);
+  assert.equal(enames[0]?.numberPart, 2);
 });
 
 // ---------------------------------------------------------------------------

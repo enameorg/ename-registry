@@ -4,25 +4,26 @@ import { test } from 'node:test';
 import { pino } from 'pino';
 
 import { pool } from '../../database/pool.ts';
-import { useTestDb } from '../../database/testing.ts';
+import { withTransaction } from '../../database/query.ts';
+import { truncateProjections, useTestDb } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
-import { findEvents } from '../event/index.ts';
+import { findEvents, parseEvent, rebuildEvent } from '../event/index.ts';
 
 import {
   addEnameToSubject,
   type AddEnameToSubjectResult,
   SubjectEnameAddedEventKindDefinition,
 } from './add-ename-to-subject.ts';
-import { registerSubject } from './register-subject.ts';
+import { registerSubject, SubjectRegisteredEventKindDefinition } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
 // Idempotency (replay, conflict, race, replay winning over a current-state
 // conflict) is withEvent's and is tested at its interface in
 // services/event/with-event.test.ts; the tests below cover what this use case
-// adds: its kind's mapping to and from the event, the projection writes and
-// their own domain errors.
+// adds: its kind's mapping to and from the event, the projection writes, their
+// rebuild from the log, and their own domain errors.
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
@@ -92,15 +93,74 @@ test('happy path: adds one ename to an existing subject and emits subject.ename-
   const events = await findEvents(pool);
   assert.equal(events.length, 2);
   const addEvent = events[1];
-  assert.equal(addEvent?.idempotencyKey, idempotencyKey);
-  assert.equal(addEvent?.kind, 'subject.ename-added');
-  const request = SubjectEnameAddedEventKindDefinition.requestSchema.parse(addEvent?.request);
+  assert.ok(addEvent);
+  assert.equal(addEvent.idempotencyKey, idempotencyKey);
+  assert.equal(addEvent.kind, 'subject.ename-added');
+  const { request, outcome } = parseEvent(SubjectEnameAddedEventKindDefinition, addEvent);
   assert.equal(request.subject.id, registered.subject.id);
   assert.equal(request.ename.namePart, 'new-name');
-  const outcome = SubjectEnameAddedEventKindDefinition.outcomeSchema.parse(addEvent?.outcome);
   assert.equal(outcome.ename.id, result.id);
   assert.equal(outcome.ename.numberPart, 1);
-  assert.equal(addEvent?.createdAt.getTime(), result.createdAt.getTime());
+  assert.equal(addEvent.createdAt.getTime(), result.createdAt.getTime());
+});
+
+// The second way this kind's rows get written (cf. ename-internals.md): with
+// the projections emptied, rebuilding the log in sequence order — each event
+// through the definition of its kind — writes the same rows the use cases
+// wrote, and leaves the log as it was. The added ename takes #2 of a namePart
+// another subject registered first.
+test('rebuilding the log writes back exactly the ename addEnameToSubject wrote', async () => {
+  await registerSubject(
+    {
+      idempotencyKey: generateUUIDv7(),
+      subject: { kind: 'person' },
+      ename: { namePart: 'marie-curie' },
+    },
+    context,
+  );
+  const registered = await registerSubject(
+    {
+      idempotencyKey: generateUUIDv7(),
+      subject: { kind: 'person' },
+      ename: { namePart: 'other-name' },
+    },
+    context,
+  );
+  const added = await addEnameToSubject(
+    {
+      idempotencyKey: generateUUIDv7(),
+      subject: { id: registered.subject.id },
+      ename: { namePart: 'marie-curie' },
+    },
+    context,
+  );
+  assert.equal(added.numberPart, 2);
+  const subjects = await findSubjects(pool);
+  const enames = await findEnames(pool);
+  const events = await findEvents(pool);
+  assert.deepEqual(
+    events.map((event) => event.kind),
+    ['subject.registered', 'subject.registered', 'subject.ename-added'],
+  );
+
+  await truncateProjections();
+  assert.deepEqual(await findEnames(pool), []);
+
+  await withTransaction(
+    pool,
+    async (db) => {
+      const [first, second, third] = events;
+      assert.ok(first && second && third);
+      await rebuildEvent(db, SubjectRegisteredEventKindDefinition, first);
+      await rebuildEvent(db, SubjectRegisteredEventKindDefinition, second);
+      await rebuildEvent(db, SubjectEnameAddedEventKindDefinition, third);
+    },
+    silentLogger,
+  );
+
+  assert.deepEqual(await findSubjects(pool), subjects);
+  assert.deepEqual(await findEnames(pool), enames);
+  assert.deepEqual(await findEvents(pool), events);
 });
 
 test('same namePart on a different subject receives the next global numberPart', async () => {

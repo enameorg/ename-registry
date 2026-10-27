@@ -7,7 +7,13 @@ import { type Database, withTransaction } from '../../database/query.ts';
 import type { ServiceContext } from '../context.ts';
 import { DomainError, IdempotencyConflictError, validationErrorFromZodError } from '../errors.ts';
 
-import type { EventKindDefinition, EventOutcome, EventRequest, EventResult } from './event-kind.ts';
+import {
+  type EventKindDefinition,
+  type EventOutcome,
+  type EventRequest,
+  type EventResult,
+  parseEvent,
+} from './event-kind.ts';
 import {
   type Event,
   getEventByIdempotencyKey,
@@ -150,12 +156,10 @@ function reconcileReplay<Definition extends EventKindDefinition>(
       'This idempotency key has already been used for a different operation.',
     );
   }
-  // Casts: same reason as in withEvent — the schemas are generic.
-  const request = definition.requestSchema.parse(existing.request) as EventRequest<Definition>;
-  const outcome = definition.outcomeSchema.parse(existing.outcome) as EventOutcome<Definition>;
-  if (!isDeepStrictEqual(submittedRequest, request)) {
+  const stored = parseEvent(definition, existing);
+  if (!isDeepStrictEqual(submittedRequest, stored.request)) {
     logger.info(
-      { kind: definition.kind, existing: request, requested: submittedRequest },
+      { kind: definition.kind, existing: stored.request, requested: submittedRequest },
       'idempotency conflict: existing event has a different request',
     );
     throw new IdempotencyConflictError(
@@ -164,9 +168,5 @@ function reconcileReplay<Definition extends EventKindDefinition>(
   }
   // Cast: `fromEvent` is generic over the definition, so TypeScript cannot
   // relate its return to EventResult<Definition>.
-  return definition.fromEvent({
-    request,
-    outcome,
-    createdAt: existing.createdAt,
-  }) as EventResult<Definition>;
+  return definition.fromEvent(stored) as EventResult<Definition>;
 }

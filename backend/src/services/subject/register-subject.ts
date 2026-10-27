@@ -5,6 +5,7 @@ import type { ServiceContext } from '../context.ts';
 import {
   type Ename,
   EnameInputSchema,
+  insertEname,
   insertEnameWithNextNumber,
   NumberPartSchema,
 } from '../ename/index.ts';
@@ -69,11 +70,12 @@ export async function registerSubject(
 // ---------------------------------------------------------------------------
 
 // What the write records: the kind literal, the strict pair of schemas that
-// parse its request and outcome (cf. ename-internals.md, event-kind.ts), and
-// the mapping between the rows written and the event. The request composes the
-// concepts' input schemas, so the grammar they carry holds for every caller of
-// the use case, not only the HTTP body, and a request re-parsed from the log
-// can't pass what the original would have failed.
+// parse its request and outcome (cf. ename-internals.md, event-kind.ts), the
+// mapping between the rows written and the event, and how a rebuild writes
+// those rows again. The request composes the concepts' input schemas, so the
+// grammar they carry holds for every caller of the use case, not only the HTTP
+// body, and a request re-parsed from the log can't pass what the original
+// would have failed.
 export const SubjectRegisteredEventKindDefinition = defineEventKind({
   kind: 'subject.registered',
   requestSchema: z.strictObject({
@@ -105,4 +107,8 @@ export const SubjectRegisteredEventKindDefinition = defineEventKind({
       createdAt,
     },
   }),
+  rebuild: async (db, { subject, ename }) => {
+    await insertSubject(db, subject);
+    await insertEname(db, ename);
+  },
 });

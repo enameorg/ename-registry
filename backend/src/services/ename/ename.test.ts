@@ -7,20 +7,21 @@ import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
 import { useTestDb, waitForLockedStatement } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
-import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
+import { ConflictError, DomainError, NotFoundError, ValidationError } from '../errors.ts';
 import { insertSubject } from '../subject/index.ts';
 
 import {
   type Ename,
   findEnames,
   getEnameByNamePartAndNumberPart,
+  insertEname,
   insertEnameWithNextNumber,
   NamePartSchema,
 } from './ename.ts';
 
 // Direct tests of the ename data-access primitives (see ename-internals.md).
-// insertEnameWithNextNumber requires an existing subject (enames.subject_id FK),
-// so each insert test seeds one through the subject primitive.
+// Both inserts require an existing subject (enames.subject_id FK), so each
+// insert test seeds one through the subject primitive.
 //
 // What the primitive writes to the logger it receives is part of its observable
 // surface: the logger captures every warning as a parsed line, and a test
@@ -188,6 +189,38 @@ test('insertEnameWithNextNumber rejects an allocation whose full ename would exc
     },
   );
   assert.equal((await findEnames(pool)).length, 9);
+});
+
+// The rebuild's insert: the numberPart is the one given, not the next free one.
+test('insertEname writes the ename exactly as given, numberPart included, and round-trips', async () => {
+  const ename: Ename = {
+    id: generateUUIDv7(),
+    subjectId: await seedSubject(),
+    namePart: 'jean-dupont',
+    numberPart: 7,
+    createdAt: new Date('2026-05-27T14:32:11.123Z'),
+  };
+
+  const inserted = await insertEname(pool, ename);
+
+  assert.deepEqual(inserted, ename);
+  assert.deepEqual(await findEnames(pool), [ename]);
+});
+
+// Nothing is translated: at a rebuild a violation is a corrupted log or
+// projections that were not empty, never a fault of the client.
+test('insertEname lets a constraint violation surface raw, never as a domain error', async () => {
+  const subjectId = await seedSubject();
+  const first = await allocate({ subjectId, namePart: 'jean-dupont' });
+
+  await assert.rejects(
+    () => insertEname(pool, { ...first, id: generateUUIDv7() }),
+    (error: unknown) =>
+      !(error instanceof DomainError) &&
+      error instanceof Error &&
+      'code' in error &&
+      error.code === '23505',
+  );
 });
 
 test('getEnameByNamePartAndNumberPart returns undefined for an unknown ename', async () => {

@@ -212,3 +212,25 @@ async function insertEnameOnce(
   }
   return row;
 }
+
+// INSERT the ename exactly as given, number_part included: what a rebuild
+// writes, the values all coming from the event. Nothing is allocated, retried
+// or translated — a constraint violation here is a corrupted log or projections
+// that were not empty, never a fault of the client, so it surfaces raw.
+export async function insertEname(db: Database, ename: Ename): Promise<Ename> {
+  const rows = await queryRows(
+    db,
+    `INSERT INTO enames (id, subject_id, name_part, number_part, created_at)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING ${SELECT_ENAME_COLUMNS}`,
+    [ename.id, ename.subjectId, ename.namePart, ename.numberPart, ename.createdAt],
+    EnameSchema,
+  );
+  const row = rows[0];
+  if (!row) {
+    // Unreachable in practice (a successful INSERT ... RETURNING returns a
+    // row); defensive against a future refactor.
+    throw new Error('insert enames returned no row');
+  }
+  return row;
+}

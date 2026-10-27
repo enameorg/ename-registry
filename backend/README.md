@@ -101,26 +101,27 @@ backend/
 │   │   ├── pool.test.ts              # Idle-client connection loss is logged, never fatal
 │   │   ├── query.ts                  # Database type, queryRows(), withTransaction() (nests as a savepoint), pingDatabase(), camelize at boundary
 │   │   ├── query.test.ts             # withTransaction nesting: contained failure, release, outer rollback
-│   │   └── testing.ts                # Test DB reset + pool shutdown (refuses reset outside NODE_ENV=test); the lock probe that forces a concurrency path; the CHECK reader behind the vocabulary tests
+│   │   └── testing.ts                # Test DB reset + pool shutdown (refuses reset outside NODE_ENV=test); the lock probe that forces a concurrency path; the CHECK reader behind the vocabulary tests; the projection truncation behind the rebuild tests
 │   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
 │   │   ├── subject/
 │   │   │   ├── index.ts              # barrel: the concept's public surface
 │   │   │   ├── subject.ts            # Subject type/schema, SubjectKindSchema, the strict input schemas, data-access primitives (get/find/insert)
 │   │   │   ├── subject.test.ts       # primitive round-trip tests; SubjectKindSchema against the subjects.kind CHECK
-│   │   │   ├── register-subject.ts   # subject.registered kind definition (schemas + toOutcome/fromEvent) + registerSubject() use case, returning the Subject and Ename rows
-│   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition (schemas + toOutcome/fromEvent) + addEnameToSubject() use case, returning the Ename row
-│   │   │   └── *.test.ts             # use-case tests (the kind's mapping law, projections, concurrency)
+│   │   │   ├── register-subject.ts   # subject.registered kind definition (schemas + toOutcome/fromEvent/rebuild) + registerSubject() use case, returning the Subject and Ename rows
+│   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition (schemas + toOutcome/fromEvent/rebuild) + addEnameToSubject() use case, returning the Ename row
+│   │   │   └── *.test.ts             # use-case tests (the kind's mapping law, projections, rebuild from the log, concurrency)
 │   │   ├── ename/
 │   │   │   ├── index.ts
-│   │   │   ├── ename.ts              # Ename type/schema, NamePartSchema and format rules, the strict input schema, primitives
+│   │   │   ├── ename.ts              # Ename type/schema, NamePartSchema and format rules, the strict input schema, primitives (the allocating insert and the rebuild's verbatim one)
 │   │   │   └── ename.test.ts
 │   │   ├── event/
 │   │   │   ├── index.ts
 │   │   │   ├── event.ts              # Event type/schema + primitives (the append-only log)
 │   │   │   ├── event.test.ts         # primitive round-trip tests; the kind definitions against the events.kind CHECK
-│   │   │   ├── event-kind.ts         # The shape of an event kind definition (kind literal + strict request/outcome schemas + toOutcome/fromEvent) and defineEventKind()
+│   │   │   ├── event-kind.ts         # The shape of an event kind definition (kind literal + strict request/outcome schemas + toOutcome/fromEvent/rebuild), defineEventKind(), parseEvent()
 │   │   │   ├── with-event.ts         # withEvent(): the idempotent-write protocol every use case runs, returning the work's rows (a replay: the kind's fromEvent)
-│   │   │   └── with-event.test.ts    # protocol tests (replay, conflict, race, domain error vs winner)
+│   │   │   ├── with-event.test.ts    # protocol tests (replay, conflict, race, domain error vs winner)
+│   │   │   └── rebuild-event.ts      # rebuildEvent(): writes a stored event's rows again through its kind, allocating nothing
 │   │   ├── application/
 │   │   │   ├── index.ts
 │   │   │   ├── application.ts        # health(), checkDatabase(), closeDatabase()
@@ -143,7 +144,7 @@ backend/
 └── README.md
 ```
 
-`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel: the concept-named file holds its type and data-access primitives, each use case has its own operation-named file that also declares the event kind it emits, and `event` holds the write protocol every use case goes through. `src/database/` is the runtime DB plumbing (pool, query and transaction helpers, test reset) the services build on.
+`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel: the concept-named file holds its type and data-access primitives, each use case has its own operation-named file that also declares the event kind it emits, and `event` holds the write protocol every use case goes through and the rebuild of one event from the log. `src/database/` is the runtime DB plumbing (pool, query and transaction helpers, test reset) the services build on.
 
 Note: the in-repo `src/database/` directory above is **runtime DB plumbing** consumed by the backend service; do not confuse it with the sibling [`database/`](../database/) **package**, which owns the schema, migrations, the migration runner, and the local PostgreSQL cluster.
 
