@@ -24,7 +24,7 @@ Code organization favors **global symmetry across the codebase** over per-module
 
 **Registry scope** `(working hypothesis)`. The registry stores only what binding and verification require — the ename and its subject today; the subject's public key, key-transition history, home platform and lifecycle status are `(target)`. Profile data (display name, contacts, anything richer) is the platforms' responsibility, never the registry's. This keeps the auditable surface minimal and erasure structurally bounded; the registry's stance on legal demands for erasure or rectification is `[Q-LEGAL-DEMANDS]`.
 
-**The `events` table.** The v1 embodiment of the log — an append-only journal from which the `subjects` and `enames` projections are derived. Column types and the per-kind JSON shapes live in the migration and the service code; the invariants are:
+**The `events` table.** The v1 embodiment of the event log — an append-only table from which the `subjects` and `enames` projections are derived. Column types and the per-kind JSON shapes live in the migration and the service code; the invariants are:
 
 - `sequence` (PK, `BIGINT` IDENTITY) — position in the log. Strictly monotonic but not gap-free (an aborted transaction burns a value, e.g. the idempotency race path). It guarantees only a total order over committed events, so it is _not_ a Merkle leaf index: the contiguous leaf index is assigned at tree-construction time `(target)`.
 - `idempotency_key` (UUIDv7, UNIQUE) — client-provided, transport metadata. Distinct from the server-generated `requestId` (observability, never persisted).
