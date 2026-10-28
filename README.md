@@ -11,7 +11,7 @@ For the reference synthesis, see [Ename — Reference Synthesis](./docs/ename-sy
 This repository is an npm workspaces monorepo: one `npm install` at the root installs every package, and each package keeps its own version, scripts and README.
 
 ```bash
-npm install                  # every package's dependencies, from the repository root
+npm install                  # every package's dependencies, and the pre-commit hook (.githooks/)
 npm run db:up -w database    # local PostgreSQL and migrations
 npm run check                # typecheck, lint, format and tests of every package
 ```

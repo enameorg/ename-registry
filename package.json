@@ -12,6 +12,7 @@
     "backend"
   ],
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
     "typecheck": "npm run typecheck --workspaces",
     "lint": "npm run lint --workspaces",
     "lint:fix": "npm run lint:fix --workspaces",

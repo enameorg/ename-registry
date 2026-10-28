@@ -1,0 +1,9 @@
+#!/bin/sh
+# Pre-commit guardrail: the fast checks, on the whole repository. Tests need
+# the database and stay a deliberate `npm run check` (cf. ename-internals.md).
+# Activated by the root `prepare` script through `core.hooksPath`.
+set -e
+cd "$(git rev-parse --show-toplevel)"
+npm run --silent typecheck
+npm run --silent lint
+npm run --silent format
