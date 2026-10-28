@@ -16,8 +16,8 @@
     "lint:fix": "eslint --fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "test": "node --env-file=.env.test --test --test-concurrency=1",
-    "test:coverage": "node --env-file=.env.test --test --test-concurrency=1 --experimental-test-coverage",
+    "test": "node --env-file=.env.test --test --test-concurrency=1 --test-reporter=dot",
+    "test:coverage": "node --env-file=.env.test --test --test-concurrency=1 --test-reporter=dot --experimental-test-coverage",
     "openapi:generate": "node --env-file=.env.development scripts/generate-openapi.ts",
     "check": "npm run typecheck && npm run lint && npm run format && npm run test"
   },
