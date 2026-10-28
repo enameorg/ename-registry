@@ -13,7 +13,7 @@ import { pino } from 'pino';
 // services/event/with-event.test.ts. Test doctrine: ename-internals.md.
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
-import { truncateProjections, useTestDB } from '../../database/testing.ts';
+import { truncateProjections, useTestDatabase } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ContentionError, ValidationError } from '../errors.ts';
@@ -22,7 +22,7 @@ import { findEvents, parseEvent, rebuildEvent } from '../event/index.ts';
 import {
   registerSubject,
   type RegisterSubjectResult,
-  SubjectRegisteredEventKindDefinition,
+  subjectRegisteredEventKindDefinition,
 } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
@@ -32,7 +32,7 @@ import { findSubjects } from './subject.ts';
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
-useTestDB();
+useTestDatabase();
 
 // ---------------------------------------------------------------------------
 // The kind's mapping: pure, no database
@@ -51,10 +51,10 @@ test('toOutcome keeps what the server allocated, and fromEvent reads it back as 
     ename: { id: enameId, subjectId, namePart: 'jean-dupont', numberPart: 3, createdAt },
   };
 
-  const outcome = SubjectRegisteredEventKindDefinition.toOutcome(rows);
+  const outcome = subjectRegisteredEventKindDefinition.toOutcome(rows);
   assert.deepEqual(outcome, { subject: { id: subjectId }, ename: { id: enameId, numberPart: 3 } });
   assert.deepEqual(
-    SubjectRegisteredEventKindDefinition.fromEvent({ request, outcome, createdAt }),
+    subjectRegisteredEventKindDefinition.fromEvent({ request, outcome, createdAt }),
     rows,
   );
 });
@@ -104,7 +104,7 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(events[0]?.kind, 'subject.registered');
   // request = what the client submitted; outcome = what the server allocated.
   assert.ok(events[0]);
-  const { request, outcome } = parseEvent(SubjectRegisteredEventKindDefinition, events[0]);
+  const { request, outcome } = parseEvent(subjectRegisteredEventKindDefinition, events[0]);
   assert.equal(request.subject.kind, 'person');
   assert.equal(request.ename.namePart, namePart);
   assert.equal(outcome.subject.id, result.subject.id);
@@ -149,8 +149,8 @@ test('rebuilding the log writes back exactly the subjects and enames registerSub
     pool,
     async (db) => {
       for (const event of events) {
-        assert.equal(event.kind, SubjectRegisteredEventKindDefinition.kind);
-        await rebuildEvent(db, SubjectRegisteredEventKindDefinition, event);
+        assert.equal(event.kind, subjectRegisteredEventKindDefinition.kind);
+        await rebuildEvent(db, subjectRegisteredEventKindDefinition, event);
       }
     },
     silentLogger,
@@ -181,11 +181,11 @@ test('a rebuilt event writes the numberPart it recorded, never the next free one
   await truncateProjections();
   await withTransaction(
     pool,
-    (db) => rebuildEvent(db, SubjectRegisteredEventKindDefinition, second),
+    (db) => rebuildEvent(db, subjectRegisteredEventKindDefinition, second),
     silentLogger,
   );
 
-  const { outcome } = parseEvent(SubjectRegisteredEventKindDefinition, second);
+  const { outcome } = parseEvent(subjectRegisteredEventKindDefinition, second);
   const enames = await findEnames(pool);
   assert.equal(enames.length, 1);
   assert.equal(enames[0]?.id, outcome.ename.id);

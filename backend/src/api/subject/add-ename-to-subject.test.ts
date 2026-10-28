@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
-import { useTestDB } from '../../database/testing.ts';
+import { useTestDatabase } from '../../database/testing.ts';
 import { app } from '../../index.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { TEST_ORIGIN, postJSON, readJSON, readProblem } from '../testing.ts';
@@ -11,7 +11,7 @@ import { RegisterSubjectResponseSchema } from './register-subject.ts';
 
 const SUBJECTS_PATH = '/api/v1/subjects';
 
-useTestDB();
+useTestDatabase();
 
 function makeRegisterBody(namePart: string): Record<string, unknown> {
   return {

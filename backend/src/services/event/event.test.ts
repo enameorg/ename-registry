@@ -2,11 +2,11 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
 import { pool } from '../../database/pool.ts';
-import { readCheckConstraintValues, useTestDB } from '../../database/testing.ts';
+import { readCheckConstraintValues, useTestDatabase } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import {
-  SubjectEnameAddedEventKindDefinition,
-  SubjectRegisteredEventKindDefinition,
+  subjectEnameAddedEventKindDefinition,
+  subjectRegisteredEventKindDefinition,
 } from '../subject/index.ts';
 
 import {
@@ -22,7 +22,7 @@ import {
 // can read state back through them and trust the result — see
 // ename-internals.md. A single-statement write needs no transaction, so the
 // primitives are called with the pool directly.
-useTestDB();
+useTestDatabase();
 
 test('insertEvent then read back round-trips kind, request, outcome, idempotencyKey and createdAt', async () => {
   const idempotencyKey = generateUUIDv7();
@@ -84,8 +84,8 @@ test('insertEvent twice with the same idempotencyKey throws IdempotencyRaceError
 // landed with its migration but not in this list, both fail here by name; a
 // definition with no migration fails in its own use-case tests.
 const eventKindDefinitions = [
-  SubjectRegisteredEventKindDefinition,
-  SubjectEnameAddedEventKindDefinition,
+  subjectRegisteredEventKindDefinition,
+  subjectEnameAddedEventKindDefinition,
 ];
 
 test('the event kinds declared in code are exactly the kinds the events_kind_allowed CHECK admits', async () => {

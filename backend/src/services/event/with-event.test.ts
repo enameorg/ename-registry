@@ -5,15 +5,15 @@ import { pino } from 'pino';
 import { ZodError } from 'zod';
 
 import { pool } from '../../database/pool.ts';
-import { useTestDB } from '../../database/testing.ts';
+import { useTestDatabase } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, IdempotencyConflictError, ValidationError } from '../errors.ts';
 import {
   findSubjects,
   insertSubject,
   type RegisterSubjectResult,
-  SubjectEnameAddedEventKindDefinition,
-  SubjectRegisteredEventKindDefinition,
+  subjectEnameAddedEventKindDefinition,
+  subjectRegisteredEventKindDefinition,
 } from '../subject/index.ts';
 
 import { defineEventKind } from './event-kind.ts';
@@ -29,7 +29,7 @@ import { withEvent } from './with-event.ts';
 // doctrine: ename-internals.md.
 const context = { logger: pino({ level: 'silent' }) };
 
-useTestDB();
+useTestDatabase();
 
 const request = { subject: { kind: 'person' as const }, ename: { namePart: 'jean-dupont' } };
 
@@ -55,7 +55,7 @@ test('appends one event carrying the kind, the request, the outcome kept from th
   let rows: RegisterSubjectResult | undefined;
 
   const appended = await withEvent(
-    SubjectRegisteredEventKindDefinition,
+    subjectRegisteredEventKindDefinition,
     {
       idempotencyKey,
       request,
@@ -77,21 +77,21 @@ test('appends one event carrying the kind, the request, the outcome kept from th
   assert.equal(event.kind, 'subject.registered');
   assert.equal(event.idempotencyKey, idempotencyKey);
   assert.deepEqual(event.request, request);
-  assert.deepEqual(event.outcome, SubjectRegisteredEventKindDefinition.toOutcome(rows));
+  assert.deepEqual(event.outcome, subjectRegisteredEventKindDefinition.toOutcome(rows));
   assert.equal(event.createdAt.getTime(), rows.subject.createdAt.getTime());
 });
 
 test('replays the stored result for the same idempotencyKey and request, without running the work again', async () => {
   const idempotencyKey = generateUUIDv7();
   const first = await withEvent(
-    SubjectRegisteredEventKindDefinition,
+    subjectRegisteredEventKindDefinition,
     { idempotencyKey, request, work: (_db, createdAt) => Promise.resolve(makeRows(createdAt)) },
     context,
   );
 
   let workRuns = 0;
   const second = await withEvent(
-    SubjectRegisteredEventKindDefinition,
+    subjectRegisteredEventKindDefinition,
     {
       idempotencyKey,
       request,
@@ -113,7 +113,7 @@ test('replays the stored result for the same idempotencyKey and request, without
 test('rejects the same idempotencyKey with a different request as an IdempotencyConflictError, without running the work', async () => {
   const idempotencyKey = generateUUIDv7();
   await withEvent(
-    SubjectRegisteredEventKindDefinition,
+    subjectRegisteredEventKindDefinition,
     { idempotencyKey, request, work: () => Promise.resolve(makeRows()) },
     context,
   );
@@ -122,7 +122,7 @@ test('rejects the same idempotencyKey with a different request as an Idempotency
   await assert.rejects(
     () =>
       withEvent(
-        SubjectRegisteredEventKindDefinition,
+        subjectRegisteredEventKindDefinition,
         {
           idempotencyKey,
           request: { ...request, ename: { namePart: 'other-name' } },
@@ -153,7 +153,7 @@ test('rejects the same idempotencyKey used by an event of another kind, before p
   // must come first.
   await insertEvent(pool, {
     idempotencyKey,
-    kind: SubjectEnameAddedEventKindDefinition.kind,
+    kind: subjectEnameAddedEventKindDefinition.kind,
     request: { subject: { id: generateUUIDv7() }, ename: { namePart: 'jean-dupont' } },
     outcome: { ename: { id: generateUUIDv7(), numberPart: 2 } },
     createdAt: new Date(),
@@ -162,7 +162,7 @@ test('rejects the same idempotencyKey used by an event of another kind, before p
   await assert.rejects(
     () =>
       withEvent(
-        SubjectRegisteredEventKindDefinition,
+        subjectRegisteredEventKindDefinition,
         { idempotencyKey, request, work: () => Promise.resolve(makeRows()) },
         context,
       ),
@@ -183,7 +183,7 @@ test("loses the race at the events insert to a concurrent same-key commit, rolls
   const winnerCreatedAt = new Date();
 
   const appended = await withEvent(
-    SubjectRegisteredEventKindDefinition,
+    subjectRegisteredEventKindDefinition,
     {
       idempotencyKey,
       request,
@@ -197,7 +197,7 @@ test("loses the race at the events insert to a concurrent same-key commit, rolls
         // connection, after our preliminary lookup and before our events insert.
         await insertEvent(pool, {
           idempotencyKey,
-          kind: SubjectRegisteredEventKindDefinition.kind,
+          kind: subjectRegisteredEventKindDefinition.kind,
           request,
           outcome: winnerOutcome,
           createdAt: winnerCreatedAt,
@@ -210,7 +210,7 @@ test("loses the race at the events insert to a concurrent same-key commit, rolls
 
   assert.deepEqual(
     appended,
-    SubjectRegisteredEventKindDefinition.fromEvent({
+    subjectRegisteredEventKindDefinition.fromEvent({
       request,
       outcome: winnerOutcome,
       createdAt: winnerCreatedAt,
@@ -225,7 +225,7 @@ test('a domain error raised by the work is reconciled against a concurrent same-
   const winnerOutcome = makeOutcome();
 
   const appended = await withEvent(
-    SubjectRegisteredEventKindDefinition,
+    subjectRegisteredEventKindDefinition,
     {
       idempotencyKey,
       request,
@@ -234,7 +234,7 @@ test('a domain error raised by the work is reconciled against a concurrent same-
         // current-state conflict that the winner explains.
         await insertEvent(pool, {
           idempotencyKey,
-          kind: SubjectRegisteredEventKindDefinition.kind,
+          kind: subjectRegisteredEventKindDefinition.kind,
           request,
           outcome: winnerOutcome,
           createdAt: new Date(),
@@ -254,7 +254,7 @@ test('a domain error raised by the work with no winner surfaces as is, and nothi
   await assert.rejects(
     () =>
       withEvent(
-        SubjectRegisteredEventKindDefinition,
+        subjectRegisteredEventKindDefinition,
         {
           idempotencyKey: generateUUIDv7(),
           request,
@@ -280,7 +280,7 @@ test('an invalid request fails before any write', async () => {
   await assert.rejects(
     () =>
       withEvent(
-        SubjectRegisteredEventKindDefinition,
+        subjectRegisteredEventKindDefinition,
         {
           idempotencyKey: generateUUIDv7(),
           // Cast: deliberately malformed to exercise the Service-side parse.
@@ -312,7 +312,7 @@ test('a request carrying a field the kind does not declare fails before any writ
   await assert.rejects(
     () =>
       withEvent(
-        SubjectRegisteredEventKindDefinition,
+        subjectRegisteredEventKindDefinition,
         {
           idempotencyKey: generateUUIDv7(),
           // Cast: a field the kind does not know, nested in an entity object —
@@ -343,9 +343,9 @@ test('a request carrying a field the kind does not declare fails before any writ
 // of the kind, not of the caller, so it surfaces as the raw ZodError, never as
 // a ValidationError.
 const leakyDefinition = defineEventKind({
-  ...SubjectRegisteredEventKindDefinition,
+  ...subjectRegisteredEventKindDefinition,
   toOutcome: (result: RegisterSubjectResult) => ({
-    ...SubjectRegisteredEventKindDefinition.toOutcome(result),
+    ...subjectRegisteredEventKindDefinition.toOutcome(result),
     platform: { id: generateUUIDv7() },
   }),
 });

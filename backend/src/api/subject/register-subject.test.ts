@@ -3,9 +3,9 @@ import { test } from 'node:test';
 
 // API tests assert the HTTP contract only — status codes, headers, response
 // shape, Problem Details. Persistence invariants live in
-// services/subject/register-subject.test.ts. useTestDB is the only
+// services/subject/register-subject.test.ts. useTestDatabase is the only
 // ../../database import; no raw pool access here. Test doctrine: ename-internals.md.
-import { useTestDB } from '../../database/testing.ts';
+import { useTestDatabase } from '../../database/testing.ts';
 import { app } from '../../index.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { TEST_ORIGIN, postJSON, readJSON, readProblem } from '../testing.ts';
@@ -14,7 +14,7 @@ import { RegisterSubjectResponseSchema } from './register-subject.ts';
 
 const PATH = '/api/v1/subjects';
 
-useTestDB();
+useTestDatabase();
 
 // Build a valid nested body; each call overrides only what it asserts on.
 function makeBody(overrides: {

@@ -21,7 +21,7 @@ import { insertSubject, type Subject, SubjectInputSchema } from './subject.ts';
 // body. The input minus idempotencyKey is exactly what lands in events.request.
 export type RegisterSubjectInput = {
   idempotencyKey: string;
-} & EventRequest<typeof SubjectRegisteredEventKindDefinition>;
+} & EventRequest<typeof subjectRegisteredEventKindDefinition>;
 
 // What the use case writes and returns: the two rows, in the concept's types.
 export type RegisterSubjectResult = { subject: Subject; ename: Ename };
@@ -38,7 +38,7 @@ export async function registerSubject(
   context: ServiceContext,
 ): Promise<RegisterSubjectResult> {
   return await withEvent(
-    SubjectRegisteredEventKindDefinition,
+    subjectRegisteredEventKindDefinition,
     {
       idempotencyKey: input.idempotencyKey,
       request: { subject: input.subject, ename: input.ename },
@@ -76,7 +76,7 @@ export async function registerSubject(
 // grammar they carry holds for every caller of the use case, not only the HTTP
 // body, and a request re-parsed from the log can't pass what the original
 // would have failed.
-export const SubjectRegisteredEventKindDefinition = defineEventKind({
+export const subjectRegisteredEventKindDefinition = defineEventKind({
   kind: 'subject.registered',
   requestSchema: z.strictObject({
     subject: SubjectInputSchema,

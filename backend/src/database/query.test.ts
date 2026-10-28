@@ -7,7 +7,7 @@ import { generateUUIDv7 } from '../utilities/uuid.ts';
 
 import { pool } from './pool.ts';
 import { type Database, withTransaction } from './query.ts';
-import { useTestDB } from './testing.ts';
+import { useTestDatabase } from './testing.ts';
 
 // Executable specification of withTransaction's nesting: a transaction on the
 // pool, a savepoint on a transaction's client (cf. ename-internals.md). The
@@ -16,7 +16,7 @@ import { useTestDB } from './testing.ts';
 // block's statements run on the block's handle.
 const logger = pino({ level: 'silent' });
 
-useTestDB();
+useTestDatabase();
 
 async function insertRow(db: Database): Promise<void> {
   await db.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [

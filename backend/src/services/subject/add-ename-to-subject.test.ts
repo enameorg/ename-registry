@@ -5,7 +5,7 @@ import { pino } from 'pino';
 
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
-import { truncateProjections, useTestDB } from '../../database/testing.ts';
+import { truncateProjections, useTestDatabase } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
@@ -14,9 +14,9 @@ import { findEvents, parseEvent, rebuildEvent } from '../event/index.ts';
 import {
   addEnameToSubject,
   type AddEnameToSubjectResult,
-  SubjectEnameAddedEventKindDefinition,
+  subjectEnameAddedEventKindDefinition,
 } from './add-ename-to-subject.ts';
-import { registerSubject, SubjectRegisteredEventKindDefinition } from './register-subject.ts';
+import { registerSubject, subjectRegisteredEventKindDefinition } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
 // Idempotency (replay, conflict, race, replay winning over a current-state
@@ -27,7 +27,7 @@ import { findSubjects } from './subject.ts';
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
-useTestDB();
+useTestDatabase();
 
 // The law withEvent rests on: what toOutcome keeps of the row, read back with
 // the request and the timestamp, is the row again.
@@ -44,10 +44,10 @@ test('toOutcome keeps what the server allocated, and fromEvent reads it back as 
     createdAt,
   };
 
-  const outcome = SubjectEnameAddedEventKindDefinition.toOutcome(row);
+  const outcome = subjectEnameAddedEventKindDefinition.toOutcome(row);
   assert.deepEqual(outcome, { ename: { id: enameId, numberPart: 2 } });
   assert.deepEqual(
-    SubjectEnameAddedEventKindDefinition.fromEvent({ request, outcome, createdAt }),
+    subjectEnameAddedEventKindDefinition.fromEvent({ request, outcome, createdAt }),
     row,
   );
 });
@@ -96,7 +96,7 @@ test('happy path: adds one ename to an existing subject and emits subject.ename-
   assert.ok(addEvent);
   assert.equal(addEvent.idempotencyKey, idempotencyKey);
   assert.equal(addEvent.kind, 'subject.ename-added');
-  const { request, outcome } = parseEvent(SubjectEnameAddedEventKindDefinition, addEvent);
+  const { request, outcome } = parseEvent(subjectEnameAddedEventKindDefinition, addEvent);
   assert.equal(request.subject.id, registered.subject.id);
   assert.equal(request.ename.namePart, 'new-name');
   assert.equal(outcome.ename.id, result.id);
@@ -151,9 +151,9 @@ test('rebuilding the log writes back exactly the ename addEnameToSubject wrote',
     async (db) => {
       const [first, second, third] = events;
       assert.ok(first && second && third);
-      await rebuildEvent(db, SubjectRegisteredEventKindDefinition, first);
-      await rebuildEvent(db, SubjectRegisteredEventKindDefinition, second);
-      await rebuildEvent(db, SubjectEnameAddedEventKindDefinition, third);
+      await rebuildEvent(db, subjectRegisteredEventKindDefinition, first);
+      await rebuildEvent(db, subjectRegisteredEventKindDefinition, second);
+      await rebuildEvent(db, subjectEnameAddedEventKindDefinition, third);
     },
     silentLogger,
   );

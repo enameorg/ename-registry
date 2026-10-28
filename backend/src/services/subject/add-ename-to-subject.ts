@@ -19,7 +19,7 @@ import { SubjectReferenceSchema } from './subject.ts';
 
 export type AddEnameToSubjectInput = {
   idempotencyKey: string;
-} & EventRequest<typeof SubjectEnameAddedEventKindDefinition>;
+} & EventRequest<typeof subjectEnameAddedEventKindDefinition>;
 
 // What the use case writes and returns: the ename row, as is.
 export type AddEnameToSubjectResult = Ename;
@@ -37,7 +37,7 @@ export async function addEnameToSubject(
   context: ServiceContext,
 ): Promise<AddEnameToSubjectResult> {
   return await withEvent(
-    SubjectEnameAddedEventKindDefinition,
+    subjectEnameAddedEventKindDefinition,
     {
       idempotencyKey: input.idempotencyKey,
       request: { subject: input.subject, ename: input.ename },
@@ -65,7 +65,7 @@ export async function addEnameToSubject(
 // parse its request and outcome (cf. ename-internals.md, event-kind.ts), the
 // mapping between the row written and the event, and how a rebuild writes that
 // row again. The request composes the concepts' input schemas.
-export const SubjectEnameAddedEventKindDefinition = defineEventKind({
+export const subjectEnameAddedEventKindDefinition = defineEventKind({
   kind: 'subject.ename-added',
   requestSchema: z.strictObject({
     subject: SubjectReferenceSchema,

@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 
-import { useTestDB } from '../database/testing.ts';
+import { useTestDatabase } from '../database/testing.ts';
 import { app } from '../index.ts';
 
 import { MAX_BODY_BYTES } from './middleware.ts';
@@ -13,7 +13,7 @@ import { TEST_ORIGIN, readProblem } from './testing.ts';
 // carrying a request id, never Hono's text/plain defaults. Test doctrine:
 // ename-internals.md.
 
-useTestDB();
+useTestDatabase();
 
 // ---------------------------------------------------------------------------
 // Unmatched path (404 catch-all)
