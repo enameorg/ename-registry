@@ -2,12 +2,8 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
 import { pool } from '../../database/pool.ts';
-import { readCheckConstraintValues, useTestDatabase } from '../../database/testing.ts';
+import { useTestDatabase } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
-import {
-  subjectEnameAddedEventKindDefinition,
-  subjectRegisteredEventKindDefinition,
-} from '../subject/index.ts';
 
 import {
   findEvents,
@@ -17,11 +13,12 @@ import {
 } from './event.ts';
 
 // Direct tests of the event data-access primitives (insert + read round-trip,
-// and the idempotency_key UNIQUE collision path), then the kind vocabulary
-// against its CHECK. The primitives are tested in isolation so use-case tests
-// can read state back through them and trust the result — see
-// ename-internals.md. A single-statement write needs no transaction, so the
-// primitives are called with the pool directly.
+// the windowed read over a log with a gap, and the idempotency_key UNIQUE
+// collision path). The kind vocabulary is tested against its CHECK where the
+// list of definitions lives, in services/application. The primitives are
+// tested in isolation so use-case tests can read state back through them and
+// trust the result — see ename-internals.md. A single-statement write needs no
+// transaction, so the primitives are called with the pool directly.
 useTestDatabase();
 
 test('insertEvent then read back round-trips kind, request, outcome, idempotencyKey and createdAt', async () => {
@@ -77,24 +74,36 @@ test('insertEvent twice with the same idempotencyKey throws IdempotencyRaceError
   );
 });
 
-// Every event kind definition the use cases declare, listed here and nowhere
-// else: the events.kind CHECK is the authoritative list of kinds, and this
-// test pins that the definitions in code agree with it, in both directions. A
-// kind a migration admits before its use case exists, and a definition that
-// landed with its migration but not in this list, both fail here by name; a
-// definition with no migration fails in its own use-case tests.
-const eventKindDefinitions = [
-  subjectRegisteredEventKindDefinition,
-  subjectEnameAddedEventKindDefinition,
-];
+// A failed insert burns a sequence value, as an aborted transaction does, so
+// the log below has a gap between its second and third events. Each page
+// resumes after the last sequence it read and loses nothing across the gap.
+test('findEvents reads the log a window at a time, across a gap in sequence', async () => {
+  const keys = [generateUUIDv7(), generateUUIDv7(), generateUUIDv7(), generateUUIDv7()];
+  for (const [index, idempotencyKey] of keys.entries()) {
+    const params = {
+      idempotencyKey,
+      kind: 'subject.registered',
+      request: {},
+      outcome: {},
+      createdAt: new Date(),
+    };
+    await insertEvent(pool, params);
+    if (index === 1) await assert.rejects(() => insertEvent(pool, params));
+  }
 
-test('the event kinds declared in code are exactly the kinds the events_kind_allowed CHECK admits', async () => {
-  const admitted = await readCheckConstraintValues('events_kind_allowed');
-  const declared = eventKindDefinitions.map((definition) => definition.kind);
+  const first = await findEvents(pool, { limit: 2 });
+  const second = await findEvents(pool, { afterSequence: first[1]?.sequence ?? 0, limit: 2 });
+  const third = await findEvents(pool, { afterSequence: second[1]?.sequence ?? 0, limit: 2 });
 
   assert.deepEqual(
-    admitted.toSorted(),
-    declared.toSorted(),
-    'events.kind: the CHECK and the definitions in code disagree',
+    first.map((event) => event.idempotencyKey),
+    keys.slice(0, 2),
   );
+  assert.deepEqual(
+    second.map((event) => event.idempotencyKey),
+    keys.slice(2),
+  );
+  assert.deepEqual(third, []);
+  assert.equal(second[0]?.sequence, (first[1]?.sequence ?? 0) + 2);
+  assert.deepEqual(await findEvents(pool), [...first, ...second]);
 });

@@ -47,12 +47,19 @@ export async function getEventByIdempotencyKey(
 }
 
 // Ordered by sequence — the canonical log order, same as the future public
-// transparency-log endpoint.
-export async function findEvents(db: Database): Promise<Event[]> {
+// transparency-log endpoint. The window reads the log a page at a time: the
+// events after `afterSequence`, at most `limit` of them. A page resumes after
+// the last sequence it read, never at a computed one, because sequence has
+// gaps. With no window, the whole log.
+export async function findEvents(
+  db: Database,
+  { afterSequence = 0, limit }: { afterSequence?: number; limit?: number } = {},
+): Promise<Event[]> {
+  // pg sends an undefined limit as NULL, and LIMIT NULL is LIMIT ALL.
   return await queryRows(
     db,
-    `SELECT ${SELECT_EVENT_COLUMNS} FROM events ORDER BY sequence`,
-    [],
+    `SELECT ${SELECT_EVENT_COLUMNS} FROM events WHERE sequence > $1 ORDER BY sequence LIMIT $2`,
+    [afterSequence, limit],
     EventSchema,
   );
 }

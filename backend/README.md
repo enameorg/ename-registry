@@ -92,7 +92,7 @@ backend/
 │   │   ├── subject/          # Subject: schemas, primitives, the write use cases with the event kinds they emit
 │   │   ├── ename/            # Ename: format rules, schemas, primitives
 │   │   ├── event/            # The append-only log: the shape of an event kind, withEvent(), rebuildEvent()
-│   │   ├── application/      # health(), checkDatabase(), closeDatabase()
+│   │   ├── application/      # health(), checkDatabase(), closeDatabase(); rebuildProjections() and the list of event kinds
 │   │   ├── context.ts        # ServiceContext (request-scoped values passed from the API layer)
 │   │   └── errors.ts         # Domain error classes and the translation of a Zod failure
 │   ├── utilities/            # Pure modules both layers import directly: uuid.ts, date-time.ts

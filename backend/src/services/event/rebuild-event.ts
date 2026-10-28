@@ -13,8 +13,8 @@ import type { Event } from './event.ts';
 // createdAt — so nothing is allocated, and no event is written: the log is
 // read, never appended to. The caller chose the definition by the event's
 // kind, and owns the transaction: an event that writes several rows is atomic
-// only on a transaction's client. A rebuild walks the log in sequence order
-// and calls this once per event (cf. ename-internals.md).
+// only on a transaction's client. rebuildProjections, in services/application,
+// walks the log in sequence order and calls this once per event.
 export async function rebuildEvent<Definition extends EventKindDefinition>(
   db: Database,
   definition: Definition,

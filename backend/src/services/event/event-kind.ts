@@ -24,9 +24,10 @@ import type { Event } from './event.ts';
 // lost. A kind is declared by the use case that emits it
 // (`services/subject/register-subject.ts`), so this concept imports no
 // aggregate; the events.kind CHECK is the authoritative list of kinds, and
-// event.test.ts pins that the definitions agree with it. withEvent takes a
-// definition to write one event, rebuildEvent to write an event's rows again,
-// and both read a stored event through parseEvent (withEvent on a replay).
+// the list of every definition, in services/application, is tested against
+// it. withEvent takes a definition to write one event, rebuildEvent to
+// write an event's rows again, and both read a stored event through
+// parseEvent (withEvent on a replay).
 export type EventKindDefinition<
   RequestSchema extends z.ZodType = z.ZodType,
   OutcomeSchema extends z.ZodType = z.ZodType,
