@@ -24,6 +24,10 @@ The five default labels, unchanged: `needs-triage`, `needs-info`, `ready-for-age
 
 Single-context: `GLOSSARY.md` at the repo root, ADRs under `docs/adr/`. See `docs/agents/domain.md`; its ADR conventions (frontmatter, length, boundary with the internals) take precedence over the skills' default ADR format.
 
+### Reviews and retrospectives
+
+Reports are Markdown under `.scratch/reviews/`, prose without diagrams, each candidate explained in full. See `docs/agents/reviews.md`; its report format takes precedence over the skills' default HTML report.
+
 ## Always loaded
 
 Local instruction overrides:

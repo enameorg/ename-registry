@@ -10,6 +10,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`. The tracke
 - Every header line (`Status:`, `Blocked by:`, `Spec:`, `Map:`, `Type:`) is written with its key in bold and the value after it on the same line, `**Status:** done`, the form the ticket template uses; a scan matches the line by its `**Status:**` prefix, so a key without the bold is not a header line
 - Blocking is a `Blocked by: NNN, NNN` line near the top; a ticket is unblocked when every ticket it lists is closed
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading, one dated entry per contribution
+- A session's handover on a ticket is its dated entry under `## Comments`: what landed, what was decided, what is left. The ticket is the note; the app's shared notes folder stays empty, so nothing is written twice
 - A ticket is closed in place, never moved or deleted: its `Status:` becomes `done` (the work landed; the closing comment names the landing commit) or `wontfix`. Both are terminal, and they replace the triage label the ticket held, which carries no information once the work is closed
 - A frontier scan reads the `Status:` line and skips every terminal value (`done`, `wontfix`, `resolved`); it never relies on a file's location
 
