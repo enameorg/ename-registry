@@ -18,7 +18,7 @@ Issues and specs live as local markdown files under `.scratch/`. See `docs/agent
 
 ### Triage labels
 
-The five default labels, unchanged: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`: see `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
