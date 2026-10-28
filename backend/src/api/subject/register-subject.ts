@@ -24,7 +24,7 @@ const RegisterSubjectRequestSchema = z
   })
   .openapi('RegisterSubjectRequest');
 
-const RegisterSubjectResponseSchema = z
+export const RegisterSubjectResponseSchema = z
   .object({
     createdAt: DateTimeSchema.openapi({ example: '2026-05-27T14:32:11.123Z' }),
     subject: SubjectSchema,

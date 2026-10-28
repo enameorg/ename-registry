@@ -29,7 +29,7 @@ const AddEnameToSubjectRequestSchema = z
 
 // The subject is named, not returned in full: the response mirrors the event,
 // whose request carries the subject's id alone.
-const AddEnameToSubjectResponseSchema = z
+export const AddEnameToSubjectResponseSchema = z
   .object({
     createdAt: DateTimeSchema.openapi({ example: '2026-05-30T14:32:11.123Z' }),
     subject: SubjectReferenceSchema,

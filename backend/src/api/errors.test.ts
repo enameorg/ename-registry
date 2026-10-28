@@ -6,11 +6,11 @@ import { HTTPException } from 'hono/http-exception';
 import { pino } from 'pino';
 
 import { ContentionError } from '../services/errors.ts';
-import { UUIDV7_REGEX } from '../utilities/uuid.ts';
 
 import type { HonoEnv } from './context.ts';
 import { handleError } from './errors.ts';
 import { requestContext } from './middleware.ts';
+import { TEST_ORIGIN, readProblem } from './testing.ts';
 
 // The branches of handleError no v1 route reaches on purpose: an unexpected
 // error (the opaque 500), a framework HTTPException whose status the mapping
@@ -22,7 +22,6 @@ import { requestContext } from './middleware.ts';
 // part of that surface: the sub-app swaps the request's logger for a child of
 // a capturing one right after requestContext binds it, so the lines a test
 // reads are the ones a request would emit. Test doctrine: ename-internals.md.
-const ORIGIN = 'http://localhost';
 
 type LogLine = { msg: string; requestId: string; err?: { message: string } } & Record<
   string,
@@ -55,20 +54,16 @@ throwing.get('/contended', () => {
 });
 throwing.onError(handleError);
 
-type Problem = { type: string; title: string; status: number; detail: string; requestId: string };
-
 beforeEach(() => {
   logLines.length = 0;
 });
 
 test('an unexpected error answers an opaque 500 problem+json carrying the request id, and logs the error under that id', async () => {
-  const response = await throwing.fetch(new Request(`${ORIGIN}/unexpected`));
+  const response = await throwing.fetch(new Request(`${TEST_ORIGIN}/unexpected`));
 
   assert.equal(response.status, 500);
-  assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
-  assert.match(response.headers.get('X-Request-Id') ?? '', UUIDV7_REGEX);
 
-  const body = (await response.json()) as Problem;
+  const body = await readProblem(response);
   assert.deepEqual(body, {
     type: 'about:blank',
     title: 'Internal server error',
@@ -97,12 +92,11 @@ test('an unexpected error answers an opaque 500 problem+json carrying the reques
 });
 
 test('an HTTPException with a status the mapping does not own keeps its status, hides its message, and logs it', async () => {
-  const response = await throwing.fetch(new Request(`${ORIGIN}/teapot`));
+  const response = await throwing.fetch(new Request(`${TEST_ORIGIN}/teapot`));
 
   assert.equal(response.status, 418);
-  assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
 
-  const body = (await response.json()) as Problem;
+  const body = await readProblem(response);
   assert.deepEqual(body, {
     type: 'about:blank',
     title: 'Request error',
@@ -128,15 +122,14 @@ test('an HTTPException with a status the mapping does not own keeps its status, 
 });
 
 test('a ContentionError answers a 503 problem+json with a Retry-After header, without an error log', async () => {
-  const response = await throwing.fetch(new Request(`${ORIGIN}/contended`));
+  const response = await throwing.fetch(new Request(`${TEST_ORIGIN}/contended`));
 
   assert.equal(response.status, 503);
-  assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
   const retryAfter = response.headers.get('Retry-After');
   assert.ok(retryAfter, 'a 503 must carry a Retry-After header');
   assert.ok(Number.isInteger(Number(retryAfter)) && Number(retryAfter) >= 1);
 
-  const body = (await response.json()) as Problem;
+  const body = await readProblem(response);
   assert.deepEqual(body, {
     type: 'about:blank',
     title: 'Service temporarily unavailable',

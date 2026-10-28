@@ -94,7 +94,8 @@ backend/
 │   │   ├── index.ts                  # v1 mount table: middleware order, routes, fallbacks, OpenAPI document
 │   │   ├── index.test.ts             # Contract of the v1 gates, fallbacks and OpenAPI components
 │   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs; the body-size cap
-│   │   └── openapi-metadata.ts       # OpenAPI info object
+│   │   ├── openapi-metadata.ts       # OpenAPI info object
+│   │   └── testing.ts                # API test helpers: TEST_ORIGIN and postJSON; readJSON and readProblem read a body through its wire schema and fail on any drift
 │   ├── database/                     # Low-level DB plumbing (singletons + helpers consumed by services)
 │   │   ├── errors.ts                 # pg driver error narrowing (isUniqueViolation, isForeignKeyViolation, isCheckViolation)
 │   │   ├── pool.ts                   # Singleton pg.Pool; timeouts hard-coded, size from config

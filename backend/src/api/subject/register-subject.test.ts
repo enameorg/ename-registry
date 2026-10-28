@@ -8,27 +8,20 @@ import { test } from 'node:test';
 import { useTestDb } from '../../database/testing.ts';
 import { app } from '../../index.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
+import { TEST_ORIGIN, postJSON, readJSON, readProblem } from '../testing.ts';
 
-const ENDPOINT = 'http://localhost/api/v1/subjects';
+import { RegisterSubjectResponseSchema } from './register-subject.ts';
+
+const PATH = '/api/v1/subjects';
 
 useTestDb();
-
-async function postSubject(body: unknown): Promise<Response> {
-  return await app.fetch(
-    new Request(ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
-  );
-}
 
 // Build a valid nested body; each call overrides only what it asserts on.
 function makeBody(overrides: {
   idempotencyKey?: string;
   kind?: string;
   namePart?: string;
-}): unknown {
+}): Record<string, unknown> {
   return {
     idempotencyKey: overrides.idempotencyKey ?? generateUUIDv7(),
     subject: { kind: overrides.kind ?? 'person' },
@@ -41,42 +34,27 @@ function makeBody(overrides: {
 // ---------------------------------------------------------------------------
 
 test('happy path: returns 201 with the created subject and ename', async () => {
-  const response = await postSubject(makeBody({ namePart: 'jean-dupont' }));
+  const response = await postJSON(PATH, makeBody({ namePart: 'jean-dupont' }));
 
   assert.equal(response.status, 201);
-  assert.match(response.headers.get('Content-Type') ?? '', /^application\/json/);
   assert.ok(response.headers.get('X-Request-Id'));
 
-  const body = (await response.json()) as {
-    createdAt: string;
-    subject: { id: string; kind: string };
-    ename: { id: string; namePart: string; numberPart: number };
-  };
-
+  const body = await readJSON(response, RegisterSubjectResponseSchema);
   assert.equal(body.subject.kind, 'person');
   assert.equal(body.ename.namePart, 'jean-dupont');
   assert.equal(body.ename.numberPart, 1);
-  assert.match(body.subject.id, UUIDV7_REGEX);
-  assert.match(body.ename.id, UUIDV7_REGEX);
-  assert.ok(!Number.isNaN(Date.parse(body.createdAt)));
 });
 
 test('two sequential POSTs with the same namePart produce distinct subjects and consecutive numberParts', async () => {
   const namePart = 'marie-curie';
 
-  const firstResponse = await postSubject(makeBody({ namePart }));
-  const secondResponse = await postSubject(makeBody({ namePart }));
+  const firstResponse = await postJSON(PATH, makeBody({ namePart }));
+  const secondResponse = await postJSON(PATH, makeBody({ namePart }));
 
   assert.equal(firstResponse.status, 201);
   assert.equal(secondResponse.status, 201);
-  const firstBody = (await firstResponse.json()) as {
-    subject: { id: string };
-    ename: { numberPart: number };
-  };
-  const secondBody = (await secondResponse.json()) as {
-    subject: { id: string };
-    ename: { numberPart: number };
-  };
+  const firstBody = await readJSON(firstResponse, RegisterSubjectResponseSchema);
+  const secondBody = await readJSON(secondResponse, RegisterSubjectResponseSchema);
 
   assert.notEqual(firstBody.subject.id, secondBody.subject.id);
   assert.equal(firstBody.ename.numberPart, 1);
@@ -87,40 +65,33 @@ test('idempotent replay: same idempotencyKey + same body returns the same respon
   const idempotencyKey = generateUUIDv7();
   const requestBody = makeBody({ idempotencyKey, namePart: 'albert-einstein' });
 
-  const firstResponse = await postSubject(requestBody);
-  const secondResponse = await postSubject(requestBody);
+  const firstResponse = await postJSON(PATH, requestBody);
+  const secondResponse = await postJSON(PATH, requestBody);
 
   assert.equal(firstResponse.status, 201);
   assert.equal(secondResponse.status, 201);
-  const firstBody = await firstResponse.json();
-  const secondBody = await secondResponse.json();
+  const firstBody = await readJSON(firstResponse, RegisterSubjectResponseSchema);
+  const secondBody = await readJSON(secondResponse, RegisterSubjectResponseSchema);
   assert.deepEqual(firstBody, secondBody);
 });
 
 test('idempotency conflict: same idempotencyKey with a different body returns 409 problem+json', async () => {
   const idempotencyKey = generateUUIDv7();
 
-  const firstResponse = await postSubject(makeBody({ idempotencyKey, namePart: 'first-name' }));
+  const firstResponse = await postJSON(PATH, makeBody({ idempotencyKey, namePart: 'first-name' }));
   assert.equal(firstResponse.status, 201);
 
-  const secondResponse = await postSubject(
+  const secondResponse = await postJSON(
+    PATH,
     makeBody({ idempotencyKey, namePart: 'different-name' }),
   );
   assert.equal(secondResponse.status, 409);
-  assert.match(secondResponse.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
 
-  const body = (await secondResponse.json()) as {
-    type: string;
-    title: string;
-    status: number;
-    detail: string;
-    requestId: string;
-  };
+  const body = await readProblem(secondResponse);
   assert.equal(body.type, 'about:blank');
   assert.equal(body.status, 409);
   assert.equal(body.title, 'Idempotency conflict');
   assert.equal(body.detail, 'This idempotency key has already been used with a different request.');
-  assert.match(body.requestId, UUIDV7_REGEX);
 });
 
 // ---------------------------------------------------------------------------
@@ -129,7 +100,7 @@ test('idempotency conflict: same idempotencyKey with a different body returns 40
 
 test('malformed JSON body returns 400 problem+json, not 500', async () => {
   const response = await app.fetch(
-    new Request(ENDPOINT, {
+    new Request(`${TEST_ORIGIN}${PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: 'hey',
@@ -137,27 +108,19 @@ test('malformed JSON body returns 400 problem+json, not 500', async () => {
   );
 
   assert.equal(response.status, 400);
-  assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
 
-  const body = (await response.json()) as {
-    type: string;
-    title: string;
-    status: number;
-    detail: string;
-    requestId: string;
-  };
+  const body = await readProblem(response);
   assert.equal(body.type, 'about:blank');
   assert.equal(body.status, 400);
   assert.equal(body.title, 'Bad request');
   // detail is our own phrasing, not Hono's internal "Malformed JSON…" message —
   // the public contract must not leak the framework's wording.
   assert.equal(body.detail, 'The request body is not valid JSON.');
-  assert.match(body.requestId, UUIDV7_REGEX);
 });
 
 test('non-JSON Content-Type returns 415 problem+json, not 500', async () => {
   const response = await app.fetch(
-    new Request(ENDPOINT, {
+    new Request(`${TEST_ORIGIN}${PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(makeBody({})),
@@ -165,26 +128,18 @@ test('non-JSON Content-Type returns 415 problem+json, not 500', async () => {
   );
 
   assert.equal(response.status, 415);
-  assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
 
-  const body = (await response.json()) as {
-    type: string;
-    title: string;
-    status: number;
-    detail: string;
-    requestId: string;
-  };
+  const body = await readProblem(response);
   assert.equal(body.type, 'about:blank');
   assert.equal(body.status, 415);
   assert.equal(body.title, 'Unsupported media type');
   // Our own phrasing, not the framework's "Unsupported Media Type" message.
   assert.equal(body.detail, 'The request body must be sent as application/json.');
-  assert.match(body.requestId, UUIDV7_REGEX);
 });
 
 test('Content-Type with a charset parameter is still accepted (201)', async () => {
   const response = await app.fetch(
-    new Request(ENDPOINT, {
+    new Request(`${TEST_ORIGIN}${PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify(makeBody({})),
@@ -264,27 +219,17 @@ for (const scenario of [
   },
 ]) {
   test(`validation failure: ${scenario.name} → 422 problem+json`, async () => {
-    const response = await postSubject(scenario.body);
+    const response = await postJSON(PATH, scenario.body);
     assert.equal(response.status, 422);
-    assert.match(response.headers.get('Content-Type') ?? '', /^application\/problem\+json/);
 
-    const body = (await response.json()) as {
-      type: string;
-      title: string;
-      status: number;
-      detail: string;
-      requestId: string;
-      errors?: Array<{ path: Array<string | number>; message: string }>;
-    };
+    const body = await readProblem(response);
     assert.equal(body.type, 'about:blank');
     assert.equal(body.status, 422);
     assert.equal(body.title, 'Validation failed');
-    assert.match(body.requestId, UUIDV7_REGEX);
-    assert.ok(Array.isArray(body.errors) && body.errors.length > 0);
     // At least one issue must point at the expected path — proves the error
     // is attributed to the correct field, not just "an error occurred".
     assert.ok(
-      body.errors.some(
+      body.errors?.some(
         (issue) =>
           issue.path.length >= scenario.expectedPath.length &&
           scenario.expectedPath.every((segment, index) => issue.path[index] === segment),
@@ -299,28 +244,23 @@ for (const scenario of [
 for (const scenario of [
   {
     name: 'unknown top-level field',
-    body: { ...(makeBody({}) as Record<string, unknown>), extra: 1 },
+    body: { ...makeBody({}), extra: 1 },
     key: 'extra',
     expectedPath: [],
   },
   {
     name: 'unknown field inside subject object',
-    body: {
-      ...(makeBody({}) as Record<string, unknown>),
-      subject: { kind: 'person', hidden: true },
-    },
+    body: { ...makeBody({}), subject: { kind: 'person', hidden: true } },
     key: 'hidden',
     expectedPath: ['subject'],
   },
 ]) {
   test(`validation failure: ${scenario.name} → 422 naming the key`, async () => {
-    const response = await postSubject(scenario.body);
+    const response = await postJSON(PATH, scenario.body);
 
     assert.equal(response.status, 422);
 
-    const body = (await response.json()) as {
-      errors?: Array<{ path: Array<string | number>; message: string }>;
-    };
+    const body = await readProblem(response);
     const issue = body.errors?.find((candidate) => candidate.message.includes(`"${scenario.key}"`));
     assert.ok(
       issue,
@@ -335,7 +275,7 @@ for (const scenario of [
 // ---------------------------------------------------------------------------
 
 test('X-Request-Id is a UUIDv7 and present on success responses', async () => {
-  const response = await postSubject(makeBody({ namePart: 'h-test' }));
+  const response = await postJSON(PATH, makeBody({ namePart: 'h-test' }));
   assert.equal(response.status, 201);
   const requestId = response.headers.get('X-Request-Id');
   assert.ok(requestId);
@@ -343,11 +283,10 @@ test('X-Request-Id is a UUIDv7 and present on success responses', async () => {
 });
 
 test('X-Request-Id is also present on validation error responses', async () => {
-  const response = await postSubject(makeBody({ idempotencyKey: 'bad', namePart: 'h-test' }));
+  const response = await postJSON(PATH, makeBody({ idempotencyKey: 'bad', namePart: 'h-test' }));
   assert.equal(response.status, 422);
-  const requestId = response.headers.get('X-Request-Id');
-  assert.ok(requestId);
-  // Same id appears in the body (per RFC 9457 + our extension).
-  const body = (await response.json()) as { requestId: string };
-  assert.equal(body.requestId, requestId);
+  assert.ok(response.headers.get('X-Request-Id'));
+  // readProblem checks that the same id appears in the body (per RFC 9457 + our
+  // extension).
+  await readProblem(response);
 });

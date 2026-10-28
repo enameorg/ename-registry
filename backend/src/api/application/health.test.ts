@@ -3,9 +3,10 @@ import { test } from 'node:test';
 
 import { app } from '../../index.ts';
 import { UUIDV7_REGEX } from '../../utilities/uuid.ts';
+import { TEST_ORIGIN } from '../testing.ts';
 
 test('GET /api/v1/health returns 200 with status ok and an X-Request-Id header', async () => {
-  const response = await app.fetch(new Request('http://localhost/api/v1/health'));
+  const response = await app.fetch(new Request(`${TEST_ORIGIN}/api/v1/health`));
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { status: 'ok' });
