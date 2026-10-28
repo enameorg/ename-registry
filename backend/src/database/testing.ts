@@ -1,9 +1,8 @@
 import { after, beforeEach } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { config } from '../config.ts';
-
 import { closePool, pool } from './pool.ts';
+import type { Database } from './query.ts';
 
 // Register the full test DB lifecycle for one test file: reset projections and
 // event log before each test, then release the singleton pool so node:test can
@@ -19,17 +18,12 @@ export function useTestDB(): void {
 }
 
 // TRUNCATE all user tables in the public schema (RESTART IDENTITY resets
-// sequences, CASCADE follows foreign keys).
-//
-// Safety net: refuse to run unless NODE_ENV=test — the second guard (after the
-// two distinct .env URLs) between a misconfigured test runner and the dev DB.
+// sequences, CASCADE follows foreign keys), behind the test-database guard.
 //
 // Uses the singleton pool directly: this helper only runs from tests, and the
 // enclosing lifecycle helper keeps the reset itself out of higher-layer test files.
 async function resetTestDB(): Promise<void> {
-  if (config.nodeEnv !== 'test') {
-    throw new Error(`resetTestDB() called with NODE_ENV=${config.nodeEnv}; only allowed in 'test'`);
-  }
+  await assertTestDatabase(pool);
 
   const result = await pool.query<{ tablename: string }>(
     `SELECT tablename FROM pg_tables
@@ -40,7 +34,7 @@ async function resetTestDB(): Promise<void> {
 
   // String interpolation, not a placeholder: TRUNCATE TABLE takes no identifier
   // placeholders. Safe here — the source (pg_tables) is the PostgreSQL catalog,
-  // not attacker input, and the NODE_ENV=test guard gates the function.
+  // not attacker input, and the test-database guard gates the function.
   // Identifiers are double-quoted in case one collides with a reserved word.
   const tableList = result.rows.map((row) => `"${row.tablename}"`).join(', ');
   await pool.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
@@ -50,13 +44,9 @@ async function resetTestDB(): Promise<void> {
 // ledger — and leave the log as it is: the starting point of a rebuild test,
 // which writes the projections again from the log and compares. Listing the
 // tables from the catalog keeps a projection added later in scope. Same
-// NODE_ENV=test guard as the reset above.
+// test-database guard as the reset above.
 export async function truncateProjections(): Promise<void> {
-  if (config.nodeEnv !== 'test') {
-    throw new Error(
-      `truncateProjections() called with NODE_ENV=${config.nodeEnv}; only allowed in 'test'`,
-    );
-  }
+  await assertTestDatabase(pool);
 
   const result = await pool.query<{ tablename: string }>(
     `SELECT tablename FROM pg_tables
@@ -68,6 +58,20 @@ export async function truncateProjections(): Promise<void> {
   // Interpolated for the same reason, and as safely, as in resetTestDB.
   const tableList = result.rows.map((row) => `"${row.tablename}"`).join(', ');
   await pool.query(`TRUNCATE TABLE ${tableList}`);
+}
+
+// Refuse to go on unless the connection is to a test database, one whose name
+// ends in _test: the guard between a misconfigured test run and any other
+// database. It reads the database actually connected, not the configured URL,
+// because the test environment file is not enough on its own — a DATABASE_URL
+// exported in the shell outranks it. Every helper here that deletes rows runs
+// it first.
+export async function assertTestDatabase(db: Database): Promise<void> {
+  const result = await db.query<{ name: string }>('SELECT current_database() AS name');
+  const name = result.rows[0]?.name;
+  if (name === undefined || !name.endsWith('_test')) {
+    throw new Error(`refusing to run on database ${name}; only a database named *_test is allowed`);
+  }
 }
 
 // Wait until a connection of this pool is blocked on a lock another one holds

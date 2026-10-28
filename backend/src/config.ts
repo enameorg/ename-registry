@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
+// No environment is named here: a local script loads its environment's file,
+// the deployment sets production's (cf. ename-internals.md).
 const ConfigSchema = z.object({
   port: z.coerce.number().int().min(1).max(65535).default(3000),
-  nodeEnv: z.enum(['development', 'test', 'production']).default('development'),
   logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   databaseURL: z.url(),
   // Connections one process may hold at once. Follows the deployment, not the
@@ -10,19 +11,10 @@ const ConfigSchema = z.object({
   databasePoolSize: z.coerce.number().int().min(1).default(10),
 });
 
-// Pick the right database URL for the current NODE_ENV. The two are kept as
-// separate env vars (rather than one) so that a test runner that forgets to set
-// NODE_ENV=test fails loudly on missing TEST_DATABASE_URL instead of corrupting
-// dev data.
-const rawNodeEnv = process.env['NODE_ENV'] ?? 'development';
-const rawDatabaseURL =
-  rawNodeEnv === 'test' ? process.env['TEST_DATABASE_URL'] : process.env['DATABASE_URL'];
-
 const parsed = ConfigSchema.safeParse({
   port: process.env['PORT'],
-  nodeEnv: rawNodeEnv,
   logLevel: process.env['LOG_LEVEL'],
-  databaseURL: rawDatabaseURL,
+  databaseURL: process.env['DATABASE_URL'],
   databasePoolSize: process.env['DATABASE_POOL_SIZE'],
 });
 

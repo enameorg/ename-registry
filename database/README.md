@@ -23,8 +23,11 @@ From the repository root:
 # `npm install-scripts deny <pkg>`.
 npm install
 
-# Copy the local environment file and adjust if needed.
-cp database/.env.example database/.env
+# Copy the environment files, one per local environment, and adjust if needed:
+# `npm run db:migrate` loads .env.development, `npm run db:migrate:test` and
+# `npm test` load .env.test, and each fails if its file is missing.
+cp database/.env.development.example database/.env.development
+cp database/.env.test.example database/.env.test
 
 # Start PostgreSQL (Docker), wait for the healthcheck, then apply all migrations
 # to both ename_dev and ename_test. Idempotent — safe to run on every clone.
@@ -42,8 +45,8 @@ Run from this directory, or from the repository root with `-w database` (`npm ru
 | `npm run db:up`            | Start PostgreSQL (Docker), wait for healthcheck, run migrations on both databases.  |
 | `npm run db:down`          | Stop the PostgreSQL container (data preserved in the named volume).                 |
 | `npm run db:nuke`          | Stop the container **and delete the data volume**. Destructive.                     |
-| `npm run db:migrate`       | Apply pending migrations to `ename_dev`.                                            |
-| `npm run db:migrate:test`  | Apply pending migrations to `ename_test`.                                           |
+| `npm run db:migrate`       | Apply pending migrations to the database of `.env.development` (`ename_dev`).       |
+| `npm run db:migrate:test`  | Apply pending migrations to the database of `.env.test` (`ename_test`).             |
 | `npm run db:new -- <name>` | Create a new empty `<unix_ts>_<name>.sql` in `migrations/`.                         |
 | `npm run db:reset`         | Drop and recreate `ename_dev`, then re-run migrations. Fast reset without nuking.   |
 | `npm run db:reset:test`    | Same for `ename_test`.                                                              |
@@ -65,7 +68,7 @@ database/
 │   └── 01-create-databases.sql    # Runs once at first container boot — creates ename_test
 ├── migrations/                    # <unix_ts>_<name>.sql, forward-only (no down files)
 ├── scripts/
-│   ├── migrate.ts                 # CLI over src/migrate.ts: target (dev|test), connection, exit code
+│   ├── migrate.ts                 # CLI over src/migrate.ts: connection to DATABASE_URL, exit code
 │   └── new-migration.ts           # Scaffolds a new empty migration file
 ├── src/
 │   ├── migrate.ts                 # The runner: run(), loadMigrations(), verifyApplied()
@@ -77,7 +80,7 @@ database/
 └── README.md
 ```
 
-Migrations are forward-only and have no down files: a local rollback is `npm run db:reset`. The runner is a library, [`src/migrate.ts`](./src/migrate.ts), exporting `run(client, migrationsDirectory)` with its helpers `loadMigrations` and `verifyApplied`; [`scripts/migrate.ts`](./scripts/migrate.ts) is the thin CLI over it (target, connection, exit code). The runner's invariants are stated in [`../docs/ename-internals.md`](../docs/ename-internals.md) and at the top of the library; [`src/migrate.test.ts`](./src/migrate.test.ts) is their executable specification. Each test creates a throwaway database on the cluster of `DATABASE_URL` and drops it afterwards, so the suite never touches `ename_dev` or `ename_test`. The `schema_migrations` table and the hash are the contract the Rust phase reimplements.
+Migrations are forward-only and have no down files: a local rollback is `npm run db:reset`. The runner is a library, [`src/migrate.ts`](./src/migrate.ts), exporting `run(client, migrationsDirectory)` with its helpers `loadMigrations` and `verifyApplied`; [`scripts/migrate.ts`](./scripts/migrate.ts) is the thin CLI over it (connection, exit code). The runner's invariants are stated in [`../docs/ename-internals.md`](../docs/ename-internals.md) and at the top of the library; [`src/migrate.test.ts`](./src/migrate.test.ts) is their executable specification. Each test creates a throwaway database on the cluster of `DATABASE_URL` and drops it afterwards, so the suite never touches `ename_dev` or `ename_test`. The `schema_migrations` table and the hash are the contract the Rust phase reimplements.
 
 ## License
 

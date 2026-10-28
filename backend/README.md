@@ -23,8 +23,12 @@ From the repository root:
 # `npm install-scripts deny <pkg>`.
 npm install
 
-# Copy the local environment file and adjust if needed.
-cp backend/.env.example backend/.env
+# Copy the environment files, one per local environment, and adjust if needed:
+# `npm run dev` and `npm run openapi:generate` load .env.development, `npm test`
+# and `npm run test:coverage` load .env.test, and each fails if its file is
+# missing.
+cp backend/.env.development.example backend/.env.development
+cp backend/.env.test.example backend/.env.test
 
 # Start PostgreSQL and run migrations (see ../database/README.md for details).
 npm run db:up -w database
@@ -102,7 +106,8 @@ backend/
 │   │   ├── pool.test.ts              # Idle-client connection loss is logged, never fatal
 │   │   ├── query.ts                  # Database type, queryRows(), withTransaction() (nests as a savepoint), pingDatabase(), camelize at boundary
 │   │   ├── query.test.ts             # withTransaction nesting: contained failure, release, outer rollback
-│   │   └── testing.ts                # Test DB reset + pool shutdown (refuses reset outside NODE_ENV=test); the lock probe that forces a concurrency path; the CHECK reader behind the vocabulary tests; the projection truncation behind the rebuild tests
+│   │   ├── testing.ts                # Test DB reset + pool shutdown, behind the guard that refuses any database whose name does not end in _test; the lock probe that forces a concurrency path; the CHECK reader behind the vocabulary tests; the projection truncation behind the rebuild tests
+│   │   └── testing.test.ts           # The test-database guard: lets ename_test through, refuses another database
 │   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
 │   │   ├── subject/
 │   │   │   ├── index.ts              # barrel: the concept's public surface

@@ -9,16 +9,16 @@
     "npm": ">=12"
   },
   "scripts": {
-    "dev": "node --watch --env-file-if-exists=.env src/server.ts",
+    "dev": "node --watch --env-file=.env.development src/server.ts",
     "start": "node src/server.ts",
     "typecheck": "tsc",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "test": "NODE_ENV=test LOG_LEVEL=silent DATABASE_POOL_SIZE=10 node --env-file-if-exists=.env --test --test-concurrency=1",
-    "test:coverage": "NODE_ENV=test LOG_LEVEL=silent DATABASE_POOL_SIZE=10 node --env-file-if-exists=.env --test --test-concurrency=1 --experimental-test-coverage",
-    "openapi:generate": "node --env-file-if-exists=.env scripts/generate-openapi.ts",
+    "test": "node --env-file=.env.test --test --test-concurrency=1",
+    "test:coverage": "node --env-file=.env.test --test --test-concurrency=1 --experimental-test-coverage",
+    "openapi:generate": "node --env-file=.env.development scripts/generate-openapi.ts",
     "check": "npm run typecheck && npm run lint && npm run format && npm run test"
   },
   "dependencies": {

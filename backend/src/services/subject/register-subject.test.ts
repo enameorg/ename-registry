@@ -252,22 +252,21 @@ test('concurrent registrations for the same namePart produce consecutive numberP
 // Domain validation: total length > 52 chars once the numberPart is allocated
 // ---------------------------------------------------------------------------
 
-// Beyond the retry budget, a burst on one namePart ends in ContentionError
-// for the losers — a retryable domain error, never an unexpected one — while
-// the rest get distinct numberParts. The 503 this maps to is pinned in
+// Beyond the retry budget, a burst on one namePart ends in ContentionError for
+// the losers — a retryable domain error, never an unexpected one — while the
+// rest get distinct numberParts. The 503 this maps to is pinned in
 // api/errors.test.ts; this test only shows that the real allocation path
 // reaches the budget, and that is statistical by nature. It rests on three
-// values: this concurrency, the pool size the test script pins
-// (DATABASE_POOL_SIZE=10 in package.json, an environment variable outranking
-// .env) and MAX_NUMBER_PART_RETRIES = 20 in the ename primitive. The pool
-// bounds how many transactions contend at once; each round one wins and
-// commits, every other in-flight contender burns one attempt, and a waiting
-// registration replaces the winner with a fresh budget — so no counting
-// argument guarantees that one contender loses 20 rounds in a row, however
-// likely. Measured on the local cluster, 40 registrations yield: 0 contention
-// errors at pool size 2 or 3, 0 to 1 at 5, 2 to 5 at 10, 8 to 11 at 20, 11 to
-// 14 at 80. A larger pool only strengthens the assertion; a smaller one
-// weakens it, and the failure message below says so.
+// values: this concurrency, the pool size the test environment file sets
+// (DATABASE_POOL_SIZE=10 in .env.test.example) and MAX_NUMBER_PART_RETRIES = 20
+// in the ename primitive. The pool bounds how many transactions contend at
+// once; each round one wins and commits, every other in-flight contender burns
+// one attempt, and a waiting registration replaces the winner with a fresh
+// budget — so no counting argument guarantees that one contender loses 20
+// rounds in a row, however likely. Measured on the local cluster, 40
+// registrations yield: 0 contention errors at pool size 2 or 3, 0 to 1 at 5, 2
+// to 5 at 10, 8 to 11 at 20, 11 to 14 at 80. A larger pool only strengthens the
+// assertion; a smaller one weakens it, and the failure message below says so.
 test('concurrent registrations for the same namePart beyond the retry budget fail with ContentionError, the rest succeed', async () => {
   const namePart = 'martin';
   const concurrency = 40;
