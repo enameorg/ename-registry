@@ -131,7 +131,7 @@ A request-scoped value the Service layer needs is read from the `APIContext` by 
 
 **Logging.** `pino`, emitting JSON in every environment including local dev, so the production log format is familiar from day one. Logs may carry registry values (a `namePart`, a submitted request body): the registry's data is public by design, so a value in a log exposes nothing the database does not. The rule is revisited the day the registry holds a non-public value.
 
-**Lint and format.** Prettier owns formatting; ESLint complements it without overlap and runs no opaque preset — each rule is individually justified (type-aware promise hygiene, import ordering and hygiene, unused-import removal). Prettier is left at its defaults except `singleQuote` and `printWidth: 100`.
+**Lint and format.** Prettier owns formatting; ESLint complements it without overlap and runs no opaque preset — each rule is individually justified (type-aware promise hygiene, import ordering and hygiene, unused-import removal). The import boundaries this document states are ESLint rules too, so a violation is red before any review: the HTTP framework stays in the API layer; nothing below the API imports it; the API never imports `src/database/`, except `database/testing.ts` from a test; `pg` appears only in `src/database/`; the `event` concept imports no aggregate; a utility knows no layer; another concept folder is imported through its barrel; `process.env` is read in `config.ts` only; a Node built-in carries the `node:` prefix. Prettier is left at its defaults except `singleQuote` and `printWidth: 100`.
 
 ## Tooling and supply chain
 
