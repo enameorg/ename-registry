@@ -79,78 +79,36 @@ This directory is the backend package of the Ename monorepo. The repository root
 ```
 backend/
 ├── src/
-│   ├── api/                          # API layer (HTTP surface)
-│   │   ├── application/              # service-wide endpoints
-│   │   │   ├── index.ts              # barrel: the folder's routes, handlers and wire schema
-│   │   │   ├── health.ts             # GET /health (liveness) route, handler, and the shared Zod schema
-│   │   │   ├── health-deep.ts        # GET /health/deep (database probe) route and handler
-│   │   │   └── *.test.ts             # HTTP-level tests
-│   │   ├── subject/                  # endpoints rooted at /subjects (one file per route) and their wire schemas
-│   │   │   ├── index.ts              # barrel: the folder's routes, handlers and wire schemas
-│   │   │   ├── register-subject.ts   # POST /subjects route, handler (maps the rows to the wire), and request/response envelopes
-│   │   │   ├── add-ename-to-subject.ts # POST /subjects/:id/enames route, handler (maps the row to the wire), and envelopes
-│   │   │   ├── subject.ts            # Subject wire schema; SubjectInput and SubjectReference wrap the Service input schemas
-│   │   │   ├── ename.ts              # Ename wire schema; EnameInput and NamePartSchema wrap the Service input schema and rule
-│   │   │   └── *.test.ts             # HTTP-level integration tests
-│   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, APIContext
-│   │   ├── errors.ts                 # Error policy: RFC 9457 Problem Details shape, validation hook, error → response mapping, 404/405 responders, gate responses
-│   │   ├── errors.test.ts            # The 500 fallback, the unmapped HTTPException and the 503 mapping, through a throwaway sub-app; their logs captured
-│   │   ├── index.ts                  # v1 mount table: middleware order, routes, fallbacks, OpenAPI document
-│   │   ├── index.test.ts             # Contract of the v1 gates, fallbacks and OpenAPI components
-│   │   ├── middleware.ts             # requestId (UUIDv7) + Pino child logger + entrance/exit logs; the body-size cap
-│   │   ├── openapi-metadata.ts       # OpenAPI info object
-│   │   └── testing.ts                # API test helpers: TEST_ORIGIN and postJSON; readJSON and readProblem read a body through its wire schema and fail on any drift
-│   ├── database/                     # Low-level DB plumbing (singletons + helpers consumed by services)
-│   │   ├── errors.ts                 # pg driver error narrowing (isUniqueViolation, isForeignKeyViolation, isCheckViolation)
-│   │   ├── pool.ts                   # Singleton pg.Pool; timeouts hard-coded, size from config
-│   │   ├── pool.test.ts              # Idle-client connection loss is logged, never fatal
-│   │   ├── query.ts                  # Database type, queryRows(), withTransaction() (nests as a savepoint), pingDatabase(), camelize at boundary
-│   │   ├── query.test.ts             # withTransaction nesting: contained failure, release, outer rollback
-│   │   ├── testing.ts                # Test DB reset + pool shutdown, behind the guard that refuses any database whose name does not end in _test; the lock probe that forces a concurrency path; the CHECK reader behind the vocabulary tests; the projection truncation behind the rebuild tests
-│   │   └── testing.test.ts           # The test-database guard: lets ename_test through, refuses another database
-│   ├── services/                     # Service layer (business logic, no HTTP) — one folder per concept
-│   │   ├── subject/
-│   │   │   ├── index.ts              # barrel: the concept's public surface
-│   │   │   ├── subject.ts            # Subject type/schema, SubjectKindSchema, the strict input schemas, data-access primitives (get/find/insert)
-│   │   │   ├── subject.test.ts       # primitive round-trip tests; SubjectKindSchema against the subjects.kind CHECK
-│   │   │   ├── register-subject.ts   # subject.registered kind definition (schemas + toOutcome/fromEvent/rebuild) + registerSubject() use case, returning the Subject and Ename rows
-│   │   │   ├── add-ename-to-subject.ts # subject.ename-added kind definition (schemas + toOutcome/fromEvent/rebuild) + addEnameToSubject() use case, returning the Ename row
-│   │   │   └── *.test.ts             # use-case tests (the kind's mapping law, projections, rebuild from the log, concurrency)
-│   │   ├── ename/
-│   │   │   ├── index.ts
-│   │   │   ├── ename.ts              # Ename type/schema, NamePartSchema and format rules, the strict input schema, primitives (the allocating insert and the rebuild's verbatim one)
-│   │   │   └── ename.test.ts
-│   │   ├── event/
-│   │   │   ├── index.ts
-│   │   │   ├── event.ts              # Event type/schema + primitives (the append-only log)
-│   │   │   ├── event.test.ts         # primitive round-trip tests; the kind definitions against the events.kind CHECK
-│   │   │   ├── event-kind.ts         # The shape of an event kind definition (kind literal + strict request/outcome schemas + toOutcome/fromEvent/rebuild), defineEventKind(), parseEvent()
-│   │   │   ├── with-event.ts         # withEvent(): the idempotent-write protocol every use case runs, returning the work's rows (a replay: the kind's fromEvent)
-│   │   │   ├── with-event.test.ts    # protocol tests (replay, conflict, race, domain error vs winner)
-│   │   │   └── rebuild-event.ts      # rebuildEvent(): writes a stored event's rows again through its kind, allocating nothing
-│   │   ├── application/
-│   │   │   ├── index.ts
-│   │   │   ├── application.ts        # health(), checkDatabase(), closeDatabase()
-│   │   │   └── application.test.ts
-│   │   ├── context.ts                # ServiceContext (request-scoped values passed from the API layer)
-│   │   └── errors.ts                 # Domain error classes (DomainError, ValidationError, NotFoundError, ConflictError, IdempotencyConflictError, ContentionError) and the translation of a Zod failure into a ValidationError
-│   ├── utilities/                    # Pure modules both layers import (no I/O, no singleton), one file per concept
-│   │   ├── uuid.ts                   # UUIDv7 generation, validation regex and the pure UUIDv7Schema
-│   │   ├── date-time.ts              # DateTimeSchema: a timestamp on the wire (RFC 3339, UTC)
-│   │   └── *.test.ts
-│   ├── config.ts                     # Environment-driven configuration (Zod-validated)
-│   ├── index.ts                      # Top-level app assembly (mounts /api/v1)
-│   ├── logger.ts                     # Pino root logger
-│   └── server.ts                     # Node runtime entry: serve + graceful shutdown
+│   ├── api/                  # API layer (HTTP surface): one folder per URL root, one file per route, the wire schemas beside them
+│   │   ├── application/      # /health and /health/deep
+│   │   ├── subject/          # /subjects and /subjects/:id/enames
+│   │   ├── index.ts          # v1 mount table: middleware order, routes, fallbacks, OpenAPI document
+│   │   ├── errors.ts         # Error policy: Problem Details, validation hook, error → response mapping
+│   │   ├── middleware.ts     # requestId + child logger + entrance/exit logs; the body-size cap
+│   │   └── testing.ts        # API test helpers: postJSON, readJSON, readProblem
+│   ├── database/             # Low-level DB plumbing the services build on: pool, query and transaction helpers, pg error narrowing
+│   │   └── testing.ts        # Test DB lifecycle: reset, lock probe, CHECK reader, projection truncation
+│   ├── services/             # Service layer (business logic, no HTTP): one folder per concept, each with an index.ts barrel
+│   │   ├── subject/          # Subject: schemas, primitives, the write use cases with the event kinds they emit
+│   │   ├── ename/            # Ename: format rules, schemas, primitives
+│   │   ├── event/            # The append-only log: the shape of an event kind, withEvent(), rebuildEvent()
+│   │   ├── application/      # health(), checkDatabase(), closeDatabase()
+│   │   ├── context.ts        # ServiceContext (request-scoped values passed from the API layer)
+│   │   └── errors.ts         # Domain error classes and the translation of a Zod failure
+│   ├── utilities/            # Pure modules both layers import directly: uuid.ts, date-time.ts
+│   ├── config.ts             # Environment-driven configuration (Zod-validated)
+│   ├── index.ts              # Top-level app assembly (mounts /api/v1)
+│   ├── logger.ts             # Pino root logger
+│   └── server.ts             # Node runtime entry: serve + graceful shutdown
 ├── scripts/
-│   └── generate-openapi.ts           # Regenerates the canonical OpenAPI spec
-├── openapi.json                      # Canonical versioned copy of the generated OpenAPI spec (the audit trail)
-├── tsconfig.json                     # Extends the repository-root tsconfig.base.json
+│   └── generate-openapi.ts   # Regenerates the canonical OpenAPI spec
+├── openapi.json              # Canonical versioned copy of the generated OpenAPI spec (the audit trail)
+├── tsconfig.json             # Extends the repository-root tsconfig.base.json
 ├── package.json
 └── README.md
 ```
 
-`services/` is organized as one folder per concept (`subject`, `ename`, `event`, `application`), each exposing its public surface through an `index.ts` barrel: the concept-named file holds its type and data-access primitives, each use case has its own operation-named file that also declares the event kind it emits, and `event` holds the write protocol every use case goes through and the rebuild of one event from the log. `src/database/` is the runtime DB plumbing (pool, query and transaction helpers, test reset) the services build on.
+Every `*.test.ts` sits beside the file it tests; what each file holds is stated at its top.
 
 Note: the in-repo `src/database/` directory above is **runtime DB plumbing** consumed by the backend service; do not confuse it with the sibling [`database/`](../database/) **package**, which owns the schema, migrations, the migration runner, and the local PostgreSQL cluster.
 

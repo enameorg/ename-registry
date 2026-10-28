@@ -2,7 +2,7 @@
 
 ## Context
 
-Ename is a public registry of verified human identifiers (format `<name>#<number>`) designed to last for centuries, operated by a nonprofit organization. To learn more about Ename, you can consult the document [Ename — Reference Synthesis](./docs/ename-synthesis.md). For the registry's internal architecture, conventions and code guidelines — from the event-sourced data model and the two-layer backend to the API contract, code conventions, tooling and infrastructure — see [Ename — Registry Internals](./docs/ename-internals.md).
+Ename is a public registry of verified human identifiers (format `<name>#<number>`) designed to last for centuries, operated by a nonprofit organization. The registry's internal architecture, conventions and code guidelines — from the event-sourced data model and the two-layer backend to the API contract, code conventions, tooling and infrastructure — are in [Ename — Registry Internals](./docs/ename-internals.md), loaded below.
 
 ## Documentation discipline
 
@@ -24,16 +24,18 @@ The five default labels, unchanged: `needs-triage`, `needs-info`, `ready-for-age
 
 Single-context: `GLOSSARY.md` at the repo root, ADRs under `docs/adr/`. See `docs/agents/domain.md`; its ADR conventions (frontmatter, length, boundary with the internals) take precedence over the skills' default ADR format.
 
-## Imports (loaded into context every session)
+## Always loaded
 
 Local instruction overrides:
 
 @AGENTS.local.md
 
-Reference docs:
+The repository map and the internals:
 
 @README.md
-@backend/README.md
-@database/README.md
-@docs/ename-synthesis.md
 @docs/ename-internals.md
+
+## Reach for
+
+- **Mission, governance, public format, funding, an open question `[Q-…]`**: `docs/ename-synthesis.md`, the reference synthesis. Read it before a decision that touches any of these; the internals cover the code.
+- **Setup, commands, endpoints, the local stack**: `backend/README.md` and `database/README.md`. Read them to run, configure or test a package; the tables there are the source for what a script does.
