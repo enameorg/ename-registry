@@ -10,7 +10,7 @@ import { logger } from '../logger.ts';
 // ename-internals.md). Connections open on demand up to the size and close
 // after idleTimeoutMillis, so the size is a cap, not a cost at rest.
 export const pool = new pg.Pool({
-  connectionString: config.databaseUrl,
+  connectionString: config.databaseURL,
   application_name: 'ename-backend',
   statement_timeout: 5_000,
   query_timeout: 10_000,

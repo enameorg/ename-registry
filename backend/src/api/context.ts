@@ -18,4 +18,4 @@ export type HonoEnv = { Variables: RequestVariables };
 
 // The Hono context handlers and middleware receive — the API-layer counterpart
 // of the Service layer's ServiceContext (cf. ename-internals.md).
-export type ApiContext = Context<HonoEnv>;
+export type APIContext = Context<HonoEnv>;

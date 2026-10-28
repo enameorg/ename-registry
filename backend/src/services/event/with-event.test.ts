@@ -5,7 +5,7 @@ import { pino } from 'pino';
 import { ZodError } from 'zod';
 
 import { pool } from '../../database/pool.ts';
-import { useTestDb } from '../../database/testing.ts';
+import { useTestDB } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, IdempotencyConflictError, ValidationError } from '../errors.ts';
 import {
@@ -29,7 +29,7 @@ import { withEvent } from './with-event.ts';
 // doctrine: ename-internals.md.
 const context = { logger: pino({ level: 'silent' }) };
 
-useTestDb();
+useTestDB();
 
 const request = { subject: { kind: 'person' as const }, ename: { namePart: 'jean-dupont' } };
 

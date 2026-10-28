@@ -5,7 +5,7 @@ import { pino } from 'pino';
 
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
-import { truncateProjections, useTestDb } from '../../database/testing.ts';
+import { truncateProjections, useTestDB } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.ts';
@@ -27,7 +27,7 @@ import { findSubjects } from './subject.ts';
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
-useTestDb();
+useTestDB();
 
 // The law withEvent rests on: what toOutcome keeps of the row, read back with
 // the request and the timestamp, is the row again.

@@ -13,7 +13,7 @@ import { pino } from 'pino';
 // services/event/with-event.test.ts. Test doctrine: ename-internals.md.
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
-import { truncateProjections, useTestDb } from '../../database/testing.ts';
+import { truncateProjections, useTestDB } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ContentionError, ValidationError } from '../errors.ts';
@@ -32,7 +32,7 @@ import { findSubjects } from './subject.ts';
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
-useTestDb();
+useTestDB();
 
 // ---------------------------------------------------------------------------
 // The kind's mapping: pure, no database

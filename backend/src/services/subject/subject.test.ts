@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 
 import { pool } from '../../database/pool.ts';
-import { readCheckConstraintValues, useTestDb } from '../../database/testing.ts';
+import { readCheckConstraintValues, useTestDB } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 
 import { findSubjects, getSubject, insertSubject, SubjectKindSchema } from './subject.ts';
@@ -12,7 +12,7 @@ import { findSubjects, getSubject, insertSubject, SubjectKindSchema } from './su
 // tested in isolation so use-case tests can read state back through them and
 // trust the result — see ename-internals.md. A single-statement write needs no
 // transaction, so the primitives are called with the pool directly.
-useTestDb();
+useTestDB();
 
 test('insertSubject then read back by id and via findSubjects', async () => {
   const id = generateUUIDv7();

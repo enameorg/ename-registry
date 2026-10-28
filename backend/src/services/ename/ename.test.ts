@@ -5,7 +5,7 @@ import { pino } from 'pino';
 
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
-import { useTestDb, waitForLockedStatement } from '../../database/testing.ts';
+import { useTestDB, waitForLockedStatement } from '../../database/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, DomainError, NotFoundError, ValidationError } from '../errors.ts';
 import { insertSubject } from '../subject/index.ts';
@@ -37,7 +37,7 @@ const logger = pino(
   },
 );
 
-useTestDb();
+useTestDB();
 
 beforeEach(() => {
   logLines.length = 0;

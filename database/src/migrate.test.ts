@@ -185,7 +185,7 @@ test('a failing migration is rolled back and not recorded', async () => {
 });
 
 test('two concurrent runners converge: each migration is applied exactly once', async () => {
-  await withFixture(async ({ client, directory, databaseUrl }) => {
+  await withFixture(async ({ client, directory, databaseURL }) => {
     const versions: string[] = [];
     for (let i = 0; i < 5; i++) {
       const version = `170000000${i}_step_${i}`;
@@ -196,7 +196,7 @@ test('two concurrent runners converge: each migration is applied exactly once', 
         `CREATE TABLE step_${i} (id INT);\nSELECT pg_sleep(0.05);\n`,
       );
     }
-    const other = new pg.Client({ connectionString: databaseUrl });
+    const other = new pg.Client({ connectionString: databaseURL });
     await other.connect();
     try {
       const [first, second] = await Promise.all([run(client, directory), run(other, directory)]);
@@ -216,7 +216,7 @@ test('two concurrent runners converge: each migration is applied exactly once', 
 
 interface Fixture {
   client: pg.Client;
-  databaseUrl: string;
+  databaseURL: string;
   directory: string;
 }
 
@@ -225,22 +225,22 @@ interface Fixture {
 // ename_test with the backend suite. The database is created on the cluster of
 // DATABASE_URL and dropped afterwards.
 async function withFixture(body: (fixture: Fixture) => Promise<void>): Promise<void> {
-  const clusterUrl = process.env['DATABASE_URL'];
-  if (!clusterUrl) throw new Error('DATABASE_URL is not set');
+  const clusterURL = process.env['DATABASE_URL'];
+  if (!clusterURL) throw new Error('DATABASE_URL is not set');
 
   const databaseName = `ename_migrate_test_${randomUUID().replaceAll('-', '')}`;
-  const maintenance = new pg.Client({ connectionString: clusterUrl });
+  const maintenance = new pg.Client({ connectionString: clusterURL });
   await maintenance.connect();
   await maintenance.query(`CREATE DATABASE "${databaseName}"`);
 
-  const databaseUrl = new URL(clusterUrl);
-  databaseUrl.pathname = `/${databaseName}`;
-  const client = new pg.Client({ connectionString: databaseUrl.href });
+  const databaseURL = new URL(clusterURL);
+  databaseURL.pathname = `/${databaseName}`;
+  const client = new pg.Client({ connectionString: databaseURL.href });
   await client.connect();
 
   const directory = await mkdtemp(join(tmpdir(), 'ename-migrations-'));
   try {
-    await body({ client, databaseUrl: databaseUrl.href, directory });
+    await body({ client, databaseURL: databaseURL.href, directory });
   } finally {
     await client.end();
     await maintenance.query(`DROP DATABASE "${databaseName}" WITH (FORCE)`);

@@ -88,7 +88,7 @@ backend/
 │   │   │   ├── subject.ts            # Subject wire schema; SubjectInput and SubjectReference wrap the Service input schemas
 │   │   │   ├── ename.ts              # Ename wire schema; EnameInput and NamePartSchema wrap the Service input schema and rule
 │   │   │   └── *.test.ts             # HTTP-level integration tests
-│   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, ApiContext
+│   │   ├── context.ts                # API request-context types: RequestVariables, HonoEnv, APIContext
 │   │   ├── errors.ts                 # Error policy: RFC 9457 Problem Details shape, validation hook, error → response mapping, 404/405 responders, gate responses
 │   │   ├── errors.test.ts            # The 500 fallback, the unmapped HTTPException and the 503 mapping, through a throwaway sub-app; their logs captured
 │   │   ├── index.ts                  # v1 mount table: middleware order, routes, fallbacks, OpenAPI document

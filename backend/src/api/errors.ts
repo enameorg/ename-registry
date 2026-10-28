@@ -13,7 +13,7 @@ import {
 } from '../services/errors.ts';
 import { UUIDv7Schema } from '../utilities/uuid.ts';
 
-import type { ApiContext, HonoEnv } from './context.ts';
+import type { APIContext, HonoEnv } from './context.ts';
 import { MAX_BODY_BYTES } from './middleware.ts';
 
 // The API's error policy: everything that turns an error into a response lives
@@ -119,7 +119,7 @@ export const validationHook: NonNullable<OpenAPIHonoOptions<HonoEnv>['defaultHoo
 ) => {
   if (!result.success) {
     const error = validationErrorFromZodError(result.error);
-    return buildProblemJson(context, 422, error.message, { errors: error.errors });
+    return buildProblemJSON(context, 422, error.message, { errors: error.errors });
   }
   // Type contract of defaultHook: must return Response | void. On the success
   // path we let the handler run by returning nothing.
@@ -131,21 +131,21 @@ export const validationHook: NonNullable<OpenAPIHonoOptions<HonoEnv>['defaultHoo
 // onError. Domain errors carry their HTTP semantics here, not in the service.
 export const handleError: ErrorHandler<HonoEnv> = (error, context) => {
   if (error instanceof ValidationError) {
-    return buildProblemJson(context, 422, error.message, { errors: error.errors });
+    return buildProblemJSON(context, 422, error.message, { errors: error.errors });
   }
   if (error instanceof IdempotencyConflictError) {
-    return buildProblemJson(context, 409, error.message, { title: 'Idempotency conflict' });
+    return buildProblemJSON(context, 409, error.message, { title: 'Idempotency conflict' });
   }
   if (error instanceof ConflictError) {
-    return buildProblemJson(context, 409, error.message);
+    return buildProblemJSON(context, 409, error.message);
   }
   if (error instanceof NotFoundError) {
-    return buildProblemJson(context, 404, error.message);
+    return buildProblemJSON(context, 404, error.message);
   }
   if (error instanceof ContentionError) {
     // Transient capacity signal, not a server fault — the Retry-After header
     // tells a well-behaved client to retry.
-    const response = buildProblemJson(context, 503, error.message);
+    const response = buildProblemJSON(context, 503, error.message);
     response.headers.set('Retry-After', String(RETRY_AFTER_SECONDS));
     return response;
   }
@@ -153,18 +153,18 @@ export const handleError: ErrorHandler<HonoEnv> = (error, context) => {
     const status = error.status as ProblemStatus;
     const detail = HTTP_EXCEPTION_DETAILS[status];
     if (detail !== undefined) {
-      return buildProblemJson(context, status, detail);
+      return buildProblemJSON(context, status, detail);
     }
     // An HTTPException with a status we don't explicitly own: log it (its
     // message may carry framework-internal vocabulary) and return a generic
     // problem rather than leaking the raw message to the client.
     context.var.logger.error({ err: error }, 'unmapped HTTPException in request');
-    return buildProblemJson(context, status, 'The request could not be processed.');
+    return buildProblemJSON(context, status, 'The request could not be processed.');
   }
   // Unexpected: log with the pino err serializer (stack + cause) and return an
   // opaque 500. The requestId in the body lets us find the matching log entry.
   context.var.logger.error({ err: error }, 'unhandled error in request');
-  return buildProblemJson(
+  return buildProblemJSON(
     context,
     500,
     'An unexpected error occurred; the requestId can be used to correlate with server logs.',
@@ -173,14 +173,14 @@ export const handleError: ErrorHandler<HonoEnv> = (error, context) => {
 
 // The version's terminal catch-all: an unmatched path answers a Problem Details
 // 404, not Hono's text/plain default.
-export function notFoundResponse(context: ApiContext): Response {
-  return buildProblemJson(context, 404, 'No resource exists at this path.');
+export function notFoundResponse(context: APIContext): Response {
+  return buildProblemJSON(context, 404, 'No resource exists at this path.');
 }
 
 // A known path with an unsupported method answers 405 with an Allow header, as
 // a Problem Details like every other 4xx.
-export function methodNotAllowedResponse(context: ApiContext, allowedMethods: string[]): Response {
-  const response = buildProblemJson(
+export function methodNotAllowedResponse(context: APIContext, allowedMethods: string[]): Response {
+  const response = buildProblemJSON(
     context,
     405,
     'This method is not allowed at this path; the Allow header lists the allowed methods.',
@@ -202,8 +202,8 @@ export function problemResponse(description: string) {
 
 // Single Problem Details builder: the shape, the title derived from the status
 // and the Content-Type header, so no response can drift from the contract.
-function buildProblemJson(
-  context: ApiContext,
+function buildProblemJSON(
+  context: APIContext,
   status: ProblemStatus,
   detail: string,
   options: { title?: string; errors?: ProblemDetails['errors'] } = {},

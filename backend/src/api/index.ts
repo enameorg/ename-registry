@@ -17,7 +17,7 @@ import {
   validationHook,
 } from './errors.ts';
 import { MAX_BODY_BYTES, requestContext } from './middleware.ts';
-import { openApiMetadata } from './openapi-metadata.ts';
+import { openAPIMetadata } from './openapi-metadata.ts';
 import {
   addEnameToSubjectHandler,
   addEnameToSubjectRoute,
@@ -56,9 +56,9 @@ api.openapi(registerSubjectRoute, registerSubjectHandler);
 api.openapi(addEnameToSubjectRoute, addEnameToSubjectHandler);
 
 // The live spec, byte-identical to the committed backend/openapi.json (see
-// renderOpenApiDocument below).
+// renderOpenAPIDocument below).
 api.get('/openapi.json', (context) => {
-  return context.text(renderOpenApiDocument(), 200, { 'Content-Type': 'application/json' });
+  return context.text(renderOpenAPIDocument(), 200, { 'Content-Type': 'application/json' });
 });
 
 // Interactive API reference + client, reading the live spec at each load, so the
@@ -84,10 +84,10 @@ api.onError(handleError);
 // document, so the two representations cannot drift. Paths are relative to the
 // version's mount, which the `servers` entry carries. Pretty-printed: this is
 // documentation for humans and tooling, not a hot-path payload.
-export function renderOpenApiDocument(): string {
+export function renderOpenAPIDocument(): string {
   const document = api.getOpenAPI31Document({
-    openapi: openApiMetadata.openapi,
-    info: openApiMetadata.info,
+    openapi: openAPIMetadata.openapi,
+    info: openAPIMetadata.info,
     servers: [{ url: BASE_PATH }],
   });
   return JSON.stringify(document, null, 2) + '\n';

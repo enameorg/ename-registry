@@ -8,9 +8,9 @@ import { closePool, pool } from './pool.ts';
 // Register the full test DB lifecycle for one test file: reset projections and
 // event log before each test, then release the singleton pool so node:test can
 // exit without waiting for idle client timeout.
-export function useTestDb(): void {
+export function useTestDB(): void {
   beforeEach(async () => {
-    await resetTestDb();
+    await resetTestDB();
   });
 
   after(async () => {
@@ -26,9 +26,9 @@ export function useTestDb(): void {
 //
 // Uses the singleton pool directly: this helper only runs from tests, and the
 // enclosing lifecycle helper keeps the reset itself out of higher-layer test files.
-async function resetTestDb(): Promise<void> {
+async function resetTestDB(): Promise<void> {
   if (config.nodeEnv !== 'test') {
-    throw new Error(`resetTestDb() called with NODE_ENV=${config.nodeEnv}; only allowed in 'test'`);
+    throw new Error(`resetTestDB() called with NODE_ENV=${config.nodeEnv}; only allowed in 'test'`);
   }
 
   const result = await pool.query<{ tablename: string }>(
@@ -65,7 +65,7 @@ export async function truncateProjections(): Promise<void> {
 
   if (result.rows.length === 0) return;
 
-  // Interpolated for the same reason, and as safely, as in resetTestDb.
+  // Interpolated for the same reason, and as safely, as in resetTestDB.
   const tableList = result.rows.map((row) => `"${row.tablename}"`).join(', ');
   await pool.query(`TRUNCATE TABLE ${tableList}`);
 }
