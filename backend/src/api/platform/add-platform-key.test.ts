@@ -2,8 +2,8 @@ import { strict as assert } from 'node:assert';
 import { beforeEach, test } from 'node:test';
 
 import { useTestDatabase } from '../../database/testing.ts';
-// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the
-// Zod schemas built after it loads, and the API wraps the Service's schemas.
+// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the Zod schemas built
+// after it loads, and the API wraps the Service's schemas.
 import '../../index.ts';
 import { platformKeyAddedEventKindDefinition } from '../../services/platform/index.ts';
 import {
@@ -19,11 +19,10 @@ import { postJSON, readJSON, readProblem } from '../testing.ts';
 
 import { AddPlatformKeyResponseSchema } from './add-platform-key.ts';
 
-// The HTTP contract of POST /platforms/{id}/keys only: statuses, headers,
-// response shapes, Problem Details. What the use case persists is tested in
-// services/platform/add-platform-key.test.ts. The registry is anchored and a
-// platform accredited before each test, through the Service's test helper:
-// setup, not the contract under test. Test doctrine: ename-internals.md.
+// The HTTP contract of POST /platforms/{id}/keys only: statuses, headers, response shapes, Problem
+// Details. What the use case persists is tested in services/platform/add-platform-key.test.ts. The
+// registry is anchored and a platform accredited before each test, through the Service's test
+// helper: setup, not the contract under test. Test doctrine: ename-internals.md.
 
 function pathOf(platformId: string): string {
   return `/api/v1/platforms/${platformId}/keys`;
@@ -38,8 +37,8 @@ beforeEach(async () => {
   ({ registry, platform } = await setUpTestPlatform());
 });
 
-// The body of a key added to this platform, signed by the registry unless
-// another signer is given: the signed request names the platform of the path.
+// The body of a key added to this platform, signed by the registry unless another signer is given:
+// the signed request names the platform of the path.
 function makeBody(
   platformId: string,
   overrides: { idempotencyKey?: string; keyValue?: string } = {},

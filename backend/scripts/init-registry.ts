@@ -13,13 +13,12 @@ import {
 import { encodePublicKey, generateKeyPair } from '../src/utilities/signature.ts';
 import { generateUUIDv7 } from '../src/utilities/uuid.ts';
 
-// Anchor the registry of the loaded environment: generate the first registry
-// key, sign the anchor with it, write the anchor as the first event of the log,
-// and keep the private key in backend/.keys/, git-ignored. The anchor is
-// written through the Service, with direct database access, since no key yet
-// exists to sign a request to the API. Refused when the registry is already
-// anchored, and when a registry key file already exists. Local environments
-// only: in production the custody of the registry key is [Q-REGKEY-MGMT].
+// Anchor the registry of the loaded environment: generate the first registry key, sign the anchor
+// with it, write the anchor as the first event of the log, and keep the private key in
+// backend/.keys/, git-ignored. The anchor is written through the Service, with direct database
+// access, since no key yet exists to sign a request to the API. Refused when the registry is
+// already anchored, and when a registry key file already exists. Local environments only: in
+// production the custody of the registry key is [Q-REGKEY-MGMT].
 
 const keysDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..', '.keys');
 const privateKeyPath = resolve(keysDirectory, 'registry.pem');
@@ -39,8 +38,8 @@ const signature = createSignature(privateKey, {
 });
 
 await mkdir(keysDirectory, { recursive: true });
-// The key files first, `wx` refusing to overwrite: a registry key is never
-// replaced by accident. Removed again if the anchor is refused.
+// The key files first, `wx` refusing to overwrite: a registry key is never replaced by accident.
+// Removed again if the anchor is refused.
 await writeFile(privateKeyPath, privateKey.export({ format: 'pem', type: 'pkcs8' }), {
   flag: 'wx',
   mode: 0o600,

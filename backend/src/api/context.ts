@@ -12,10 +12,10 @@ export type RequestVariables = {
   logger: Logger;
 };
 
-// Hono's context type parameter (its `Env`). Pure framework glue — no Rust
-// analog; the Rust phase will pass RequestVariables through an extractor.
+// Hono's context type parameter (its `Env`). Pure framework glue — no Rust analog; the Rust phase
+// will pass RequestVariables through an extractor.
 export type HonoEnv = { Variables: RequestVariables };
 
-// The Hono context handlers and middleware receive — the API-layer counterpart
-// of the Service layer's ServiceContext (cf. ename-internals.md).
+// The Hono context handlers and middleware receive — the API-layer counterpart of the Service
+// layer's ServiceContext (cf. ename-internals.md).
 export type APIContext = Context<HonoEnv>;

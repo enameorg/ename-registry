@@ -19,19 +19,18 @@ import {
   registryAnchoredEventKindDefinition,
 } from './anchor-registry.ts';
 
-// What this use case adds to the write protocol: its kind's mapping, the
-// registry key it writes, its rebuild from the log, the single anchor; its
-// signer's authentication is its own, authenticateAnchor, tested below;
-// idempotency is withEvent's, tested in services/event/with-event.test.ts, and
-// the replay below shows only that the anchor goes through it. Test doctrine:
-// ename-internals.md.
+// What this use case adds to the write protocol: its kind's mapping, the registry key it writes,
+// its rebuild from the log, the single anchor; its signer's authentication is its own,
+// authenticateAnchor, tested below; idempotency is withEvent's, tested in
+// services/event/with-event.test.ts, and the replay below shows only that the anchor goes through
+// it. Test doctrine: ename-internals.md.
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
 useTestDatabase();
 
-// The anchor's input under a new idempotency key: the key it adds, under the
-// keyId its holder chose, signed by that key unless another is given.
+// The anchor's input under a new idempotency key: the key it adds, under the keyId its holder
+// chose, signed by that key unless another is given.
 function makeAnchor({
   added = generateTestKey(),
   keyId = generateUUIDv7(),

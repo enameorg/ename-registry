@@ -14,56 +14,52 @@ import { ConflictError, ContentionError, NotFoundError, ValidationError } from '
 // Ename format rules
 // ---------------------------------------------------------------------------
 
-// namePart grammar per docs/ename-format.md: lowercase letters and single
-// hyphens, no leading/trailing/consecutive hyphens, at least one letter.
+// namePart grammar per docs/ename-format.md: lowercase letters and single hyphens, no
+// leading/trailing/consecutive hyphens, at least one letter.
 //
-// No regex flags: the OpenAPI generator derives `pattern` from the regex
-// source, and a flag would not carry over into the generated JSON Schema.
+// No regex flags: the OpenAPI generator derives `pattern` from the regex source, and a flag would
+// not carry over into the generated JSON Schema.
 const NAME_PART_REGEX = /^[a-z]+(-[a-z]+)*$/;
 
-// Derived from the 52-character ename budget of docs/ename-format.md:
-// 52 minus `#` minus the shortest numberPart, one digit.
+// Derived from the 52-character ename budget of docs/ename-format.md: 52 minus `#` minus the
+// shortest numberPart, one digit.
 const MAX_NAME_PART_LENGTH = 50;
 
-// The namePart grammar as a pure schema: the single definition of the rule and
-// of its client-facing message. The HTTP body, the event request and the
-// projection row all parse a namePart through it; the API layer wraps it with
-// its OpenAPI example rather than re-assembling it (cf. ename-internals.md).
+// The namePart grammar as a pure schema: the single definition of the rule and of its client-facing
+// message. The HTTP body, the event request and the projection row all parse a namePart through it;
+// the API layer wraps it with its OpenAPI example rather than re-assembling it
+// (cf. ename-internals.md).
 export const NamePartSchema = z.string().min(1).max(MAX_NAME_PART_LENGTH).regex(NAME_PART_REGEX, {
   message:
     'must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)',
 });
 
-// What a client submits for an ename, declared once and strict: the event
-// kinds compose this schema into their request, the API wraps it in place as
-// its OpenAPI component (cf. ename-internals.md).
+// What a client submits for an ename, declared once and strict: the event kinds compose this schema
+// into their request, the API wraps it in place as its OpenAPI component (cf. ename-internals.md).
 export const EnameInputSchema = z.strictObject({
   namePart: NamePartSchema,
 });
 
-// Upper bound for numberPart, mirroring the enames_number_part_range CHECK
-// (1..999_999_999_999). Well under 2^53, so it round-trips as a JSON integer.
+// Upper bound for numberPart, mirroring the enames_number_part_range CHECK (1..999_999_999_999).
+// Well under 2^53, so it round-trips as a JSON integer.
 export const MAX_NUMBER_PART = 999_999_999_999;
 
-// Shared numberPart sub-schema (DB rows + event outcome JSONB). Centralizing
-// the (coerce, int, min, max) chain keeps the read path no laxer than the write
-// path. z.coerce accepts both string and number: BIGINT comes back as a string
-// from pg, JSONB as a number. The API response schema uses a non-coerce variant
-// (the wire is JSON, we control the serializer).
+// Shared numberPart sub-schema (DB rows + event outcome JSONB). Centralizing the (coerce, int, min,
+// max) chain keeps the read path no laxer than the write path. z.coerce accepts both string and
+// number: BIGINT comes back as a string from pg, JSONB as a number. The API response schema uses a
+// non-coerce variant (the wire is JSON, we control the serializer).
 export const NumberPartSchema = z.coerce.number().int().min(1).max(MAX_NUMBER_PART);
 
-// 52-char total budget on <namePart>#<numberPart>, mirroring the
-// enames_total_length CHECK. The digit count of numberPart is only known once
-// allocated, so the database enforces the budget on the row and the allocation
-// translates the violation (see insertEnameWithNextNumber).
+// 52-char total budget on <namePart>#<numberPart>, mirroring the enames_total_length CHECK. The
+// digit count of numberPart is only known once allocated, so the database enforces the budget on
+// the row and the allocation translates the violation (see insertEnameWithNextNumber).
 const MAX_ENAME_LENGTH = 52;
 
-// Retry budget when the (name_part, number_part) UNIQUE constraint fires in the
-// allocation loop. Under READ COMMITTED two transactions can read the same
-// MAX(number_part) and race; each collision round eliminates ~one contender, so
-// the budget caps the concurrent burst on a single name_part. Beyond it, the
-// allocation gives up with a retryable ContentionError (503 + Retry-After) and
-// the client retries with the same idempotency key.
+// Retry budget when the (name_part, number_part) UNIQUE constraint fires in the allocation loop.
+// Under READ COMMITTED two transactions can read the same MAX(number_part) and race; each collision
+// round eliminates ~one contender, so the budget caps the concurrent burst on a single name_part.
+// Beyond it, the allocation gives up with a retryable ContentionError (503 + Retry-After) and the
+// client retries with the same idempotency key.
 const MAX_NUMBER_PART_RETRIES = 20;
 
 const ENAMES_NUMBER_PART_CONSTRAINT = 'enames_name_part_number_part_key';
@@ -75,8 +71,8 @@ const ENAMES_TOTAL_LENGTH_CONSTRAINT = 'enames_total_length';
 // Ename domain type and lookups
 // ---------------------------------------------------------------------------
 
-// Domain-shaped Ename, mirroring the enames projection. numberPart is BIGINT on
-// the DB side; see NumberPartSchema above for the chain.
+// Domain-shaped Ename, mirroring the enames projection. numberPart is BIGINT on the DB side; see
+// NumberPartSchema above for the chain.
 export const EnameSchema = z.object({
   id: UUIDv7Schema,
   subjectId: UUIDv7Schema,
@@ -102,8 +98,7 @@ export async function getEnameByNamePartAndNumberPart(
   return rows[0];
 }
 
-// Ordered by (created_at, id): deterministic; id (UUIDv7) breaks ties on
-// equal created_at.
+// Ordered by (created_at, id): deterministic; id (UUIDv7) breaks ties on equal created_at.
 export async function findEnames(db: Database): Promise<Ename[]> {
   return await queryRows(
     db,
@@ -117,13 +112,11 @@ export async function findEnames(db: Database): Promise<Ename[]> {
 // Insertion helpers
 // ---------------------------------------------------------------------------
 
-// INSERT the ename with the next number_part for this name_part, computed
-// atomically via COALESCE(MAX(...), 0)+1. Two backends can pick the same MAX,
-// so each attempt runs in a nested withTransaction — a savepoint inside the
-// caller's transaction, whose other writes survive across attempts — and the
-// 23505 is retried. Returns the row as the database wrote it, whose full ename
-// fits the 52-char budget, or throws the domain error the violated constraint
-// translates to.
+// INSERT the ename with the next number_part for this name_part, computed atomically via
+// COALESCE(MAX(...), 0)+1. Two backends can pick the same MAX, so each attempt runs in a nested
+// withTransaction — a savepoint inside the caller's transaction, whose other writes survive across
+// attempts — and the 23505 is retried. Returns the row as the database wrote it, whose full ename
+// fits the 52-char budget, or throws the domain error the violated constraint translates to.
 export async function insertEnameWithNextNumber(
   db: Database,
   params: {
@@ -157,8 +150,8 @@ export async function insertEnameWithNextNumber(
         throw new NotFoundError('Subject not found.');
       }
       if (isCheckViolation(error, ENAMES_TOTAL_LENGTH_CONSTRAINT)) {
-        // The next numberPart has one digit too many for this namePart (→ 422).
-        // Specifics to the log; the thrown message stays client-safe.
+        // The next numberPart has one digit too many for this namePart (→ 422). Specifics to the
+        // log; the thrown message stays client-safe.
         logger.warn(
           { namePart: params.namePart, namePartLength: params.namePart.length },
           `${MAX_ENAME_LENGTH}-char overflow on ename creation`,
@@ -176,9 +169,9 @@ export async function insertEnameWithNextNumber(
       throw error;
     }
   }
-  // Budget exhausted: a transient capacity condition, not a server fault —
-  // a retryable ContentionError (→ 503), not a raw 500. Specifics to the log
-  // (correlatable by requestId); the thrown message stays client-safe.
+  // Budget exhausted: a transient capacity condition, not a server fault — a retryable
+  // ContentionError (→ 503), not a raw 500. Specifics to the log (correlatable by requestId); the
+  // thrown message stays client-safe.
   logger.warn(
     { namePart: params.namePart, attempts: MAX_NUMBER_PART_RETRIES },
     'number_part allocation retry budget exhausted under contention',
@@ -188,9 +181,8 @@ export async function insertEnameWithNextNumber(
   );
 }
 
-// One attempt: the INSERT and its RETURNING, raw — every error reaches the
-// retry loop above, which rolls the attempt back through withTransaction and
-// translates or retries.
+// One attempt: the INSERT and its RETURNING, raw — every error reaches the retry loop above, which
+// rolls the attempt back through withTransaction and translates or retries.
 async function insertEnameOnce(
   db: Database,
   params: { id: string; subjectId: string; namePart: string; createdAt: Date },
@@ -206,17 +198,17 @@ async function insertEnameOnce(
   );
   const row = rows[0];
   if (!row) {
-    // Unreachable in practice (a successful INSERT ... RETURNING returns a
-    // row); defensive against a future refactor.
+    // Unreachable in practice (a successful INSERT ... RETURNING returns a row); defensive against
+    // a future refactor.
     throw new Error('insert enames returned no row');
   }
   return row;
 }
 
-// INSERT the ename exactly as given, number_part included: what a rebuild
-// writes, the values all coming from the event. Nothing is allocated, retried
-// or translated — a constraint violation here is a corrupted log or projections
-// that were not empty, never a fault of the client, so it surfaces raw.
+// INSERT the ename exactly as given, number_part included: what a rebuild writes, the values all
+// coming from the event. Nothing is allocated, retried or translated — a constraint violation here
+// is a corrupted log or projections that were not empty, never a fault of the client, so it
+// surfaces raw.
 export async function insertEname(db: Database, ename: Ename): Promise<Ename> {
   const rows = await queryRows(
     db,
@@ -228,8 +220,8 @@ export async function insertEname(db: Database, ename: Ename): Promise<Ename> {
   );
   const row = rows[0];
   if (!row) {
-    // Unreachable in practice (a successful INSERT ... RETURNING returns a
-    // row); defensive against a future refactor.
+    // Unreachable in practice (a successful INSERT ... RETURNING returns a row); defensive against
+    // a future refactor.
     throw new Error('insert enames returned no row');
   }
   return row;

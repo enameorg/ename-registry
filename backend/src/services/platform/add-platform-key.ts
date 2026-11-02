@@ -25,9 +25,9 @@ export type AddPlatformKeyResult = PlatformKey;
 // addPlatformKey — public use case
 // ---------------------------------------------------------------------------
 
-// Add a key to an accredited platform, beside the keys it already has,
-// emitting one platform.key-added event, and return the row it wrote. Revoking
-// a platform key is not built yet (cf. ename-internals.md).
+// Add a key to an accredited platform, beside the keys it already has, emitting one
+// platform.key-added event, and return the row it wrote. Revoking a platform key is not built yet
+// (cf. ename-internals.md).
 export async function addPlatformKey(
   input: AddPlatformKeyInput,
   context: ServiceContext,
@@ -48,8 +48,8 @@ export async function addPlatformKey(
           createdAt,
         });
         if (!isPlatformKey(key)) {
-          // Unreachable in practice: the row keeps the platform it was given.
-          // The check narrows its type to a platform key.
+          // Unreachable in practice: the row keeps the platform it was given. The check narrows its
+          // type to a platform key.
           throw new Error('insert keys returned a key with no platform');
         }
         return key;

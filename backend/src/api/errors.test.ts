@@ -12,18 +12,15 @@ import { handleError } from './errors.ts';
 import { requestContext } from './middleware.ts';
 import { TEST_ORIGIN, readProblem } from './testing.ts';
 
-// The branches of handleError no v1 route reaches on purpose: an unexpected
-// error (the opaque 500), a framework HTTPException whose status the mapping
-// does not own, the contention 503 that a real burst reaches only by chance
-// (cf. services/subject/register-subject.test.ts), and the unavailable 503
-// that only a database outage reaches (cf. database/query.test.ts). A
-// throwaway sub-app
-// wired like the v1 sub-app (request context, then handleError) throws them on
-// demand, so the test observes the same function the real app runs, through
-// the same HTTP surface. What handleError writes to the request's logger is
-// part of that surface: the sub-app swaps the request's logger for a child of
-// a capturing one right after requestContext binds it, so the lines a test
-// reads are the ones a request would emit. Test doctrine: ename-internals.md.
+// The branches of handleError no v1 route reaches on purpose: an unexpected error (the opaque 500),
+// a framework HTTPException whose status the mapping does not own, the contention 503 that a real
+// burst reaches only by chance (cf. services/subject/register-subject.test.ts), and the unavailable
+// 503 that only a database outage reaches (cf. database/query.test.ts). A throwaway sub-app wired
+// like the v1 sub-app (request context, then handleError) throws them on demand, so the test
+// observes the same function the real app runs, through the same HTTP surface. What handleError
+// writes to the request's logger is part of that surface: the sub-app swaps the request's logger
+// for a child of a capturing one right after requestContext binds it, so the lines a test reads are
+// the ones a request would emit. Test doctrine: ename-internals.md.
 
 type LogLine = { msg: string; requestId: string; err?: { message: string } } & Record<
   string,
@@ -82,8 +79,8 @@ test('an unexpected error answers an opaque 500 problem+json carrying the reques
     requestId: response.headers.get('X-Request-Id'),
   });
 
-  // The correlation the detail promises: one error line, under the request id,
-  // carrying the message the client never sees.
+  // The correlation the detail promises: one error line, under the request id, carrying the message
+  // the client never sees.
   assert.deepEqual(
     logLines.map((line) => ({
       msg: line.msg,
@@ -167,8 +164,8 @@ test('an UnavailableError answers a 503 problem+json with a Retry-After header, 
     requestId: response.headers.get('X-Request-Id'),
   });
 
-  // An outage must alert: one error line, under the request id, whose message
-  // pino's serializer completes with the cause the client never sees.
+  // An outage must alert: one error line, under the request id, whose message pino's serializer
+  // completes with the cause the client never sees.
   assert.deepEqual(
     logLines.map((line) => ({
       msg: line.msg,

@@ -13,22 +13,20 @@ import type { EventKindDefinition } from './event-kind.ts';
 // Event domain type and lookups
 // ---------------------------------------------------------------------------
 
-// Domain-shaped Event, read from the events table (the registry's source of
-// truth; see ename-internals.md).
+// Domain-shaped Event, read from the events table (the registry's source of truth; see
+// ename-internals.md).
 //
-// request and outcome are typed `unknown`: the table holds every kind, each
-// with its own pair of schemas. Callers narrow by kind and parse each column
-// with the kind's definition, declared by the use case that emits it (see
-// event-kind.ts).
+// request and outcome are typed `unknown`: the table holds every kind, each with its own pair of
+// schemas. Callers narrow by kind and parse each column with the kind's definition, declared by the
+// use case that emits it (see event-kind.ts).
 //
-// idempotencyKey is exposed for service-internal use (replay lookup, race
-// reconciliation) and admin reads; it is transport metadata, projected out of
-// the future public log endpoint by the API layer.
+// idempotencyKey is exposed for service-internal use (replay lookup, race reconciliation) and admin
+// reads; it is transport metadata, projected out of the future public log endpoint by the API
+// layer.
 //
-// signature is the signer's, as it was submitted: the key that signed the
-// event's document and the signature's value, from which anyone holding the
-// log can verify the event again (see isEventSignatureValid). Stored in two
-// columns, assembled by the SELECT.
+// signature is the signer's, as it was submitted: the key that signed the event's document and the
+// signature's value, from which anyone holding the log can verify the event again
+// (see isEventSignatureValid). Stored in two columns, assembled by the SELECT.
 export const EventSchema = z.object({
   sequence: z.coerce.number().int().min(1),
   idempotencyKey: UUIDv7Schema,
@@ -58,11 +56,10 @@ export async function getEventByIdempotencyKey(
   return rows[0];
 }
 
-// Ordered by sequence — the canonical log order, same as the future public
-// transparency-log endpoint. The window reads the log a page at a time: the
-// events after `afterSequence`, at most `limit` of them. A page resumes after
-// the last sequence it read, never at a computed one, because sequence has
-// gaps. With no window, the whole log.
+// Ordered by sequence — the canonical log order, same as the future public transparency-log
+// endpoint. The window reads the log a page at a time: the events after `afterSequence`, at most
+// `limit` of them. A page resumes after the last sequence it read, never at a computed one, because
+// sequence has gaps. With no window, the whole log.
 export async function findEvents(
   db: Database,
   { afterSequence = 0, limit }: { afterSequence?: number; limit?: number } = {},
@@ -80,13 +77,11 @@ export async function findEvents(
 // Signature of a stored event
 // ---------------------------------------------------------------------------
 
-// Whether a stored event's signature verifies against the key it names, from
-// nothing but what the event stores: the document is rebuilt from the kind's
-// operation, the key, the idempotency key and the request read back from the
-// log. The check a verifier of the log runs on every event; each kind's test
-// runs it on the events its use case writes. The caller resolves the key; its
-// id is checked against the event's, since one public key may be recorded
-// under two ids.
+// Whether a stored event's signature verifies against the key it names, from nothing but what the
+// event stores: the document is rebuilt from the kind's operation, the key, the idempotency key and
+// the request read back from the log. The check a verifier of the log runs on every event; each
+// kind's test runs it on the events its use case writes. The caller resolves the key; its id is
+// checked against the event's, since one public key may be recorded under two ids.
 export function isEventSignatureValid(
   definition: EventKindDefinition,
   event: Event,
@@ -112,10 +107,9 @@ export function isEventSignatureValid(
 const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
 const EVENTS_SINGLE_ANCHOR_INDEX = 'events_single_anchor_idx';
 
-// INSERT one event and return it as the database wrote it, its sequence
-// allocated. On a UNIQUE collision on idempotency_key, throws
-// IdempotencyRaceError so the caller can roll back and reconcile from the
-// winner. A second anchor, which the log admits once (cf. ename-internals.md),
+// INSERT one event and return it as the database wrote it, its sequence allocated. On a UNIQUE
+// collision on idempotency_key, throws IdempotencyRaceError so the caller can roll back and
+// reconcile from the winner. A second anchor, which the log admits once (cf. ename-internals.md),
 // is a ConflictError.
 export async function insertEvent(db: Database, event: Omit<Event, 'sequence'>): Promise<Event> {
   try {
@@ -138,8 +132,8 @@ export async function insertEvent(db: Database, event: Omit<Event, 'sequence'>):
     );
     const row = rows[0];
     if (!row) {
-      // Unreachable in practice (a successful INSERT ... RETURNING returns a
-      // row); defensive against a future refactor.
+      // Unreachable in practice (a successful INSERT ... RETURNING returns a row); defensive
+      // against a future refactor.
       throw new Error('insert events returned no row');
     }
     return row;
@@ -154,10 +148,9 @@ export async function insertEvent(db: Database, event: Omit<Event, 'sequence'>):
   }
 }
 
-// Sentinel raised by insertEvent when the events.idempotency_key UNIQUE
-// constraint fires: another transaction won the idempotency race. Not a
-// DomainError — it's internal control flow, caught by withEvent to roll back
-// and reconcile from the winner's row. Never leaves the event concept.
+// Sentinel raised by insertEvent when the events.idempotency_key UNIQUE constraint fires: another
+// transaction won the idempotency race. Not a DomainError — it's internal control flow, caught by
+// withEvent to roll back and reconcile from the winner's row. Never leaves the event concept.
 export class IdempotencyRaceError extends Error {
   public override readonly name = 'IdempotencyRaceError';
   constructor() {

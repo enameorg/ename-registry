@@ -10,7 +10,7 @@ test('GET /api/v1/health returns 200 with status ok and an X-Request-Id header',
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { status: 'ok' });
-  // Every response from the v1 sub-app must carry an X-Request-Id (the
-  // server-generated observability id, distinct from any body field).
+  // Every response from the v1 sub-app must carry an X-Request-Id (the server-generated
+  // observability id, distinct from any body field).
   assert.match(response.headers.get('X-Request-Id') ?? '', UUIDV7_REGEX);
 });

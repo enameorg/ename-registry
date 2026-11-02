@@ -2,9 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Create an empty <unix_ts>_<name>.sql file in database/migrations/. The
-// Unix-timestamp prefix gives a stable lexicographic order across machines without
-// collisions in normal use.
+// Create an empty <unix_ts>_<name>.sql file in database/migrations/. The Unix-timestamp prefix
+// gives a stable lexicographic order across machines without collisions in normal use.
 
 const rawName = process.argv[2];
 if (!rawName) {

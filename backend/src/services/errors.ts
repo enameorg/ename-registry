@@ -1,9 +1,8 @@
 import type { ZodError } from 'zod';
 
-// Domain errors raised by the Service layer, which knows nothing about HTTP;
-// the API layer's error module maps each to a Problem Details response (see
-// api/errors.ts). Discriminated classes (not a tagged union) so instanceof
-// works in the handler.
+// Domain errors raised by the Service layer, which knows nothing about HTTP; the API layer's error
+// module maps each to a Problem Details response (see api/errors.ts). Discriminated classes (not a
+// tagged union) so instanceof works in the handler.
 
 export class DomainError extends Error {
   public override readonly name: string = 'DomainError';
@@ -24,24 +23,23 @@ export type ValidationIssue = {
   message: string;
 };
 
-// The one translation of a Zod failure into the domain's vocabulary. The write
-// protocol raises it when a request fails its kind's strict parse, and the
-// API's validation hook builds its 422 from it, so a malformed request yields
-// the same detail and issues whatever the caller (cf. ename-internals.md).
+// The one translation of a Zod failure into the domain's vocabulary. The write protocol raises it
+// when a request fails its kind's strict parse, and the API's validation hook builds its 422 from
+// it, so a malformed request yields the same detail and issues whatever the caller
+// (cf. ename-internals.md).
 export function validationErrorFromZodError(error: ZodError): ValidationError {
   return validationErrorFromIssues(
     error.issues.map((issue) => ({
-      // Cast: Zod types issue.path as PropertyKey[] (includes symbol), but a
-      // parsed JSON structure only ever has string/number paths. Narrowing
-      // keeps ValidationIssue JSON-safe.
+      // Cast: Zod types issue.path as PropertyKey[] (includes symbol), but a parsed JSON structure
+      // only ever has string/number paths. Narrowing keeps ValidationIssue JSON-safe.
       path: [...issue.path] as Array<string | number>,
       message: issue.message,
     })),
   );
 }
 
-// A ValidationError whose detail counts its issues: the one wording of a
-// validation failure, whether Zod or another check found the issues.
+// A ValidationError whose detail counts its issues: the one wording of a validation failure,
+// whether Zod or another check found the issues.
 export function validationErrorFromIssues(issues: ValidationIssue[]): ValidationError {
   const issueCount = issues.length;
   return new ValidationError(
@@ -66,8 +64,8 @@ export class ConflictError extends DomainError {
   }
 }
 
-// Raised by a signer's authentication when the request's signature does not
-// verify (cf. authenticateKey).
+// Raised by a signer's authentication when the request's signature does not verify
+// (cf. authenticateKey).
 export class AuthenticationError extends DomainError {
   public override readonly name = 'AuthenticationError';
 
@@ -76,9 +74,9 @@ export class AuthenticationError extends DomainError {
   }
 }
 
-// Raised when a verified signer may not submit the request: a platform key on
-// an operation of the registry, a registry key on a platform's, a platform
-// acting on a subject it is not the home platform of.
+// Raised when a verified signer may not submit the request: a platform key on an operation of the
+// registry, a registry key on a platform's, a platform acting on a subject it is not the home
+// platform of.
 export class AuthorizationError extends DomainError {
   public override readonly name = 'AuthorizationError';
 
@@ -95,10 +93,9 @@ export class IdempotencyConflictError extends DomainError {
   }
 }
 
-// Raised when an optimistic-retry budget is exhausted under contention
-// (currently number_part allocation on a hot name_part). Transient and the
-// request is valid — it succeeds on retry. The API maps it to 503 +
-// Retry-After, not 500: a capacity signal, not a server fault (matters for
+// Raised when an optimistic-retry budget is exhausted under contention (currently number_part
+// allocation on a hot name_part). Transient and the request is valid — it succeeds on retry. The
+// API maps it to 503 + Retry-After, not 500: a capacity signal, not a server fault (matters for
 // client retries and 5xx alerting).
 export class ContentionError extends DomainError {
   public override readonly name = 'ContentionError';
@@ -108,7 +105,7 @@ export class ContentionError extends DomainError {
   }
 }
 
-// Raised by the query helpers when the database does not answer, whatever the
-// operation. Not a domain error: it is re-exported under its own name so the
-// API maps it to a retryable 503 without knowing src/database/.
+// Raised by the query helpers when the database does not answer, whatever the operation. Not a
+// domain error: it is re-exported under its own name so the API maps it to a retryable 503 without
+// knowing src/database/.
 export { UnavailableError } from '../database/errors.ts';

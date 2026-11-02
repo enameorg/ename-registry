@@ -8,11 +8,10 @@ import { insertTestPlatform } from '../testing.ts';
 
 import { findSubjects, getSubject, insertSubject, SubjectKindSchema } from './subject.ts';
 
-// Direct tests of the subject data-access primitives (insert + read
-// round-trip), then the kind vocabulary against its CHECK. The primitives are
-// tested in isolation so use-case tests can read state back through them and
-// trust the result — see ename-internals.md. A single-statement write needs no
-// transaction, so the primitives are called with the pool directly.
+// Direct tests of the subject data-access primitives (insert + read round-trip), then the kind
+// vocabulary against its CHECK. The primitives are tested in isolation so use-case tests can read
+// state back through them and trust the result — see ename-internals.md. A single-statement write
+// needs no transaction, so the primitives are called with the pool directly.
 useTestDatabase();
 
 test('insertSubject then read back by id and via findSubjects', async () => {
@@ -62,10 +61,9 @@ test('findSubjects returns every inserted subject', async () => {
   assert.deepEqual(new Set(all.map((subject) => subject.id)), new Set(ids));
 });
 
-// The subject kind vocabulary is declared once in code (SubjectKindSchema) and
-// once in the database (the subjects_kind_allowed CHECK); this pins that the
-// two agree, in both directions, so a kind added on one side only fails by
-// name.
+// The subject kind vocabulary is declared once in code (SubjectKindSchema) and once in the database
+// (the subjects_kind_allowed CHECK); this pins that the two agree, in both directions, so a kind
+// added on one side only fails by name.
 test('the subject kinds SubjectKindSchema declares are exactly the kinds the subjects_kind_allowed CHECK admits', async () => {
   const admitted = await readCheckConstraintValues('subjects_kind_allowed');
 

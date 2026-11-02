@@ -13,10 +13,9 @@ import {
   verifyDocumentSignature,
 } from './signature.ts';
 
-// The JCS conformance of the canonicalization every signature rests on,
-// against the reference vectors of RFC 8785 (test-data/jcs/NOTICE): a
-// dependency upgrade that changes one byte of the canonical form fails here
-// before it can invalidate a signature. Then the signature and key rules
+// The JCS conformance of the canonicalization every signature rests on, against the reference
+// vectors of RFC 8785 (test-data/jcs/NOTICE): a dependency upgrade that changes one byte of the
+// canonical form fails here before it can invalidate a signature. Then the signature and key rules
 // themselves.
 
 const TEST_DATA = new URL('./test-data/jcs/', import.meta.url);
@@ -121,9 +120,9 @@ test('Base64URLSchema accepts canonical unpadded base64url only', () => {
 // The test vector of docs/ename-signature.md
 // ---------------------------------------------------------------------------
 
-// Copied from the standard, which publishes it for every implementer: the
-// implementation must reproduce its canonical bytes and fingerprint and accept
-// its signature, so the published vector and the code cannot drift apart.
+// Copied from the standard, which publishes it for every implementer: the implementation must
+// reproduce its canonical bytes and fingerprint and accept its signature, so the published vector
+// and the code cannot drift apart.
 const VECTOR = {
   privateKey: [
     '-----BEGIN PRIVATE KEY-----',

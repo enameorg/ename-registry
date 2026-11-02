@@ -14,8 +14,8 @@ const CREATE_WIDGETS_SQL = '-- 1700000000_create_widgets\nCREATE TABLE widgets (
 const CREATE_WIDGETS_HASH = 'e3fe111512df9c626a78e6c5bed21a97c94b32506a038eb9d0a7c48f6a821655';
 const NO_TRANSACTION_SQL = '-- migrate:no-transaction\nSELECT 1;\n';
 const NO_TRANSACTION_HASH = 'edd22faa497de670fb4c0112c8822519889fa1e838f5793ce32f3f1958b01989';
-// A BOM followed by an invalid UTF-8 byte: the hash covers the raw bytes, not a
-// decoded string (decoding would replace 0xFF by U+FFFD).
+// A BOM followed by an invalid UTF-8 byte: the hash covers the raw bytes, not a decoded string
+// (decoding would replace 0xFF by U+FFFD).
 const RAW_BYTES = Buffer.from([0xef, 0xbb, 0xbf, 0x2d, 0x2d, 0x20, 0xff, 0x0a]);
 const RAW_BYTES_HASH = '73c55541d4076b2915bd83efd1f9497d03d3dc288b245b8360afb2b91b973d5f';
 
@@ -220,10 +220,9 @@ interface Fixture {
   directory: string;
 }
 
-// One throwaway database and one empty migrations directory per test: the
-// runner creates, breaks and re-applies migrations, so it never shares
-// ename_test with the backend suite. The database is created on the cluster of
-// DATABASE_URL and dropped afterwards.
+// One throwaway database and one empty migrations directory per test: the runner creates, breaks
+// and re-applies migrations, so it never shares ename_test with the backend suite. The database is
+// created on the cluster of DATABASE_URL and dropped afterwards.
 async function withFixture(body: (fixture: Fixture) => Promise<void>): Promise<void> {
   const clusterURL = process.env['DATABASE_URL'];
   if (!clusterURL) throw new Error('DATABASE_URL is not set');

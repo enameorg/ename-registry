@@ -43,24 +43,22 @@ import { defineEventKind } from './event-kind.ts';
 import { findEvents, insertEvent } from './event.ts';
 import { withEvent } from './with-event.ts';
 
-// Tests of the write protocol at its own interface, with a real kind (the
-// events.kind CHECK admits no test kind) and a work the test controls: it can
-// return rows without touching a projection, throw a domain error, or wait
-// for a concurrent commit, which makes every branch of the protocol
-// deterministic. A first write returns the work's rows; a replay returns what
-// the kind's fromEvent reads from the stored event. Every request is signed by
-// the platform accredited before each test and authenticated by the real
-// authenticatePlatform, unless the test is about what the protocol hands its
-// authenticator. Which keys an authenticator admits is tested with the
-// authenticator. Test doctrine: ename-internals.md.
+// Tests of the write protocol at its own interface, with a real kind (the events.kind CHECK admits
+// no test kind) and a work the test controls: it can return rows without touching a projection,
+// throw a domain error, or wait for a concurrent commit, which makes every branch of the protocol
+// deterministic. A first write returns the work's rows; a replay returns what the kind's fromEvent
+// reads from the stored event. Every request is signed by the platform accredited before each test
+// and authenticated by the real authenticatePlatform, unless the test is about what the protocol
+// hands its authenticator. Which keys an authenticator admits is tested with the authenticator.
+// Test doctrine: ename-internals.md.
 const context = { logger: pino({ level: 'silent' }) };
 
 useTestDatabase();
 
 const request = { subject: { kind: 'person' as const }, ename: { namePart: 'jean-dupont' } };
 
-// The rows a work returns, consistent with `request`, the event's createdAt and
-// the platform that signed.
+// The rows a work returns, consistent with `request`, the event's createdAt and the platform that
+// signed.
 function makeRows(platformId: string, createdAt = new Date()): RegisterSubjectResult {
   const subjectId = generateUUIDv7();
   return {
@@ -141,8 +139,7 @@ test('the authenticator is given the signable document the protocol builds, and 
   const { platform } = await setUpTestPlatform();
   const idempotencyKey = generateUUIDv7();
   const signature = sign(platform, idempotencyKey);
-  // Opaque to the protocol: whatever the authenticator returns reaches the
-  // work.
+  // Opaque to the protocol: whatever the authenticator returns reaches the work.
   const signer = { platformId: platform.platformId };
   const calls: Array<{ document: SignableDocument; signatureValue: string }> = [];
   let workSigner: unknown;
@@ -238,8 +235,8 @@ test('replays the stored result for the same idempotencyKey, signing key and req
   );
 
   let workRuns = 0;
-  // A resend signs again: ECDSA gives another signature of the same document,
-  // and the replay does not depend on its bytes.
+  // A resend signs again: ECDSA gives another signature of the same document, and the replay does
+  // not depend on its bytes.
   const second = await withEvent(
     subjectRegisteredEventKindDefinition,
     {
@@ -256,8 +253,8 @@ test('replays the stored result for the same idempotencyKey, signing key and req
   );
 
   assert.equal(workRuns, 0);
-  // The replay reads the stored event back through fromEvent: the two paths
-  // agree, the law each kind's test pins, here on the real kind.
+  // The replay reads the stored event back through fromEvent: the two paths agree, the law each
+  // kind's test pins, here on the real kind.
   assert.deepEqual(second, first);
   assert.equal((await findSubjectEvents()).length, 1);
 });
@@ -366,9 +363,8 @@ test('rejects the same idempotencyKey with a different request as an Idempotency
 test('rejects the same idempotencyKey used by an event of another kind, before parsing its request', async () => {
   const { platform } = await setUpTestPlatform();
   const idempotencyKey = generateUUIDv7();
-  // Seed a subject.ename-added row directly: its request has no subject.kind,
-  // so a parse with the subject.registered schema would fail — the kind check
-  // must come first.
+  // Seed a subject.ename-added row directly: its request has no subject.kind, so a parse with the
+  // subject.registered schema would fail — the kind check must come first.
   await insertEvent(pool, {
     idempotencyKey,
     kind: subjectEnameAddedEventKindDefinition.kind,
@@ -423,9 +419,8 @@ test("loses the race at the events insert to a concurrent same-key commit, rolls
           homePlatformId: signer.platformId,
           createdAt,
         });
-        // Another backend commits the same key, same request, on its own
-        // connection, after our preliminary lookup and before our events
-        // insert.
+        // Another backend commits the same key, same request, on its own connection, after our
+        // preliminary lookup and before our events insert.
         await insertEvent(pool, {
           idempotencyKey,
           kind: subjectRegisteredEventKindDefinition.kind,
@@ -466,8 +461,8 @@ test('a domain error raised by the work is reconciled against a concurrent same-
       signature,
       authenticate: authenticatePlatform,
       work: async () => {
-        // The winner commits first; our projection write then hits a
-        // current-state conflict that the winner explains.
+        // The winner commits first; our projection write then hits a current-state conflict that
+        // the winner explains.
         await insertEvent(pool, {
           idempotencyKey,
           kind: subjectRegisteredEventKindDefinition.kind,
@@ -517,9 +512,9 @@ test('a domain error raised by the work with no winner surfaces as is, and nothi
   assert.equal((await findSubjects(pool)).length, 0);
 });
 
-// An unavailable database is not a current-state error: it surfaces as is,
-// never reconciled against a winner, even one that committed, since the
-// lookup would fail with it; the client's retry under the same key replays.
+// An unavailable database is not a current-state error: it surfaces as is, never reconciled against
+// a winner, even one that committed, since the lookup would fail with it; the client's retry under
+// the same key replays.
 test('an UnavailableError raised by the work surfaces as is, even over a same-key winner', async () => {
   const { platform } = await setUpTestPlatform();
   const idempotencyKey = generateUUIDv7();
@@ -602,8 +597,8 @@ test('a request carrying a field the kind does not declare fails before any writ
         subjectRegisteredEventKindDefinition,
         {
           idempotencyKey: generateUUIDv7(),
-          // Cast: a field the kind does not know, nested in an entity object —
-          // what a wire schema ahead of the kind definition would let through.
+          // Cast: a field the kind does not know, nested in an entity object — what a wire schema
+          // ahead of the kind definition would let through.
           request: {
             subject: { kind: 'person', publicKey: 'not-yet-a-field' },
             ename: { namePart: 'jean-dupont' },
@@ -689,10 +684,9 @@ test('an idempotency key of the wrong form fails as a ValidationError before its
   assert.deepEqual(await findEvents(pool), []);
 });
 
-// The real kind with a toOutcome that keeps a field the kind does not declare:
-// what a kind whose outcome schema lags behind its toOutcome would do. A fault
-// of the kind, not of the caller, so it surfaces as the raw ZodError, never as
-// a ValidationError.
+// The real kind with a toOutcome that keeps a field the kind does not declare: what a kind whose
+// outcome schema lags behind its toOutcome would do. A fault of the kind, not of the caller, so it
+// surfaces as the raw ZodError, never as a ValidationError.
 const leakyDefinition = defineEventKind({
   ...subjectRegisteredEventKindDefinition,
   toOutcome: (result: RegisterSubjectResult) => ({
@@ -743,8 +737,8 @@ test('a request no signature can cover fails as a ValidationError before its sig
         platformAccreditedEventKindDefinition,
         {
           idempotencyKey: generateUUIDv7(),
-          // A lone surrogate, which a JSON body can carry and JCS cannot
-          // canonicalize: verifying the signature would throw.
+          // A lone surrogate, which a JSON body can carry and JCS cannot canonicalize: verifying
+          // the signature would throw.
           request: {
             platform: { ...makePlatformInput(), legalName: 'ACME \ud800' },
             key: { algorithm: 'ecdsa-p256-sha256', value: generateTestKey().publicKey },

@@ -7,9 +7,9 @@ import { ValidationError } from '../errors.ts';
 
 import { assertPortableValues, createSignature, isSignatureValid } from './signature.ts';
 
-// The signature of a request as the Service builds and checks it, without a
-// database: what it covers, and what a request must be to be signed at all.
-// The mechanism underneath (JCS, ES256, keys) is tested in utilities.
+// The signature of a request as the Service builds and checks it, without a database: what it
+// covers, and what a request must be to be signed at all. The mechanism underneath
+// (JCS, ES256, keys) is tested in utilities.
 
 const { publicKey, privateKey } = generateKeyPair();
 const key = { algorithm: 'ecdsa-p256-sha256' as const, value: encodePublicKey(publicKey) };

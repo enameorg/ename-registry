@@ -4,9 +4,8 @@ import { resolve } from 'node:path';
 
 import type pg from 'pg';
 
-// Forward-only migration runner over <unix_ts>_<name>.sql files. The
-// schema_migrations table and the hash are the contract the Rust
-// reimplementation honors (cf. ename-internals.md, ADR-0009).
+// Forward-only migration runner over <unix_ts>_<name>.sql files. The schema_migrations table and
+// the hash are the contract the Rust reimplementation honors (cf. ename-internals.md, ADR-0009).
 //
 // Invariants:
 //   1. schema_migrations stores a SHA-256 of each file's raw bytes, comments
@@ -52,14 +51,13 @@ export interface IntegrityReport {
 
 export interface RunReport {
   applied: string[];
-  // Versions another runner applied between this run's pending computation and
-  // its own attempt.
+  // Versions another runner applied between this run's pending computation and its own attempt.
   skipped: string[];
 }
 
-// Apply every pending migration of the directory on the given connection and
-// report what this run did. The connection is the caller's: the runner neither
-// opens nor closes it, and it uses it sequentially.
+// Apply every pending migration of the directory on the given connection and report what this run
+// did. The connection is the caller's: the runner neither opens nor closes it, and it uses it
+// sequentially.
 export async function run(client: pg.Client, migrationsDirectory: string): Promise<RunReport> {
   await bootstrap(client);
 
@@ -87,9 +85,9 @@ export async function run(client: pg.Client, migrationsDirectory: string): Promi
   return report;
 }
 
-// Create the bookkeeping table under the same lock as the migrations: two
-// runners racing on an empty database would otherwise collide on CREATE TABLE
-// IF NOT EXISTS (a unique violation in pg_type).
+// Create the bookkeeping table under the same lock as the migrations: two runners racing on an
+// empty database would otherwise collide on CREATE TABLE IF NOT EXISTS (a unique violation in
+// pg_type).
 async function bootstrap(client: pg.Client): Promise<void> {
   await client.query('BEGIN');
   await client.query('SELECT pg_advisory_xact_lock($1)', [ADVISORY_LOCK_KEY.toString()]);
@@ -104,10 +102,9 @@ async function bootstrap(client: pg.Client): Promise<void> {
   await client.query('COMMIT');
 }
 
-// Read every `<version>.sql` of the directory, in lexicographic order of
-// filename (the Unix-timestamp prefix is stable across machines). The hash is a
-// SHA-256 of the file's raw bytes, comments included; only the SQL text is
-// decoded, and the decoding never feeds the hash.
+// Read every `<version>.sql` of the directory, in lexicographic order of filename (the
+// Unix-timestamp prefix is stable across machines). The hash is a SHA-256 of the file's raw bytes,
+// comments included; only the SQL text is decoded, and the decoding never feeds the hash.
 export async function loadMigrations(migrationsDirectory: string): Promise<Migration[]> {
   let entries: string[];
   try {
@@ -134,10 +131,9 @@ export async function loadMigrations(migrationsDirectory: string): Promise<Migra
   return migrations;
 }
 
-// Confront the applied migrations with the files on disk. A migration is
-// frozen byte for byte once applied (ADR-0009), and that freeze covers its
-// presence: an applied version whose file was edited, deleted or renamed is
-// reported, and the run refuses to apply anything.
+// Confront the applied migrations with the files on disk. A migration is frozen byte for byte once
+// applied (ADR-0009), and that freeze covers its presence: an applied version whose file was
+// edited, deleted or renamed is reported, and the run refuses to apply anything.
 export function verifyApplied(
   migrations: Migration[],
   applied: AppliedMigration[],
@@ -169,11 +165,10 @@ function describeIntegrityFailure(integrity: IntegrityReport): string {
   return lines.join('\n');
 }
 
-// Apply one migration in its own transaction, under the transaction-level
-// advisory lock. Returns false when another runner applied it between our
-// pending computation and our lock acquisition: overlapping runners serialize
-// and converge. The PRIMARY KEY on version is the hard guarantee — a double
-// apply fails on the INSERT and its DDL rolls back with it.
+// Apply one migration in its own transaction, under the transaction-level advisory lock. Returns
+// false when another runner applied it between our pending computation and our lock acquisition:
+// overlapping runners serialize and converge. The PRIMARY KEY on version is the hard guarantee — a
+// double apply fails on the INSERT and its DDL rolls back with it.
 async function applyInTransaction(client: pg.Client, migration: Migration): Promise<boolean> {
   try {
     await client.query('BEGIN');
@@ -200,11 +195,10 @@ async function applyInTransaction(client: pg.Client, migration: Migration): Prom
   }
 }
 
-// A `-- migrate:no-transaction` migration (e.g. CREATE INDEX CONCURRENTLY)
-// runs outside any transaction, hence without the lock or the rollback. The
-// re-check refreshes the pending computation but cannot close the window: such
-// a migration must be idempotent, and the runner launched by a single job at a
-// time.
+// A `-- migrate:no-transaction` migration (e.g. CREATE INDEX CONCURRENTLY) runs outside any
+// transaction, hence without the lock or the rollback. The re-check refreshes the pending
+// computation but cannot close the window: such a migration must be idempotent, and the runner
+// launched by a single job at a time.
 async function applyWithoutTransaction(client: pg.Client, migration: Migration): Promise<boolean> {
   if (await isApplied(client, migration.version)) return false;
   await client.query(migration.sql);

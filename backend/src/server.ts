@@ -19,8 +19,8 @@ function shutdown(signal: NodeJS.Signals): void {
     process.exit(1);
   }, SHUTDOWN_TIMEOUT_MS);
 
-  // Drain in-flight HTTP requests first, then release the DB pool, so no handler
-  // loses its connection mid-query.
+  // Drain in-flight HTTP requests first, then release the DB pool, so no handler loses its
+  // connection mid-query.
   httpServer.close((error) => {
     void closeResources(error, timeout);
   });

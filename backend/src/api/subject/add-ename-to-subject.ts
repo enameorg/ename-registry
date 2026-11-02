@@ -27,9 +27,8 @@ const AddEnameToSubjectParamsSchema = z.strictObject({
   id: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e1a' }),
 });
 
-// Strict at every level: an unknown field is a 422 naming the key, never
-// silently dropped, so the validated request is exactly what the client sent
-// (cf. ename-internals.md).
+// Strict at every level: an unknown field is a 422 naming the key, never silently dropped, so the
+// validated request is exactly what the client sent (cf. ename-internals.md).
 const AddEnameToSubjectRequestSchema = z
   .strictObject({
     idempotencyKey: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
@@ -38,8 +37,8 @@ const AddEnameToSubjectRequestSchema = z
   })
   .openapi('AddEnameToSubjectRequest');
 
-// The subject is named, not returned in full: the response mirrors the event,
-// whose request carries the subject's id alone.
+// The subject is named, not returned in full: the response mirrors the event, whose request carries
+// the subject's id alone.
 export const AddEnameToSubjectResponseSchema = z
   .object({
     createdAt: DateTimeSchema.openapi({ example: '2026-05-30T14:32:11.123Z' }),
@@ -112,8 +111,8 @@ export const addEnameToSubjectHandler: RouteHandler<
     },
     { logger },
   );
-  // Field by field, never a spread. The subject is named by the row's
-  // subjectId, the same id on a first write and on a replay.
+  // Field by field, never a spread. The subject is named by the row's subjectId, the same id on a
+  // first write and on a replay.
   return context.json(
     {
       createdAt: ename.createdAt.toISOString(),

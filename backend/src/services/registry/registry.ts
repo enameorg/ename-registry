@@ -5,17 +5,17 @@ import type { SignableDocument } from '../common/index.ts';
 import { AuthorizationError } from '../errors.ts';
 import { authenticateKey, isRegistryKey } from '../key/index.ts';
 
-// The registry as the signer of its own events: accreditations, keys, and
-// later the mechanics of the log. Its keys are the keys with no platform (cf.
-// key.ts); the anchor records the first of them (anchor-registry.ts).
+// The registry as the signer of its own events: accreditations, keys, and later the mechanics of
+// the log. Its keys are the keys with no platform (cf. key.ts); the anchor records the first of
+// them (anchor-registry.ts).
 
 // ---------------------------------------------------------------------------
 // Authentication
 // ---------------------------------------------------------------------------
 
-// The signer of a request the registry submits: a recorded key that signed the
-// document (cf. authenticateKey), held by the registry, or an
-// AuthorizationError (→ 403) for a verified key of a platform.
+// The signer of a request the registry submits: a recorded key that signed the document
+// (cf. authenticateKey), held by the registry, or an AuthorizationError (→ 403) for a verified key
+// of a platform.
 export async function authenticateRegistry(
   db: Database,
   document: SignableDocument,

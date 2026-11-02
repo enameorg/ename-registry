@@ -5,10 +5,9 @@ import importX from 'eslint-plugin-import-x';
 import unusedImports from 'eslint-plugin-unused-imports';
 import tseslint from 'typescript-eslint';
 
-// Import boundaries of the backend, as ename-internals.md states them. Each
-// entry is one pattern of no-restricted-imports; a block below lists the
-// union its files are bound by, since a later block replaces the rule's
-// options rather than merging them.
+// Import boundaries of the backend, as ename-internals.md states them. Each entry is one pattern of
+// no-restricted-imports; a block below lists the union its files are bound by, since a later block
+// replaces the rule's options rather than merging them.
 const nodeBuiltins = builtinModules.filter((name) => !name.startsWith('node:')).join('|');
 
 const boundary = {
@@ -17,8 +16,8 @@ const boundary = {
     regex: `^(${nodeBuiltins})(/|$)`,
     message: 'Import a Node built-in with the node: prefix.',
   },
-  // Another concept folder is imported through its index.ts barrel, whatever
-  // the depth of the path (cf. ename-internals.md).
+  // Another concept folder is imported through its index.ts barrel, whatever the depth of the path
+  // (cf. ename-internals.md).
   barrelOfConcept: {
     regex: String.raw`(?:^|/)(?:services|api)/[^/]+/(?!index\.ts$)[^/]+$`,
     message: 'Import another concept through its index.ts barrel.',
@@ -27,9 +26,8 @@ const boundary = {
     regex: String.raw`^\.\./(?!\.\./)[^/]+/(?!index\.ts$)[^/]+$`,
     message: 'Import another concept through its index.ts barrel.',
   },
-  // The same rule for a block that holds a layer's root modules (src/api/*.ts,
-  // src/services/*.ts): from there the utilities and the other layers are
-  // sibling folders too, imported by file.
+  // The same rule for a block that holds a layer's root modules (src/api/*.ts, src/services/*.ts):
+  // from there the utilities and the other layers are sibling folders too, imported by file.
   barrelOfSiblingConcept: {
     regex: String.raw`^\.\./(?!\.\./|utilities/|services/|database/)[^/]+/(?!index\.ts$)[^/]+$`,
     message: 'Import another concept through its index.ts barrel.',
@@ -47,8 +45,8 @@ const boundary = {
     regex: String.raw`(^|/)api/`,
     message: 'Nothing below the API layer imports it.',
   },
-  // The database plumbing is consumed by the Service layer only; an API test
-  // may reach the test DB lifecycle helper.
+  // The database plumbing is consumed by the Service layer only; an API test may reach the test DB
+  // lifecycle helper.
   noDatabase: {
     regex: String.raw`/database/`,
     message: 'The API layer never imports src/database/.',
@@ -61,22 +59,20 @@ const boundary = {
     regex: String.raw`(^|/)(api|services|database)/`,
     message: 'A utility knows no layer.',
   },
-  // The event concept sits below every other concept and imports none of them:
-  // the signer of an event is authenticated by the function its use case
-  // passes. It imports only the Service's common folder, which any concept may
-  // import.
+  // The event concept sits below every other concept and imports none of them: the signer of an
+  // event is authenticated by the function its use case passes. It imports only the Service's
+  // common folder, which any concept may import.
   noConceptFromEvent: {
     regex: String.raw`^\.\./(?!\.\./|errors\.ts$|context\.ts$|common/index\.ts$)`,
     message: 'The event concept imports no other concept (cf. ename-internals.md).',
   },
-  // The key concept sits below the concepts that own keys and imports no other
-  // concept.
+  // The key concept sits below the concepts that own keys and imports no other concept.
   noConceptFromKey: {
     regex: String.raw`^\.\./(?!\.\./|errors\.ts$|context\.ts$|common/index\.ts$)`,
     message: 'The key concept imports no other concept (cf. ename-internals.md).',
   },
-  // The Service's common folder holds what several concepts share, below all of
-  // them: it imports no concept.
+  // The Service's common folder holds what several concepts share, below all of them: it imports no
+  // concept.
   noConceptFromCommon: {
     regex: String.raw`^\.\./(?!\.\./|errors\.ts$|context\.ts$)`,
     message: 'The common folder imports no concept (cf. ename-internals.md).',
@@ -142,26 +138,25 @@ export default defineConfig(
     },
   },
   {
-    // A line holding only a comment, at Prettier's width (cf.
-    // ename-internals.md). Core's max-len is deprecated and available until
-    // ESLint 11; its replacement is @stylistic/max-len, with the same options.
+    // A line holding only a comment, at Prettier's width (cf. ename-internals.md). Core's max-len
+    // is deprecated and available until ESLint 11; its replacement is @stylistic/max-len, with the
+    // same options.
     files: ['**/*.ts', '**/*.js'],
     rules: {
       'max-len': ['error', { code: Number.MAX_SAFE_INTEGER, comments: 100, ignoreUrls: true }],
     },
   },
   {
-    // Test files: node:test's `test(name, fn)` returns a tracked Promise that
-    // the runner handles internally, so the floating-promises rule produces
-    // noise here.
+    // Test files: node:test's `test(name, fn)` returns a tracked Promise that the runner handles
+    // internally, so the floating-promises rule produces noise here.
     files: ['**/*.test.ts'],
     rules: {
       '@typescript-eslint/no-floating-promises': 'off',
     },
   },
 
-  // Import boundaries (cf. ename-internals.md). Every TypeScript file gets the
-  // node: prefix rule; the backend's layers and concepts get theirs on top.
+  // Import boundaries (cf. ename-internals.md). Every TypeScript file gets the node: prefix rule;
+  // the backend's layers and concepts get theirs on top.
   {
     files: ['**/*.ts'],
     rules: {
@@ -215,9 +210,9 @@ export default defineConfig(
     },
   },
   {
-    // The Service layer's root modules (its errors, its context, its test
-    // helper) sit beside the concept folders, one level up: from there the
-    // plumbing and the utilities are siblings, imported by file.
+    // The Service layer's root modules (its errors, its context, its test helper) sit beside the
+    // concept folders, one level up: from there the plumbing and the utilities are siblings,
+    // imported by file.
     files: ['backend/src/services/*.ts'],
     rules: {
       'no-restricted-imports': restrictImports(
@@ -319,8 +314,7 @@ export default defineConfig(
     },
   },
   {
-    // Environment variables are read once, in config.ts (cf.
-    // ename-internals.md).
+    // Environment variables are read once, in config.ts (cf. ename-internals.md).
     files: ['backend/src/**/*.ts'],
     ignores: ['backend/src/config.ts'],
     rules: {
@@ -328,9 +322,9 @@ export default defineConfig(
     },
   },
   {
-    // The Service layer runs SQL through the query helpers, which translate an
-    // unavailable database (cf. ename-internals.md). A later block replaces a
-    // rule rather than extending it, so this one repeats noProcessEnv.
+    // The Service layer runs SQL through the query helpers, which translate an unavailable database
+    // (cf. ename-internals.md). A later block replaces a rule rather than extending it, so this one
+    // repeats noProcessEnv.
     files: ['backend/src/services/**/*.ts'],
     rules: {
       'no-restricted-syntax': ['error', noProcessEnv, noQuery],

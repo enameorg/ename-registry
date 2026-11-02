@@ -22,9 +22,8 @@ import { PlatformInputSchema, PlatformSchema } from './platform.ts';
 // Request and response schemas
 // ---------------------------------------------------------------------------
 
-// Strict at every level: an unknown field is a 422 naming the key, never
-// silently dropped, so the validated request is exactly what the client sent
-// (cf. ename-internals.md).
+// Strict at every level: an unknown field is a 422 naming the key, never silently dropped, so the
+// validated request is exactly what the client sent (cf. ename-internals.md).
 const AccreditPlatformRequestSchema = z
   .strictObject({
     idempotencyKey: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
@@ -94,8 +93,8 @@ export const accreditPlatformHandler: RouteHandler<typeof accreditPlatformRoute,
   const logger = context.var.logger;
 
   const { platform, key } = await accreditPlatform(input, { logger });
-  // Field by field, never a spread: the wire carries the event's timestamp
-  // once, and not the key's platformId, which the platform's id already says.
+  // Field by field, never a spread: the wire carries the event's timestamp once, and not the key's
+  // platformId, which the platform's id already says.
   return context.json(
     {
       createdAt: platform.createdAt.toISOString(),

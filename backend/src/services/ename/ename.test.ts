@@ -20,13 +20,13 @@ import {
   NamePartSchema,
 } from './ename.ts';
 
-// Direct tests of the ename data-access primitives (see ename-internals.md).
-// Both inserts require an existing subject (enames.subject_id FK), so each
-// insert test seeds one through the subject primitive.
+// Direct tests of the ename data-access primitives (see ename-internals.md). Both inserts require
+// an existing subject (enames.subject_id FK), so each insert test seeds one through the subject
+// primitive.
 //
-// What the primitive writes to the logger it receives is part of its observable
-// surface: the logger captures every warning as a parsed line, and a test
-// asserts on the lines it expects (cf. ename-internals.md).
+// What the primitive writes to the logger it receives is part of its observable surface: the logger
+// captures every warning as a parsed line, and a test asserts on the lines it expects
+// (cf. ename-internals.md).
 type LogLine = { msg: string } & Record<string, unknown>;
 const logLines: LogLine[] = [];
 const logger = pino(
@@ -56,8 +56,8 @@ async function seedSubject(): Promise<string> {
   return subjectId;
 }
 
-// Every allocation is one INSERT: called with the pool, each runs in its own
-// transaction, so no test opens one.
+// Every allocation is one INSERT: called with the pool, each runs in its own transaction, so no
+// test opens one.
 async function allocate(params: {
   id?: string;
   subjectId: string;
@@ -111,14 +111,12 @@ test('insertEnameWithNextNumber allocates consecutive numberParts per namePart',
   assert.equal(second.numberPart, 2);
 });
 
-// Two allocations for one namePart read the same MAX(number_part) and collide
-// on the UNIQUE constraint; the loser must retry and take the next number. The
-// collision is forced, not hoped for: a holder keeps (martin, 1) uncommitted
-// while the loser allocates on the pool — it reads MAX over committed rows
-// only, picks 1 too, and its INSERT waits on the holder's index entry. The
-// holder commits once the catalog shows the loser waiting, so the loser gets
-// the unique violation, retries, and reads 1 → 2. Without the retry the loser
-// would reject instead of returning 2.
+// Two allocations for one namePart read the same MAX(number_part) and collide on the UNIQUE
+// constraint; the loser must retry and take the next number. The collision is forced, not hoped
+// for: a holder keeps (martin, 1) uncommitted while the loser allocates on the pool — it reads MAX
+// over committed rows only, picks 1 too, and its INSERT waits on the holder's index entry. The
+// holder commits once the catalog shows the loser waiting, so the loser gets the unique violation,
+// retries, and reads 1 → 2. Without the retry the loser would reject instead of returning 2.
 test('insertEnameWithNextNumber retries a number_part collision: the loser takes the next number and logs the collision', async () => {
   const holderSubjectId = await seedSubject();
   const loserSubjectId = await seedSubject();
@@ -214,8 +212,8 @@ test('insertEname writes the ename exactly as given, numberPart included, and ro
   assert.deepEqual(await findEnames(pool), [ename]);
 });
 
-// Nothing is translated: at a rebuild a violation is a corrupted log or
-// projections that were not empty, never a fault of the client.
+// Nothing is translated: at a rebuild a violation is a corrupted log or projections that were not
+// empty, never a fault of the client.
 test('insertEname lets a constraint violation surface raw, never as a domain error', async () => {
   const subjectId = await seedSubject();
   const first = await allocate({ subjectId, namePart: 'jean-dupont' });
@@ -237,10 +235,9 @@ test('getEnameByNamePartAndNumberPart returns undefined for an unknown ename', a
   );
 });
 
-// NamePartSchema is the pure namePart grammar (docs/ename-format.md): the
-// single definition every layer parses a namePart through, so one
-// expected-value list here covers the HTTP body, the event request and the
-// projection row alike.
+// NamePartSchema is the pure namePart grammar (docs/ename-format.md): the single definition every
+// layer parses a namePart through, so one expected-value list here covers the HTTP body, the event
+// request and the projection row alike.
 test('NamePartSchema accepts the namePart grammar and rejects everything else with the grammar message', () => {
   for (const namePart of ['a', 'jean', 'jean-dupont', 'a'.repeat(50)]) {
     assert.equal(NamePartSchema.safeParse(namePart).success, true, namePart);

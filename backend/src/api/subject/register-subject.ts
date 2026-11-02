@@ -23,9 +23,8 @@ import { SubjectInputSchema, SubjectSchema } from './subject.ts';
 // Request and response schemas
 // ---------------------------------------------------------------------------
 
-// Strict at every level: an unknown field is a 422 naming the key, never
-// silently dropped, so the validated request is exactly what the client sent
-// (cf. ename-internals.md).
+// Strict at every level: an unknown field is a 422 naming the key, never silently dropped, so the
+// validated request is exactly what the client sent (cf. ename-internals.md).
 const RegisterSubjectRequestSchema = z
   .strictObject({
     idempotencyKey: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
@@ -95,8 +94,8 @@ export const registerSubjectHandler: RouteHandler<typeof registerSubjectRoute, H
   const logger = context.var.logger;
 
   const { subject, ename } = await registerSubject(input, { logger });
-  // Field by field, never a spread: the wire carries the event's timestamp
-  // once, not each row's createdAt, and not the ename's subjectId.
+  // Field by field, never a spread: the wire carries the event's timestamp once, not each row's
+  // createdAt, and not the ename's subjectId.
   return context.json(
     {
       createdAt: subject.createdAt.toISOString(),

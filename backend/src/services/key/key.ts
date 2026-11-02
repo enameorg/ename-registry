@@ -12,25 +12,22 @@ import { UUIDv7Schema } from '../../utilities/uuid.ts';
 import { isSignatureValid, type SignableDocument } from '../common/index.ts';
 import { AuthenticationError, ConflictError, NotFoundError } from '../errors.ts';
 
-// The public keys that sign events, whoever holds them: a key with a platform
-// is that platform's, a key with none is a registry key. One concept for every
-// owner, so a keyId resolves through one lookup and one verification whatever
-// the signer. This concept establishes that a recorded key signed a document;
-// which keys an operation admits is the business of the concept that owns
-// them, and which owner may add a key the business of the use cases that emit
-// their events. It imports no other concept.
+// The public keys that sign events, whoever holds them: a key with a platform is that platform's, a
+// key with none is a registry key. One concept for every owner, so a keyId resolves through one
+// lookup and one verification whatever the signer. This concept establishes that a recorded key
+// signed a document; which keys an operation admits is the business of the concept that owns them,
+// and which owner may add a key the business of the use cases that emit their events. It imports no
+// other concept.
 
 // ---------------------------------------------------------------------------
 // Key input
 // ---------------------------------------------------------------------------
 
-// What a client submits for a key, declared once and strict, composed by the
-// event kinds into their request and wrapped in place by the API (cf.
-// ename-internals.md). The value must be a key of the declared algorithm, so a
-// key that could never verify a signature is refused before it enters the log.
-// The keys_algorithm_allowed CHECK holds the list of algorithms
-// KeyAlgorithmSchema declares, so a new algorithm lands with a migration too;
-// key.test.ts pins that the two agree.
+// What a client submits for a key, declared once and strict, composed by the event kinds into their
+// request and wrapped in place by the API (cf. ename-internals.md). The value must be a key of the
+// declared algorithm, so a key that could never verify a signature is refused before it enters the
+// log. The keys_algorithm_allowed CHECK holds the list of algorithms KeyAlgorithmSchema declares,
+// so a new algorithm lands with a migration too; key.test.ts pins that the two agree.
 export const KeyInputSchema = z
   .strictObject({
     algorithm: KeyAlgorithmSchema,
@@ -56,9 +53,9 @@ export const KeySchema = z.object({
 
 export type Key = z.infer<typeof KeySchema>;
 
-// Who owns a key, by the rule this concept states: a key with no platform is
-// the registry's. A type names each owner's keys, and the guards let a caller
-// read the platform id of a platform key without a check of its own.
+// Who owns a key, by the rule this concept states: a key with no platform is the registry's. A type
+// names each owner's keys, and the guards let a caller read the platform id of a platform key
+// without a check of its own.
 export type PlatformKey = Key & { platformId: string };
 export type RegistryKey = Key & { platformId: null };
 
@@ -85,8 +82,7 @@ export async function getKey(db: Database, id: string): Promise<Key | undefined>
   return rows[0];
 }
 
-// Ordered by (created_at, id): deterministic; id (UUIDv7) breaks ties on
-// equal created_at.
+// Ordered by (created_at, id): deterministic; id (UUIDv7) breaks ties on equal created_at.
 export async function findKeys(db: Database): Promise<Key[]> {
   return await queryRows(
     db,
@@ -100,12 +96,11 @@ export async function findKeys(db: Database): Promise<Key[]> {
 // Authentication
 // ---------------------------------------------------------------------------
 
-// The recorded key that signed the document, under the keyId the document
-// names, or an AuthenticationError (→ 401). An unknown keyId and a signature
-// its key rejects are one error, so a caller learns nothing of which keys
-// exist; which case it was goes to the log, correlatable by requestId. The
-// building block of every signer's authentication: the concept that owns a
-// key adds whether it admits it.
+// The recorded key that signed the document, under the keyId the document names, or an
+// AuthenticationError (→ 401). An unknown keyId and a signature its key rejects are one error, so a
+// caller learns nothing of which keys exist; which case it was goes to the log, correlatable by
+// requestId. The building block of every signer's authentication: the concept that owns a key adds
+// whether it admits it.
 export async function authenticateKey(
   db: Database,
   document: SignableDocument,
@@ -127,11 +122,10 @@ export async function authenticateKey(
 // Insertion helper
 // ---------------------------------------------------------------------------
 
-// INSERT the key exactly as given: nothing is allocated, so the use cases and a
-// rebuild write through the same primitive. Returns the row as the database
-// wrote it. A key added to a platform that does not exist (→ 404), or under
-// an id already recorded (→ 409), is the caller's fault; at a rebuild either
-// would mean a corrupted log.
+// INSERT the key exactly as given: nothing is allocated, so the use cases and a rebuild write
+// through the same primitive. Returns the row as the database wrote it. A key added to a platform
+// that does not exist (→ 404), or under an id already recorded (→ 409), is the caller's fault; at a
+// rebuild either would mean a corrupted log.
 export async function insertKey(db: Database, key: Key): Promise<Key> {
   try {
     const rows = await queryRows(
@@ -144,8 +138,8 @@ export async function insertKey(db: Database, key: Key): Promise<Key> {
     );
     const row = rows[0];
     if (!row) {
-      // Unreachable in practice (a successful INSERT ... RETURNING returns a
-      // row); defensive against a future refactor.
+      // Unreachable in practice (a successful INSERT ... RETURNING returns a row); defensive
+      // against a future refactor.
       throw new Error('insert keys returned no row');
     }
     return row;

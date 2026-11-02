@@ -25,10 +25,9 @@ import {
   platformKeyAddedEventKindDefinition,
 } from './add-platform-key.ts';
 
-// What this use case adds to the write protocol: its kind's mapping, the row
-// it writes, its rebuild from the log, the unknown platform; its signer's
-// authentication is authenticateRegistry's, tested in
-// services/registry/registry.test.ts; idempotency is withEvent's, tested in
+// What this use case adds to the write protocol: its kind's mapping, the row it writes, its rebuild
+// from the log, the unknown platform; its signer's authentication is authenticateRegistry's, tested
+// in services/registry/registry.test.ts; idempotency is withEvent's, tested in
 // services/event/with-event.test.ts. Test doctrine: ename-internals.md.
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };

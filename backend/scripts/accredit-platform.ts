@@ -9,13 +9,11 @@ import { platformAccreditedEventKindDefinition } from '../src/services/platform/
 import { encodePublicKey, generateKeyPair } from '../src/utilities/signature.ts';
 import { generateUUIDv7 } from '../src/utilities/uuid.ts';
 
-// Accredit a platform on a running registry: build the request, sign it with
-// the registry key that init-registry.ts wrote to backend/.keys/, and submit it
-// to POST /api/v1/platforms, the path every registry event but the anchor
-// takes. The platform's public key comes from the platform, as a PEM file: it
-// keeps its private key. For local development only, the script generates the
-// platform's key pair when none is given and writes the private key beside
-// the registry's.
+// Accredit a platform on a running registry: build the request, sign it with the registry key that
+// init-registry.ts wrote to backend/.keys/, and submit it to POST /api/v1/platforms, the path every
+// registry event but the anchor takes. The platform's public key comes from the platform, as a PEM
+// file: it keeps its private key. For local development only, the script generates the platform's
+// key pair when none is given and writes the private key beside the registry's.
 //
 //   npm run platform:accredit -- --legal-name 1PLACE --jurisdiction FR \
 //     --registration-authority-code RA000189 \

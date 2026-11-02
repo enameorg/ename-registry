@@ -26,12 +26,11 @@ export type AnchorRegistryResult = Key;
 // anchorRegistry — public use case
 // ---------------------------------------------------------------------------
 
-// Anchor the registry: record its first key, emitting one registry.anchored
-// event, the first of the log, and return the row it wrote. The key signs its
-// own anchor, under the id its holder chose (cf. authenticateAnchor). Run
-// once, by the registry's initialization command, which holds the private
-// key; the server never does. The log admits one anchor: a second is a
-// ConflictError. Adding a later registry key waits on [Q-REGKEY-MGMT].
+// Anchor the registry: record its first key, emitting one registry.anchored event, the first of the
+// log, and return the row it wrote. The key signs its own anchor, under the id its holder chose
+// (cf. authenticateAnchor). Run once, by the registry's initialization command, which holds the
+// private key; the server never does. The log admits one anchor: a second is a ConflictError.
+// Adding a later registry key waits on [Q-REGKEY-MGMT].
 export async function anchorRegistry(
   input: AnchorRegistryInput,
   context: ServiceContext,
@@ -56,11 +55,10 @@ export async function anchorRegistry(
   );
 }
 
-// The anchor's signer: no key is recorded before it, so its signature is
-// verified against the key its request adds, under the keyId its holder chose.
-// What makes that key trusted lies outside the log: Ename publishes its
-// fingerprint (cf. docs/ename-signature.md). The check awaits nothing, so the
-// authenticator settles its promise itself instead of being async.
+// The anchor's signer: no key is recorded before it, so its signature is verified against the key
+// its request adds, under the keyId its holder chose. What makes that key trusted lies outside the
+// log: Ename publishes its fingerprint (cf. docs/ename-signature.md). The check awaits nothing, so
+// the authenticator settles its promise itself instead of being async.
 function authenticateAnchor(
   key: PublicKey,
 ): (
@@ -84,9 +82,8 @@ function authenticateAnchor(
 // registry.anchored — the event kind anchorRegistry emits
 // ---------------------------------------------------------------------------
 
-// What the write records (cf. ename-internals.md, event-kind.ts). The key's id
-// is in the outcome, as every id the log records, though for the anchor it is
-// the keyId its signature names.
+// What the write records (cf. ename-internals.md, event-kind.ts). The key's id is in the outcome,
+// as every id the log records, though for the anchor it is the keyId its signature names.
 export const registryAnchoredEventKindDefinition = defineEventKind({
   kind: 'registry.anchored',
   operation: 'registry.anchor',

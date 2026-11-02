@@ -27,16 +27,14 @@ import {
 } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
-// What this use case adds to the write protocol: its kind's mapping, the two
-// rows it writes, their rebuild from the log, the sequential and concurrent
-// allocation of numberParts, the 52-character budget and the namePart
-// grammar; its signer's authentication is authenticatePlatform's, tested in
+// What this use case adds to the write protocol: its kind's mapping, the two rows it writes, their
+// rebuild from the log, the sequential and concurrent allocation of numberParts, the 52-character
+// budget and the namePart grammar; its signer's authentication is authenticatePlatform's, tested in
 // services/platform/platform.test.ts; idempotency is withEvent's, tested in
 // services/event/with-event.test.ts. Test doctrine: ename-internals.md.
 //
-// Silent logger: these tests assert behavior, not log output. Keeping the
-// test runner output clean while still exercising the logger plumbing in the
-// service (logger.warn on number_part retry).
+// Silent logger: these tests assert behavior, not log output. Keeping the test runner output clean
+// while still exercising the logger plumbing in the service (logger.warn on number_part retry).
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
@@ -72,9 +70,8 @@ async function findSubjectEvents(): Promise<Event[]> {
 // The kind's mapping: pure, no database
 // ---------------------------------------------------------------------------
 
-// The law withEvent rests on: what toOutcome keeps of the rows, read back with
-// the request and the timestamp, is the rows again — a replay returns what the
-// first write did.
+// The law withEvent rests on: what toOutcome keeps of the rows, read back with the request and the
+// timestamp, is the rows again — a replay returns what the first write did.
 test('toOutcome keeps what the server allocated, and fromEvent reads it back as the rows written', () => {
   const subjectId = generateUUIDv7();
   const enameId = generateUUIDv7();
@@ -150,15 +147,15 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(outcome.ename.numberPart, 1);
   assert.equal(outcome.subject.homePlatform.id, platform.platformId);
 
-  // The stored event verifies again from what it stores alone (cf.
-  // ename-internals.md): the platform's key, the operation, the request.
+  // The stored event verifies again from what it stores alone (cf. ename-internals.md): the
+  // platform's key, the operation, the request.
   assert.equal(events[0].signature.keyId, platform.keyId);
   const key = await getKey(pool, events[0].signature.keyId);
   assert.ok(key);
   assert.equal(isEventSignatureValid(subjectRegisteredEventKindDefinition, events[0], key), true);
 
-  // The three created_at values are strictly equal — required for a
-  // deterministic rebuild — and the returned rows carry it.
+  // The three created_at values are strictly equal — required for a deterministic rebuild — and the
+  // returned rows carry it.
   const subjectAt = subjects[0]?.createdAt.getTime();
   const enameAt = enames[0]?.createdAt.getTime();
   const eventAt = events[0]?.createdAt.getTime();
@@ -172,12 +169,11 @@ test('happy path: writes one row per table with consistent ids, namePart, number
 // Rebuild from the log
 // ---------------------------------------------------------------------------
 
-// The second way this kind's rows get written (cf. ename-internals.md): with
-// the projections emptied, rebuilding every event in sequence order writes the
-// same rows the use case wrote, ids, numberParts, home platform and createdAt
-// included, and leaves the log as it was. Homonyms make the allocated
-// numberParts differ. The setup's events come first, as in the log: the
-// subjects reference the platform they accredited.
+// The second way this kind's rows get written (cf. ename-internals.md): with the projections
+// emptied, rebuilding every event in sequence order writes the same rows the use case wrote, ids,
+// numberParts, home platform and createdAt included, and leaves the log as it was. Homonyms make
+// the allocated numberParts differ. The setup's events come first, as in the log: the subjects
+// reference the platform they accredited.
 test('rebuilding the log writes back exactly the subjects and enames registerSubject wrote', async () => {
   const { platform } = await setUpTestPlatform();
   for (const namePart of ['jean-dupont', 'jean-dupont', 'marie-curie']) {
@@ -206,9 +202,9 @@ test('rebuilding the log writes back exactly the subjects and enames registerSub
   assert.deepEqual(await findEvents(pool), events);
 });
 
-// A rebuild writes the numberPart the event recorded and allocates nothing:
-// rebuilt alone into empty projections, the second homonym is #2, where the
-// live allocation (COALESCE(MAX)+1) would pick #1.
+// A rebuild writes the numberPart the event recorded and allocates nothing: rebuilt alone into
+// empty projections, the second homonym is #2, where the live allocation (COALESCE(MAX)+1) would
+// pick #1.
 test('a rebuilt event writes the numberPart it recorded, never the next free one', async () => {
   const { platform } = await setUpTestPlatform();
   const setUpEvents = await findEvents(pool);
@@ -266,9 +262,9 @@ test('concurrent registrations for the same namePart produce consecutive numberP
     Array.from({ length: concurrency }, () => register(platform, registration(namePart))),
   );
 
-  // Each call must have produced a distinct ename row with a unique
-  // numberPart in [1..concurrency]. Order is not guaranteed (concurrent
-  // execution), but the SET of numberParts must be exactly {1..N}.
+  // Each call must have produced a distinct ename row with a unique numberPart in [1..concurrency].
+  // Order is not guaranteed (concurrent execution), but the SET of numberParts must be exactly
+  // {1..N}.
   const numberParts = results
     .map((result) => result.ename.numberPart)
     .sort((left, right) => left - right);
@@ -280,21 +276,19 @@ test('concurrent registrations for the same namePart produce consecutive numberP
   assert.equal(subjectIds.size, concurrency);
 });
 
-// Beyond the retry budget, a burst on one namePart ends in ContentionError for
-// the losers — a retryable domain error, never an unexpected one — while the
-// rest get distinct numberParts. The 503 this maps to is pinned in
-// api/errors.test.ts; this test only shows that the real allocation path
-// reaches the budget, and that is statistical by nature. It rests on three
-// values: this concurrency, the pool size the test environment file sets
-// (DATABASE_POOL_SIZE=10 in .env.test.example) and MAX_NUMBER_PART_RETRIES = 20
-// in the ename primitive. The pool bounds how many transactions contend at
-// once; each round one wins and commits, every other in-flight contender burns
-// one attempt, and a waiting registration replaces the winner with a fresh
-// budget — so no counting argument guarantees that one contender loses 20
-// rounds in a row, however likely. Measured on the local cluster, 40
-// registrations yield: 0 contention errors at pool size 2 or 3, 0 to 1 at 5, 2
-// to 5 at 10, 8 to 11 at 20, 11 to 14 at 80. A larger pool only strengthens the
-// assertion; a smaller one weakens it, and the failure message below says so.
+// Beyond the retry budget, a burst on one namePart ends in ContentionError for the losers — a
+// retryable domain error, never an unexpected one — while the rest get distinct numberParts. The
+// 503 this maps to is pinned in api/errors.test.ts; this test only shows that the real allocation
+// path reaches the budget, and that is statistical by nature. It rests on three values: this
+// concurrency, the pool size the test environment file sets
+// (DATABASE_POOL_SIZE=10 in .env.test.example) and MAX_NUMBER_PART_RETRIES = 20 in the ename
+// primitive. The pool bounds how many transactions contend at once; each round one wins and
+// commits, every other in-flight contender burns one attempt, and a waiting registration replaces
+// the winner with a fresh budget — so no counting argument guarantees that one contender loses 20
+// rounds in a row, however likely. Measured on the local cluster, 40 registrations yield: 0
+// contention errors at pool size 2 or 3, 0 to 1 at 5, 2 to 5 at 10, 8 to 11 at 20, 11 to 14 at 80.
+// A larger pool only strengthens the assertion; a smaller one weakens it, and the failure message
+// below says so.
 test('concurrent registrations for the same namePart beyond the retry budget fail with ContentionError, the rest succeed', async () => {
   const { platform } = await setUpTestPlatform();
   const namePart = 'martin';
@@ -326,10 +320,9 @@ test('concurrent registrations for the same namePart beyond the retry budget fai
 // ---------------------------------------------------------------------------
 
 test('52-char budget: throws ValidationError pointing at ename.namePart and rolls back the transaction', async () => {
-  // Seed via the public service surface — no test backdoor. With a 50-char
-  // namePart, the first 9 registrations stay within the 52-char limit
-  // (50 + 1 + 1-digit numberPart ≤ 52). The 10th attempt would allocate
-  // numberPart=10 (2 digits) → total 53 > 52, which the allocation refuses.
+  // Seed via the public service surface — no test backdoor. With a 50-char namePart, the first 9
+  // registrations stay within the 52-char limit (50 + 1 + 1-digit numberPart ≤ 52). The 10th
+  // attempt would allocate numberPart=10 (2 digits) → total 53 > 52, which the allocation refuses.
   const { platform } = await setUpTestPlatform();
   const namePart = 'a'.repeat(50);
   for (let index = 0; index < 9; index += 1) {
@@ -349,9 +342,8 @@ test('52-char budget: throws ValidationError pointing at ename.namePart and roll
     },
   );
 
-  // Nothing extra was committed — the ROLLBACK undid the subjects/enames
-  // INSERTs from the failed attempt. Only the 9 seeded entities remain in
-  // each projection, and exactly 9 events in the log.
+  // Nothing extra was committed — the ROLLBACK undid the subjects/enames INSERTs from the failed
+  // attempt. Only the 9 seeded entities remain in each projection, and exactly 9 events in the log.
   assert.equal((await findSubjects(pool)).length, 9);
   assert.equal((await findEnames(pool)).length, 9);
   assert.equal((await findSubjectEvents()).length, 9);

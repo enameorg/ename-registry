@@ -21,11 +21,10 @@ import {
   KeyInputSchema,
 } from './key.ts';
 
-// Direct tests of the key data-access primitives (insert + read round-trip,
-// for a registry key and a platform key), the rule that tells a key's owner,
-// the authentication of a signature by a recorded key, the key input rule,
-// then the algorithm vocabulary against its CHECK. Test doctrine:
-// ename-internals.md.
+// Direct tests of the key data-access primitives (insert + read round-trip, for a registry key and
+// a platform key), the rule that tells a key's owner, the authentication of a signature by a
+// recorded key, the key input rule, then the algorithm vocabulary against its CHECK.
+// Test doctrine: ename-internals.md.
 const logger = pino({ level: 'silent' });
 
 useTestDatabase();
@@ -158,9 +157,8 @@ test('KeyInputSchema accepts a P-256 SPKI key and rejects a value that is no key
   );
 });
 
-// The algorithm vocabulary is declared once in code (KeyAlgorithmSchema) and
-// once in the database (the keys_algorithm_allowed CHECK); this pins that the
-// two agree, in both directions.
+// The algorithm vocabulary is declared once in code (KeyAlgorithmSchema) and once in the database
+// (the keys_algorithm_allowed CHECK); this pins that the two agree, in both directions.
 test('the algorithms KeyAlgorithmSchema declares are exactly the algorithms the keys_algorithm_allowed CHECK admits', async () => {
   const admitted = await readCheckConstraintValues('keys_algorithm_allowed');
 

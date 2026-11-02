@@ -2,8 +2,8 @@ import { strict as assert } from 'node:assert';
 import { beforeEach, test } from 'node:test';
 
 import { useTestDatabase } from '../../database/testing.ts';
-// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the
-// Zod schemas built after it loads, and the API wraps the Service's schemas.
+// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the Zod schemas built
+// after it loads, and the API wraps the Service's schemas.
 import { app } from '../../index.ts';
 import {
   subjectEnameAddedEventKindDefinition,
@@ -22,11 +22,10 @@ import { TEST_ORIGIN, postJSON, readJSON, readProblem } from '../testing.ts';
 import { AddEnameToSubjectResponseSchema } from './add-ename-to-subject.ts';
 import { RegisterSubjectResponseSchema } from './register-subject.ts';
 
-// The HTTP contract of POST /subjects/{id}/enames only: statuses, headers,
-// response shapes, Problem Details. What the use case persists is tested in
-// services/subject/add-ename-to-subject.test.ts. The registry is anchored and
-// a platform accredited before each test, through the Service's test helper:
-// setup, not the contract under test. Test doctrine: ename-internals.md.
+// The HTTP contract of POST /subjects/{id}/enames only: statuses, headers, response shapes, Problem
+// Details. What the use case persists is tested in services/subject/add-ename-to-subject.test.ts.
+// The registry is anchored and a platform accredited before each test, through the Service's test
+// helper: setup, not the contract under test. Test doctrine: ename-internals.md.
 
 const SUBJECTS_PATH = '/api/v1/subjects';
 
@@ -56,8 +55,8 @@ function makeRegisterBody(namePart: string): Record<string, unknown> {
   };
 }
 
-// The body of an addition to this subject, signed by the platform unless
-// another signer is given: the signed request names the subject of the path.
+// The body of an addition to this subject, signed by the platform unless another signer is given:
+// the signed request names the subject of the path.
 function makeAddBody(
   subjectId: string,
   overrides: { idempotencyKey?: string; namePart?: string },
@@ -314,8 +313,8 @@ for (const scenario of [
   });
 }
 
-// Strict input: an unknown field is a 422 whose issue names the key and points
-// at the object holding it, never a silent drop (cf. ename-internals.md).
+// Strict input: an unknown field is a 422 whose issue names the key and points at the object
+// holding it, never a silent drop (cf. ename-internals.md).
 for (const scenario of [
   {
     name: 'unknown top-level field',

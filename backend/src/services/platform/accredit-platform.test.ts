@@ -27,11 +27,10 @@ import {
 } from './accredit-platform.ts';
 import { findPlatforms } from './platform.ts';
 
-// What this use case adds to the write protocol: its kind's mapping, the two
-// rows it writes, their rebuild from the log, the one-platform-per-entity
-// conflict; its signer's authentication is authenticateRegistry's, tested in
-// services/registry/registry.test.ts; idempotency is withEvent's, tested in
-// services/event/with-event.test.ts. Test doctrine: ename-internals.md.
+// What this use case adds to the write protocol: its kind's mapping, the two rows it writes, their
+// rebuild from the log, the one-platform-per-entity conflict; its signer's authentication is
+// authenticateRegistry's, tested in services/registry/registry.test.ts; idempotency is withEvent's,
+// tested in services/event/with-event.test.ts. Test doctrine: ename-internals.md.
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 

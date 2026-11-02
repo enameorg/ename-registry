@@ -2,8 +2,8 @@ import { strict as assert } from 'node:assert';
 import { beforeEach, test } from 'node:test';
 
 import { useTestDatabase } from '../../database/testing.ts';
-// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the
-// Zod schemas built after it loads, and the API wraps the Service's schemas.
+// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the Zod schemas built
+// after it loads, and the API wraps the Service's schemas.
 import '../../index.ts';
 import { platformAccreditedEventKindDefinition } from '../../services/platform/index.ts';
 import {
@@ -19,11 +19,10 @@ import { postJSON, readJSON, readProblem } from '../testing.ts';
 
 import { AccreditPlatformResponseSchema } from './accredit-platform.ts';
 
-// The HTTP contract of POST /platforms only: statuses, headers, response
-// shapes, Problem Details. What the use case persists is tested in
-// services/platform/accredit-platform.test.ts. The registry is anchored and a
-// platform accredited before each test, through the Service's test helper:
-// setup, not the contract under test. Test doctrine: ename-internals.md.
+// The HTTP contract of POST /platforms only: statuses, headers, response shapes, Problem Details.
+// What the use case persists is tested in services/platform/accredit-platform.test.ts. The registry
+// is anchored and a platform accredited before each test, through the Service's test helper: setup,
+// not the contract under test. Test doctrine: ename-internals.md.
 
 const PATH = '/api/v1/platforms';
 
@@ -36,8 +35,8 @@ beforeEach(async () => {
   ({ registry, platform } = await setUpTestPlatform());
 });
 
-// A valid body, signed by the registry unless another signer is given; each
-// call overrides only what it asserts on.
+// A valid body, signed by the registry unless another signer is given; each call overrides only
+// what it asserts on.
 function makeBody(
   overrides: {
     idempotencyKey?: string;
@@ -154,8 +153,8 @@ test('a body signed by a platform key returns 403 problem+json', async () => {
 // ---------------------------------------------------------------------------
 
 test('a legal name that is not well-formed Unicode returns 422 problem+json, not 500', async () => {
-  // Signed first, then altered: the request is refused before its signature is
-  // checked, since a lone surrogate leaves nothing JCS can canonicalize.
+  // Signed first, then altered: the request is refused before its signature is checked, since a
+  // lone surrogate leaves nothing JCS can canonicalize.
   const body = makeBody();
   const response = await postJSON(PATH, {
     ...body,

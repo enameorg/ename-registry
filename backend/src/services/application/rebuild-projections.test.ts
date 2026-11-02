@@ -36,17 +36,16 @@ import {
 
 import { eventKindDefinitions, rebuildProjections } from './rebuild-projections.ts';
 
-// The walk over the whole log: the definition of each event found by its
-// kind, the batches, the stop. Each kind's own rebuild is tested beside its
-// use case; this file proves what only the walk does. Test doctrine:
-// ename-internals.md.
+// The walk over the whole log: the definition of each event found by its kind, the batches, the
+// stop. Each kind's own rebuild is tested beside its use case; this file proves what only the walk
+// does. Test doctrine: ename-internals.md.
 const context = { logger: pino({ level: 'silent' }) };
 
 useTestDatabase();
 
-// A kind a migration admits before its definition is listed, and a listed
-// definition with no migration, both fail here by name; a definition neither
-// listed nor migrated fails in its own use-case tests.
+// A kind a migration admits before its definition is listed, and a listed definition with no
+// migration, both fail here by name; a definition neither listed nor migrated fails in its own
+// use-case tests.
 test('the event kinds the rebuild knows are exactly the kinds the events_kind_allowed CHECK admits', async () => {
   const admitted = await readCheckConstraintValues('events_kind_allowed');
   const declared = eventKindDefinitions.map((definition) => definition.kind);
@@ -58,11 +57,10 @@ test('the event kinds the rebuild knows are exactly the kinds the events_kind_al
   );
 });
 
-// Events of every kind, interleaved, homonyms included: the anchor, two
-// accreditations, a key added to the first platform, then registrations and
-// additions by both platforms. Each batch size ends the walk differently: on
-// full batches then an empty read (1, 10), on an incomplete batch (3), in a
-// single incomplete batch (the default).
+// Events of every kind, interleaved, homonyms included: the anchor, two accreditations, a key added
+// to the first platform, then registrations and additions by both platforms. Each batch size ends
+// the walk differently: on full batches then an empty read (1, 10), on an incomplete batch (3), in
+// a single incomplete batch (the default).
 test('rebuildProjections writes back exactly the projections the use cases wrote, whatever the batch size', async () => {
   const { registry, platform } = await setUpTestPlatform();
   const other = await accreditTestPlatform(registry);

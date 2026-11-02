@@ -16,12 +16,11 @@ import { pool } from './pool.ts';
 import { type Database, queryRows, withTransaction } from './query.ts';
 import { useTestDatabase } from './testing.ts';
 
-// Executable specification of the query helpers: withTransaction's nesting, a
-// transaction on the pool and a savepoint on a transaction's client, then the
-// translation of a database that does not answer (cf. ename-internals.md). The
-// platforms table, which references no other, is only a target for rows; raw
-// SQL keeps this test inside src/database/. Inside a block, `db` shadows the
-// outer one on purpose: the block's statements run on the block's handle.
+// Executable specification of the query helpers: withTransaction's nesting, a transaction on the
+// pool and a savepoint on a transaction's client, then the translation of a database that does not
+// answer (cf. ename-internals.md). The platforms table, which references no other, is only a target
+// for rows; raw SQL keeps this test inside src/database/. Inside a block, `db` shadows the outer
+// one on purpose: the block's statements run on the block's handle.
 const logger = pino({ level: 'silent' });
 
 useTestDatabase();
@@ -30,8 +29,8 @@ useTestDatabase();
 // Transaction nesting
 // ---------------------------------------------------------------------------
 
-// A row of its own: a random nine-digit identifier, since a platform's
-// registration is UNIQUE and a test inserts several rows.
+// A row of its own: a random nine-digit identifier, since a platform's registration is UNIQUE and a
+// test inserts several rows.
 async function insertRow(db: Database): Promise<void> {
   const registrationIdentifier = String(randomInt(1, 1_000_000_000)).padStart(9, '0');
   await db.query(
@@ -163,12 +162,10 @@ test('sibling nested blocks follow one another in the same transaction, a failed
 // Unavailability
 // ---------------------------------------------------------------------------
 
-// A database that does not answer surfaces from the helpers as an
-// UnavailableError whose cause is the error pg raised; any other failure
-// surfaces as pg raised it. Each case produces the real error, on a pool of
-// the test's own (never the singleton), so a pg upgrade that changes one
-// fails here. Local TCP servers stand in for a host that never answers or
-// drops the connection.
+// A database that does not answer surfaces from the helpers as an UnavailableError whose cause is
+// the error pg raised; any other failure surfaces as pg raised it. Each case produces the real
+// error, on a pool of the test's own (never the singleton), so a pg upgrade that changes one fails
+// here. Local TCP servers stand in for a host that never answers or drops the connection.
 
 const ValueSchema = z.object({ value: z.number() });
 
@@ -293,10 +290,9 @@ test('a server that answers nothing within the read timeout is an UnavailableErr
   }
 });
 
-// The server ends the connection under a running statement: the statement
-// fails, with 57P01 or with the closed socket depending on which pg reads
-// first; once the socket is gone, the next statement finds the client
-// unusable; and the process survives the connection's error event.
+// The server ends the connection under a running statement: the statement fails, with 57P01 or with
+// the closed socket depending on which pg reads first; once the socket is gone, the next statement
+// finds the client unusable; and the process survives the connection's error event.
 test('a connection terminated mid-transaction is an UnavailableError, statement after statement', async () => {
   const own = new pg.Pool({ connectionString: config.databaseURL });
 
@@ -378,8 +374,8 @@ test('a failure of a database that answered surfaces as pg or Zod raised it', as
   );
   assert.ok(row);
 
-  // A unique violation, a statement canceled by statement_timeout, a parameter
-  // pg cannot serialize, and a row the schema refuses.
+  // A unique violation, a statement canceled by statement_timeout, a parameter pg cannot serialize,
+  // and a row the schema refuses.
   await assert.rejects(
     () =>
       pool.query(

@@ -12,9 +12,9 @@ import { insertTestKey, insertTestPlatform } from '../testing.ts';
 
 import { authenticateRegistry } from './registry.ts';
 
-// The authentication of the registry as a signer: which keys it admits, the
-// signature itself being authenticateKey's. The anchor's signer is tested with
-// the anchor. Test doctrine: ename-internals.md.
+// The authentication of the registry as a signer: which keys it admits, the signature itself being
+// authenticateKey's. The anchor's signer is tested with the anchor.
+// Test doctrine: ename-internals.md.
 const logger = pino({ level: 'silent' });
 
 useTestDatabase();

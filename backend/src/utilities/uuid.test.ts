@@ -3,9 +3,8 @@ import { test } from 'node:test';
 
 import { generateUUIDv7, UUIDv7Schema } from './uuid.ts';
 
-// UUIDv7Schema is the pure UUIDv7 rule every layer parses an id or a key
-// through, so this one test covers the HTTP fields, the event columns and the
-// projection rows alike (cf. ename-internals.md).
+// UUIDv7Schema is the pure UUIDv7 rule every layer parses an id or a key through, so this one test
+// covers the HTTP fields, the event columns and the projection rows alike (cf. ename-internals.md).
 test('UUIDv7Schema accepts a generated UUIDv7 and rejects other values with its message', () => {
   assert.equal(UUIDv7Schema.safeParse(generateUUIDv7()).success, true);
 

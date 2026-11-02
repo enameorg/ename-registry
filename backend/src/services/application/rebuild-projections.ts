@@ -12,10 +12,9 @@ import {
   subjectRegisteredEventKindDefinition,
 } from '../subject/index.ts';
 
-// Every event kind definition the use cases declare: the one production list,
-// where a new kind is added. The events.kind CHECK is the authoritative list
-// of kinds, and rebuild-projections.test.ts names any kind on which the two
-// disagree.
+// Every event kind definition the use cases declare: the one production list, where a new kind is
+// added. The events.kind CHECK is the authoritative list of kinds, and rebuild-projections.test.ts
+// names any kind on which the two disagree.
 export const eventKindDefinitions: readonly EventKindDefinition[] = [
   registryAnchoredEventKindDefinition,
   platformAccreditedEventKindDefinition,
@@ -28,17 +27,16 @@ const eventKindDefinitionsByKind = new Map(
   eventKindDefinitions.map((definition) => [definition.kind, definition]),
 );
 
-// Not measured: the right size depends on the size of the events and on the
-// query cap of the hosting database, neither known yet.
+// Not measured: the right size depends on the size of the events and on the query cap of the
+// hosting database, neither known yet.
 const DEFAULT_BATCH_SIZE = 1_000;
 
-// Write every projection again from the event log, in sequence order, each
-// event through the definition of its kind (cf. ename-internals.md). The
-// caller empties the projections first and runs no write meanwhile: this
-// writes only what the log records. The log is read a batch at a time, each
-// batch rebuilt in a transaction of its own, so memory and transaction length
-// stay bounded; an interrupted rebuild leaves a prefix of the log written, and
-// the caller empties the projections and starts again.
+// Write every projection again from the event log, in sequence order, each event through the
+// definition of its kind (cf. ename-internals.md). The caller empties the projections first and
+// runs no write meanwhile: this writes only what the log records. The log is read a batch at a
+// time, each batch rebuilt in a transaction of its own, so memory and transaction length stay
+// bounded; an interrupted rebuild leaves a prefix of the log written, and the caller empties the
+// projections and starts again.
 export async function rebuildProjections(
   context: ServiceContext,
   { batchSize = DEFAULT_BATCH_SIZE }: { batchSize?: number } = {},
@@ -64,8 +62,8 @@ export async function rebuildProjections(
   }
 }
 
-// A kind with no definition is a bug or a corrupted log, never the client's
-// fault, so the error stays raw.
+// A kind with no definition is a bug or a corrupted log, never the client's fault, so the error
+// stays raw.
 function findEventKindDefinition(event: Event): EventKindDefinition {
   const definition = eventKindDefinitionsByKind.get(event.kind);
   if (definition === undefined) {

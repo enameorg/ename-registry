@@ -18,11 +18,10 @@ import {
   PlatformInputSchema,
 } from './platform.ts';
 
-// Direct tests of the platform data-access primitives (insert + read
-// round-trip, the one-platform-per-entity constraint), the legal identity
-// rules, then the authentication of a platform's signer: which keys it admits,
-// the signature itself being authenticateKey's. Test doctrine:
-// ename-internals.md.
+// Direct tests of the platform data-access primitives (insert + read round-trip, the
+// one-platform-per-entity constraint), the legal identity rules, then the authentication of a
+// platform's signer: which keys it admits, the signature itself being authenticateKey's.
+// Test doctrine: ename-internals.md.
 const logger = pino({ level: 'silent' });
 
 useTestDatabase();

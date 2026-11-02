@@ -25,10 +25,9 @@ export type AccreditPlatformResult = { platform: Platform; key: Key };
 // accreditPlatform — public use case
 // ---------------------------------------------------------------------------
 
-// Accredit a platform and record its first key atomically, emitting one
-// platform.accredited event, and return the two rows it wrote. The
-// accreditation itself is an institutional decision taken outside the
-// registry; this records it.
+// Accredit a platform and record its first key atomically, emitting one platform.accredited event,
+// and return the two rows it wrote. The accreditation itself is an institutional decision taken
+// outside the registry; this records it.
 export async function accreditPlatform(
   input: AccreditPlatformInput,
   context: ServiceContext,

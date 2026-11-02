@@ -28,11 +28,10 @@ import {
 import { registerSubject, subjectRegisteredEventKindDefinition } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
-// What this use case adds to the write protocol: its kind's mapping, the row
-// it writes, its rebuild from the log, the home-platform rule and its own
-// domain errors; its signer's authentication is authenticatePlatform's, tested
-// in services/platform/platform.test.ts; idempotency is withEvent's, tested in
-// services/event/with-event.test.ts. Test doctrine: ename-internals.md.
+// What this use case adds to the write protocol: its kind's mapping, the row it writes, its rebuild
+// from the log, the home-platform rule and its own domain errors; its signer's authentication is
+// authenticatePlatform's, tested in services/platform/platform.test.ts; idempotency is withEvent's,
+// tested in services/event/with-event.test.ts. Test doctrine: ename-internals.md.
 const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
@@ -70,8 +69,8 @@ async function findSubjectEvents(): Promise<Event[]> {
   return (await findEvents(pool)).filter((event) => event.kind.startsWith('subject.'));
 }
 
-// The law withEvent rests on: what toOutcome keeps of the row, read back with
-// the request and the timestamp, is the row again.
+// The law withEvent rests on: what toOutcome keeps of the row, read back with the request and the
+// timestamp, is the row again.
 test('toOutcome keeps what the server allocated, and fromEvent reads it back as the ename row written', () => {
   const subjectId = generateUUIDv7();
   const enameId = generateUUIDv7();
@@ -138,11 +137,10 @@ test('happy path: adds one ename to an existing subject and emits subject.ename-
   assert.equal(isEventSignatureValid(subjectEnameAddedEventKindDefinition, addEvent, key), true);
 });
 
-// The second way this kind's rows get written (cf. ename-internals.md): with
-// the projections emptied, rebuilding the log in sequence order — each event
-// through the definition of its kind — writes the same rows the use cases
-// wrote, and leaves the log as it was. The added ename takes #2 of a namePart
-// another subject registered first.
+// The second way this kind's rows get written (cf. ename-internals.md): with the projections
+// emptied, rebuilding the log in sequence order — each event through the definition of its kind —
+// writes the same rows the use cases wrote, and leaves the log as it was. The added ename takes #2
+// of a namePart another subject registered first.
 test('rebuilding the log writes back exactly the ename addEnameToSubject wrote', async () => {
   const { platform } = await setUpTestPlatform();
   await register(platform, 'marie-curie');

@@ -16,8 +16,8 @@ test('the test-database guard lets the test pool through', async () => {
   await assertTestDatabase(pool);
 });
 
-// The refused database is the cluster's maintenance database, which always
-// exists: the test never opens a connection to ename_dev.
+// The refused database is the cluster's maintenance database, which always exists: the test never
+// opens a connection to ename_dev.
 test('the test-database guard refuses a database whose name does not end in _test', async () => {
   const maintenanceURL = new URL(config.databaseURL);
   maintenanceURL.pathname = '/postgres';

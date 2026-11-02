@@ -31,9 +31,9 @@ export type RegisterSubjectResult = { subject: Subject; ename: Ename };
 // registerSubject — public use case
 // ---------------------------------------------------------------------------
 
-// Register a new subject and its first ename atomically, emitting one
-// subject.registered event, and return the two rows it wrote. The platform
-// that signs the registration becomes the subject's home platform.
+// Register a new subject and its first ename atomically, emitting one subject.registered event, and
+// return the two rows it wrote. The platform that signs the registration becomes the subject's home
+// platform.
 export async function registerSubject(
   input: RegisterSubjectInput,
   context: ServiceContext,
@@ -73,9 +73,8 @@ export async function registerSubject(
 // subject.registered — the event kind registerSubject emits
 // ---------------------------------------------------------------------------
 
-// What the write records (cf. ename-internals.md, event-kind.ts). The home
-// platform is in the outcome: the registry derives it from the signing key,
-// the client never submits it.
+// What the write records (cf. ename-internals.md, event-kind.ts). The home platform is in the
+// outcome: the registry derives it from the signing key, the client never submits it.
 export const subjectRegisteredEventKindDefinition = defineEventKind({
   kind: 'subject.registered',
   operation: 'subject.register',
@@ -92,8 +91,8 @@ export const subjectRegisteredEventKindDefinition = defineEventKind({
     }),
     ename: z.strictObject({
       id: UUIDv7Schema,
-      // Same chain as the projection schema, so a numberPart re-parsed from the
-      // event log can't pass what the original INSERT would have rejected.
+      // Same chain as the projection schema, so a numberPart re-parsed from the event log can't
+      // pass what the original INSERT would have rejected.
       numberPart: NumberPartSchema,
     }),
   }),

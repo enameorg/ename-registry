@@ -18,15 +18,13 @@ import {
   isEventSignatureValid,
 } from './event.ts';
 
-// Direct tests of the event data-access primitives (insert + read round-trip,
-// the windowed read over a log with a gap, the two UNIQUE collisions
-// insertEvent translates: a reused idempotency key, a second anchor), then the
-// check of a stored event's signature. The kind vocabulary is tested against
-// its CHECK where the list of definitions lives, in services/application. The
-// primitives are tested in isolation so use-case tests can read state back
-// through them and trust the result — see ename-internals.md. A
-// single-statement write needs no transaction, so the primitives are called
-// with the pool directly.
+// Direct tests of the event data-access primitives (insert + read round-trip, the windowed read
+// over a log with a gap, the two UNIQUE collisions insertEvent translates: a reused idempotency
+// key, a second anchor), then the check of a stored event's signature. The kind vocabulary is
+// tested against its CHECK where the list of definitions lives, in services/application. The
+// primitives are tested in isolation so use-case tests can read state back through them and trust
+// the result — see ename-internals.md. A single-statement write needs no transaction, so the
+// primitives are called with the pool directly.
 useTestDatabase();
 
 // ---------------------------------------------------------------------------
@@ -114,9 +112,9 @@ test('insertEvent of a second registry.anchored event throws ConflictError', asy
   assert.equal((await findEvents(pool)).length, 1);
 });
 
-// A failed insert burns a sequence value, as an aborted transaction does, so
-// the log below has a gap between its second and third events. Each page
-// resumes after the last sequence it read and loses nothing across the gap.
+// A failed insert burns a sequence value, as an aborted transaction does, so the log below has a
+// gap between its second and third events. Each page resumes after the last sequence it read and
+// loses nothing across the gap.
 test('findEvents reads the log a window at a time, across a gap in sequence', async () => {
   const keys = [generateUUIDv7(), generateUUIDv7(), generateUUIDv7(), generateUUIDv7()];
   for (const [index, idempotencyKey] of keys.entries()) {
@@ -153,9 +151,8 @@ test('findEvents reads the log a window at a time, across a gap in sequence', as
 // Signature of a stored event
 // ---------------------------------------------------------------------------
 
-// An event as the log stores it, signed by a new key, and that key as the
-// registry records it. No database: the check reads only the event and the
-// key it is given.
+// An event as the log stores it, signed by a new key, and that key as the registry records it. No
+// database: the check reads only the event and the key it is given.
 function makeSignedEvent() {
   const { publicKey, privateKey } = generateTestKey();
   const key = { id: generateUUIDv7(), algorithm: 'ecdsa-p256-sha256' as const, value: publicKey };
@@ -183,8 +180,8 @@ test('isEventSignatureValid verifies a stored event against the key it names', (
   assert.equal(isEventSignatureValid(subjectRegisteredEventKindDefinition, event, key), true);
 });
 
-// The definition differs from the event's by its kind alone: the operation
-// is the same, so the signature itself would verify.
+// The definition differs from the event's by its kind alone: the operation is the same, so the
+// signature itself would verify.
 test('isEventSignatureValid refuses an event of another kind than the definition', () => {
   const { event, key } = makeSignedEvent();
   const otherKind = defineEventKind({
@@ -195,8 +192,8 @@ test('isEventSignatureValid refuses an event of another kind than the definition
   assert.equal(isEventSignatureValid(otherKind, event, key), false);
 });
 
-// The same public key under another id: the signature itself would verify,
-// but the event names the key it was signed by.
+// The same public key under another id: the signature itself would verify, but the event names the
+// key it was signed by.
 test('isEventSignatureValid refuses a key other than the one the event names, even with the same public key', () => {
   const { event, key } = makeSignedEvent();
 

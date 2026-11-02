@@ -3,9 +3,8 @@ import { test } from 'node:test';
 
 import { DateTimeSchema } from './date-time.ts';
 
-// DateTimeSchema is the pure rule for a timestamp on the wire: the UTC form the
-// registry emits, and nothing else until an input field decides otherwise
-// (cf. ename-internals.md).
+// DateTimeSchema is the pure rule for a timestamp on the wire: the UTC form the registry emits, and
+// nothing else until an input field decides otherwise (cf. ename-internals.md).
 test('DateTimeSchema accepts the UTC form the registry emits and rejects other forms with its message', () => {
   assert.equal(DateTimeSchema.safeParse(new Date().toISOString()).success, true);
   assert.equal(DateTimeSchema.safeParse('2026-05-27T14:32:11Z').success, true);

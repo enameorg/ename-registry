@@ -5,9 +5,8 @@ import pg from 'pg';
 
 import { run } from '../src/migrate.ts';
 
-// Thin entry point over src/migrate.ts: connect to the database DATABASE_URL
-// names, run, print the report labelled with that database, exit. The runner's
-// invariants live with the library.
+// Thin entry point over src/migrate.ts: connect to the database DATABASE_URL names, run, print the
+// report labelled with that database, exit. The runner's invariants live with the library.
 
 const url = process.env['DATABASE_URL'];
 if (!url) {

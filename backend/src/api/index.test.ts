@@ -8,10 +8,9 @@ import { app } from '../index.ts';
 import { MAX_BODY_BYTES } from './middleware.ts';
 import { TEST_ORIGIN, readProblem } from './testing.ts';
 
-// Contract of the v1 gates and fallbacks: under the version prefix, an
-// oversized body, an unmatched path or an unsupported method answers a Problem
-// Details carrying a request id, never Hono's text/plain defaults. Test
-// doctrine: ename-internals.md.
+// Contract of the v1 gates and fallbacks: under the version prefix, an oversized body, an unmatched
+// path or an unsupported method answers a Problem Details carrying a request id, never Hono's
+// text/plain defaults. Test doctrine: ename-internals.md.
 
 useTestDatabase();
 
@@ -72,8 +71,8 @@ async function postSubjects(init: RequestInit): Promise<Response> {
 }
 
 test('an announced oversized body is refused on Content-Length alone, without being read', async () => {
-  // highWaterMark 0: the stream never pre-fills its queue, so pull() only runs
-  // when something actually reads the body.
+  // highWaterMark 0: the stream never pre-fills its queue, so pull() only runs when something
+  // actually reads the body.
   let pulled = false;
   const body = new ReadableStream<Uint8Array>(
     {
@@ -124,9 +123,8 @@ test('a body exactly at the limit passes the gate and reaches the JSON validator
 // OpenAPI document
 // ---------------------------------------------------------------------------
 
-// The committed file and the runtime endpoint are two representations of the
-// same generator call (cf. ename-internals.md); any drift means openapi.json
-// was not regenerated after a route change.
+// The committed file and the runtime endpoint are two representations of the same generator call
+// (cf. ename-internals.md); any drift means openapi.json was not regenerated after a route change.
 test('GET /api/v1/openapi.json is byte-identical to the committed backend/openapi.json', async () => {
   const committed = await readFile(new URL('../../openapi.json', import.meta.url), 'utf-8');
   const response = await app.fetch(new Request(`${TEST_ORIGIN}/api/v1/openapi.json`));
@@ -140,10 +138,9 @@ test('GET /api/v1/openapi.json is byte-identical to the committed backend/openap
   assert.ok('/health' in document.paths);
 });
 
-// One OpenAPI component per wire shape, whatever route produces it, so an SDK
-// generator emits one type per concept (cf. ename-internals.md). The name list
-// is the contract: a new route adds its own envelopes here, never a second
-// `Subject` or `Ename`.
+// One OpenAPI component per wire shape, whatever route produces it, so an SDK generator emits one
+// type per concept (cf. ename-internals.md). The name list is the contract: a new route adds its
+// own envelopes here, never a second `Subject` or `Ename`.
 test('the v1 components name each wire shape once, shared across the write routes', async () => {
   const response = await app.fetch(new Request(`${TEST_ORIGIN}/api/v1/openapi.json`));
   const document = (await response.json()) as {
@@ -175,9 +172,8 @@ test('the v1 components name each wire shape once, shared across the write route
     'SubjectReference',
   ]);
 
-  // Both subject routes submit the same `ename` object and return the same
-  // ename; registration returns the full subject, adding an ename only names
-  // it.
+  // Both subject routes submit the same `ename` object and return the same ename; registration
+  // returns the full subject, adding an ename only names it.
   const reference = (component: string, property: string) =>
     schemas[component]?.properties[property]?.$ref;
   assert.equal(reference('RegisterSubjectRequest', 'subject'), '#/components/schemas/SubjectInput');
@@ -191,8 +187,8 @@ test('the v1 components name each wire shape once, shared across the write route
   );
   assert.equal(reference('AddEnameToSubjectResponse', 'ename'), '#/components/schemas/Ename');
 
-  // Both platform routes submit the same `key` object and return the same key;
-  // accreditation returns the full platform, adding a key only names it.
+  // Both platform routes submit the same `key` object and return the same key; accreditation
+  // returns the full platform, adding a key only names it.
   assert.equal(
     reference('AccreditPlatformRequest', 'platform'),
     '#/components/schemas/PlatformInput',
@@ -218,9 +214,8 @@ test('the v1 components name each wire shape once, shared across the write route
   }
 });
 
-// Each write route names the operation its body signs, the value the signed
-// document carries (docs/ename-signature.md), so a client knows what to sign
-// from the contract alone.
+// Each write route names the operation its body signs, the value the signed document carries
+// (docs/ename-signature.md), so a client knows what to sign from the contract alone.
 test('each write route declares the operation its signature covers', async () => {
   const response = await app.fetch(new Request(`${TEST_ORIGIN}/api/v1/openapi.json`));
   const document = (await response.json()) as {
@@ -240,9 +235,8 @@ test('each write route declares the operation its signature covers', async () =>
   });
 });
 
-// Every operation carries an operationId, the code identifier an SDK names its
-// method after: its route's name in code less the Route suffix, unique within
-// the version.
+// Every operation carries an operationId, the code identifier an SDK names its method after: its
+// route's name in code less the Route suffix, unique within the version.
 test('every operation declares its operationId, the name of its route in code', async () => {
   const response = await app.fetch(new Request(`${TEST_ORIGIN}/api/v1/openapi.json`));
   const document = (await response.json()) as {

@@ -26,9 +26,8 @@ const AddPlatformKeyParamsSchema = z.strictObject({
   id: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e3b' }),
 });
 
-// Strict at every level: an unknown field is a 422 naming the key, never
-// silently dropped, so the validated request is exactly what the client sent
-// (cf. ename-internals.md).
+// Strict at every level: an unknown field is a 422 naming the key, never silently dropped, so the
+// validated request is exactly what the client sent (cf. ename-internals.md).
 const AddPlatformKeyRequestSchema = z
   .strictObject({
     idempotencyKey: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
@@ -37,8 +36,8 @@ const AddPlatformKeyRequestSchema = z
   })
   .openapi('AddPlatformKeyRequest');
 
-// The platform is named, not returned in full: the response mirrors the
-// event, whose request carries the platform's id alone.
+// The platform is named, not returned in full: the response mirrors the event, whose request
+// carries the platform's id alone.
 export const AddPlatformKeyResponseSchema = z
   .object({
     createdAt: DateTimeSchema.openapi({ example: '2026-10-30T09:12:44.512Z' }),
@@ -109,8 +108,8 @@ export const addPlatformKeyHandler: RouteHandler<typeof addPlatformKeyRoute, Hon
     },
     { logger },
   );
-  // Field by field, never a spread. The platform is named by the row's
-  // platformId, the same id on a first write and on a replay.
+  // Field by field, never a spread. The platform is named by the row's platformId, the same id on a
+  // first write and on a replay.
   return context.json(
     {
       createdAt: key.createdAt.toISOString(),

@@ -32,9 +32,9 @@ export type AddEnameToSubjectResult = Ename;
 // addEnameToSubject — public use case
 // ---------------------------------------------------------------------------
 
-// Add one ename to an existing subject, emitting one subject.ename-added
-// event, and return the row it wrote. Only the subject's home platform may add
-// one: the work checks the signing platform against the subject.
+// Add one ename to an existing subject, emitting one subject.ename-added event, and return the row
+// it wrote. Only the subject's home platform may add one: the work checks the signing platform
+// against the subject.
 export async function addEnameToSubject(
   input: AddEnameToSubjectInput,
   context: ServiceContext,
@@ -47,9 +47,9 @@ export async function addEnameToSubject(
       signature: input.signature,
       authenticate: authenticatePlatform,
       work: async (db, createdAt, signer) => {
-        // A read before the write: who serves the subject is a rule no
-        // constraint of the enames insert can state. Subjects are never
-        // deleted, so the subject read here is still there at the insert.
+        // A read before the write: who serves the subject is a rule no constraint of the enames
+        // insert can state. Subjects are never deleted, so the subject read here is still there at
+        // the insert.
         const subject = await getSubject(db, input.subject.id);
         if (subject === undefined) {
           context.logger.info({ subjectId: input.subject.id }, 'subject not found');

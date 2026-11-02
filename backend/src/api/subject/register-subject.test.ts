@@ -2,8 +2,8 @@ import { strict as assert } from 'node:assert';
 import { beforeEach, test } from 'node:test';
 
 import { useTestDatabase } from '../../database/testing.ts';
-// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the
-// Zod schemas built after it loads, and the API wraps the Service's schemas.
+// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the Zod schemas built
+// after it loads, and the API wraps the Service's schemas.
 import { app } from '../../index.ts';
 import { subjectRegisteredEventKindDefinition } from '../../services/subject/index.ts';
 import {
@@ -17,11 +17,10 @@ import { TEST_ORIGIN, postJSON, readJSON, readProblem } from '../testing.ts';
 
 import { RegisterSubjectResponseSchema } from './register-subject.ts';
 
-// The HTTP contract of POST /subjects only: statuses, headers, response
-// shapes, Problem Details. What the use case persists is tested in
-// services/subject/register-subject.test.ts. The registry is anchored and a
-// platform accredited before each test, through the Service's test helper:
-// setup, not the contract under test. Test doctrine: ename-internals.md.
+// The HTTP contract of POST /subjects only: statuses, headers, response shapes, Problem Details.
+// What the use case persists is tested in services/subject/register-subject.test.ts. The registry
+// is anchored and a platform accredited before each test, through the Service's test helper: setup,
+// not the contract under test. Test doctrine: ename-internals.md.
 
 const PATH = '/api/v1/subjects';
 
@@ -34,9 +33,9 @@ beforeEach(async () => {
   ({ registry, platform } = await setUpTestPlatform());
 });
 
-// Build a valid nested body, signed by the platform unless another signer is
-// given; each call overrides only what it asserts on. An invalid body is
-// signed as it stands: it fails validation before its signature is checked.
+// Build a valid nested body, signed by the platform unless another signer is given; each call
+// overrides only what it asserts on. An invalid body is signed as it stands: it fails validation
+// before its signature is checked.
 function makeBody(
   overrides: {
     idempotencyKey?: string;
@@ -168,8 +167,8 @@ test('malformed JSON body returns 400 problem+json, not 500', async () => {
   assert.equal(body.type, 'about:blank');
   assert.equal(body.status, 400);
   assert.equal(body.title, 'Bad request');
-  // detail is our own phrasing, not Hono's internal "Malformed JSON…" message —
-  // the public contract must not leak the framework's wording.
+  // detail is our own phrasing, not Hono's internal "Malformed JSON…" message — the public contract
+  // must not leak the framework's wording.
   assert.equal(body.detail, 'The request body is not valid JSON.');
 });
 
@@ -208,9 +207,9 @@ test('Content-Type with a charset parameter is still accepted (201)', async () =
 // Zod validation failures (all → 422 problem+json)
 // ---------------------------------------------------------------------------
 
-// Each scenario carries the path the Problem Details `errors[]` must surface,
-// so a regression that points the client at the wrong field (e.g. reports
-// `idempotencyKey` when `namePart` is at fault) fails the test loudly.
+// Each scenario carries the path the Problem Details `errors[]` must surface, so a regression that
+// points the client at the wrong field (e.g. reports `idempotencyKey` when `namePart` is at fault)
+// fails the test loudly.
 for (const scenario of [
   {
     name: 'missing ename object entirely',
@@ -291,8 +290,8 @@ for (const scenario of [
     assert.equal(body.type, 'about:blank');
     assert.equal(body.status, 422);
     assert.equal(body.title, 'Validation failed');
-    // At least one issue must point at the expected path — proves the error
-    // is attributed to the correct field, not just "an error occurred".
+    // At least one issue must point at the expected path — proves the error is attributed to the
+    // correct field, not just "an error occurred".
     assert.ok(
       body.errors?.some(
         (issue) =>
@@ -304,8 +303,8 @@ for (const scenario of [
   });
 }
 
-// Strict input: an unknown field is a 422 whose issue names the key and points
-// at the object holding it, never a silent drop (cf. ename-internals.md).
+// Strict input: an unknown field is a 422 whose issue names the key and points at the object
+// holding it, never a silent drop (cf. ename-internals.md).
 for (const scenario of [
   {
     name: 'unknown top-level field',
@@ -351,7 +350,6 @@ test('X-Request-Id is also present on validation error responses', async () => {
   const response = await postJSON(PATH, makeBody({ idempotencyKey: 'bad', namePart: 'h-test' }));
   assert.equal(response.status, 422);
   assert.ok(response.headers.get('X-Request-Id'));
-  // readProblem checks that the same id appears in the body (per RFC 9457 + our
-  // extension).
+  // readProblem checks that the same id appears in the body (per RFC 9457 + our extension).
   await readProblem(response);
 });

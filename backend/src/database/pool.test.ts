@@ -4,9 +4,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 import { closePool, pool } from './pool.ts';
 
-// Without the pool's 'error' listener, the connection loss surfaces as an
-// uncaught exception (an unhandled 'error' event) instead of a log line; in
-// production that exception kills the process.
+// Without the pool's 'error' listener, the connection loss surfaces as an uncaught exception (an
+// unhandled 'error' event) instead of a log line; in production that exception kills the process.
 after(async () => {
   await closePool();
 });
@@ -16,8 +15,8 @@ test('an idle client losing its connection is evicted without crashing the proce
   await Promise.all([pool.query('SELECT pg_sleep(0.1)'), pool.query('SELECT pg_sleep(0.1)')]);
   assert.equal(pool.idleCount, 2);
 
-  // Terminate the other idle connection server-side. Scoped to this database
-  // and application name so a dev server on the same cluster is never touched.
+  // Terminate the other idle connection server-side. Scoped to this database and application name
+  // so a dev server on the same cluster is never touched.
   const result = await pool.query(
     `SELECT pg_terminate_backend(pid) FROM pg_stat_activity
      WHERE datname = current_database()

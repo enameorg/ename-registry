@@ -9,8 +9,8 @@ import { HealthResponseSchema } from './health.ts';
 // Route definition
 // ---------------------------------------------------------------------------
 
-// Deep check for monitoring, smoke tests and alerting: the database must answer
-// within a short bound. Never the container's probe (cf. ename-internals.md).
+// Deep check for monitoring, smoke tests and alerting: the database must answer within a short
+// bound. Never the container's probe (cf. ename-internals.md).
 export const healthDeepRoute = createRoute({
   method: 'get',
   path: '/health/deep',
