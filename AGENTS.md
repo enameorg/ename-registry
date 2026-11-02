@@ -26,7 +26,11 @@ Single-context: `GLOSSARY.md` at the repo root, ADRs under `docs/adr/`. See `doc
 
 ### Reviews and retrospectives
 
-Reports are Markdown under `.scratch/reviews/`, prose without diagrams, each candidate explained in full. See `docs/agents/reviews.md`; its report format takes precedence over the skills' default HTML report.
+Architecture reviews and retrospectives report as Markdown under `.scratch/reviews/`, prose without diagrams, each candidate explained in full. See `docs/agents/reviews.md`; its report format takes precedence over the skills' default HTML report.
+
+### Diff review
+
+`review-diff` (`.claude/skills/`) reviews the uncommitted diff before each commit and reports in the conversation.
 
 ## Always loaded
 
