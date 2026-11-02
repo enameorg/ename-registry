@@ -142,6 +142,15 @@ export default defineConfig(
     },
   },
   {
+    // A line holding only a comment, at Prettier's width (cf.
+    // ename-internals.md). Core's max-len is deprecated and available until
+    // ESLint 11; its replacement is @stylistic/max-len, with the same options.
+    files: ['**/*.ts', '**/*.js'],
+    rules: {
+      'max-len': ['error', { code: Number.MAX_SAFE_INTEGER, comments: 100, ignoreUrls: true }],
+    },
+  },
+  {
     // Test files: node:test's `test(name, fn)` returns a tracked Promise that
     // the runner handles internally, so the floating-promises rule produces
     // noise here.
