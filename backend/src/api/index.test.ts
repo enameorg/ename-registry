@@ -239,3 +239,30 @@ test('each write route declares the operation its signature covers', async () =>
     '/platforms/{id}/keys': 'platform.add-key',
   });
 });
+
+// Every operation carries an operationId, the code identifier an SDK names its
+// method after: its route's name in code less the Route suffix, unique within
+// the version.
+test('every operation declares its operationId, the name of its route in code', async () => {
+  const response = await app.fetch(new Request(`${TEST_ORIGIN}/api/v1/openapi.json`));
+  const document = (await response.json()) as {
+    paths: Record<string, Record<string, { operationId?: unknown }>>;
+  };
+  const operationIds = Object.fromEntries(
+    Object.entries(document.paths).flatMap(([path, item]) =>
+      Object.entries(item).map(([method, operation]) => [
+        `${method.toUpperCase()} ${path}`,
+        operation.operationId,
+      ]),
+    ),
+  );
+
+  assert.deepEqual(operationIds, {
+    'GET /health': 'health',
+    'GET /health/deep': 'healthDeep',
+    'POST /subjects': 'registerSubject',
+    'POST /subjects/{id}/enames': 'addEnameToSubject',
+    'POST /platforms': 'accreditPlatform',
+    'POST /platforms/{id}/keys': 'addPlatformKey',
+  });
+});

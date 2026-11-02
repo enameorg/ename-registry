@@ -25,6 +25,7 @@ export const HealthResponseSchema = z
 export const healthRoute = createRoute({
   method: 'get',
   path: '/health',
+  operationId: 'health',
   summary: 'Service health check',
   description:
     'Returns 200 with status "ok" when the service is healthy, 503 with status "unhealthy" otherwise.',

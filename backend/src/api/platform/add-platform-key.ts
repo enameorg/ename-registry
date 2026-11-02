@@ -53,6 +53,7 @@ export const AddPlatformKeyResponseSchema = z
 export const addPlatformKeyRoute = createRoute({
   method: 'post',
   path: '/platforms/{id}/keys',
+  operationId: 'addPlatformKey',
   summary: 'Add a key to an accredited platform',
   description:
     'Adds one public key to an accredited platform, beside the keys it already has. ' +

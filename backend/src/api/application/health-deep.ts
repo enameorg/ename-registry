@@ -14,6 +14,7 @@ import { HealthResponseSchema } from './health.ts';
 export const healthDeepRoute = createRoute({
   method: 'get',
   path: '/health/deep',
+  operationId: 'healthDeep',
   summary: 'Deep health check (database)',
   description:
     'Returns 200 with status "ok" when the database answers a trivial query within a short bound, ' +

@@ -50,6 +50,7 @@ export const RegisterSubjectResponseSchema = z
 export const registerSubjectRoute = createRoute({
   method: 'post',
   path: '/subjects',
+  operationId: 'registerSubject',
   summary: 'Register a new subject (with its first ename)',
   description:
     'Atomically registers a new subject (of `kind = person` in v1) together with its first ename. ' +

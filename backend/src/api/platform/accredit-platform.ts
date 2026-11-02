@@ -48,6 +48,7 @@ export const AccreditPlatformResponseSchema = z
 export const accreditPlatformRoute = createRoute({
   method: 'post',
   path: '/platforms',
+  operationId: 'accreditPlatform',
   summary: 'Accredit a platform (with its first key)',
   description:
     'Records the accreditation of a platform, identified by its legal entity, together with its first public key. ' +

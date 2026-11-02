@@ -55,6 +55,7 @@ export const AddEnameToSubjectResponseSchema = z
 export const addEnameToSubjectRoute = createRoute({
   method: 'post',
   path: '/subjects/{id}/enames',
+  operationId: 'addEnameToSubject',
   summary: 'Add an ename to an existing subject',
   description:
     'Adds one ename to an existing subject without replacing its previous enames. ' +
