@@ -9,6 +9,7 @@ import { useTestDatabase, waitForLockedStatement } from '../../database/testing.
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { ConflictError, DomainError, NotFoundError, ValidationError } from '../errors.ts';
 import { insertSubject } from '../subject/index.ts';
+import { insertTestPlatform } from '../testing.ts';
 
 import {
   type Ename,
@@ -45,14 +46,20 @@ beforeEach(() => {
 
 async function seedSubject(): Promise<string> {
   const subjectId = generateUUIDv7();
-  await insertSubject(pool, { id: subjectId, kind: 'person', createdAt: new Date() });
+  const platform = await insertTestPlatform(pool);
+  await insertSubject(pool, {
+    id: subjectId,
+    kind: 'person',
+    homePlatformId: platform.id,
+    createdAt: new Date(),
+  });
   return subjectId;
 }
 
 // Every allocation is one INSERT: called with the pool, each runs in its own
 // transaction, so no test opens one.
 async function allocate(params: {
-  enameId?: string;
+  id?: string;
   subjectId: string;
   namePart: string;
   createdAt?: Date;
@@ -60,7 +67,7 @@ async function allocate(params: {
   return await insertEnameWithNextNumber(
     pool,
     {
-      enameId: params.enameId ?? generateUUIDv7(),
+      id: params.id ?? generateUUIDv7(),
       subjectId: params.subjectId,
       namePart: params.namePart,
       createdAt: params.createdAt ?? new Date(),
@@ -71,10 +78,10 @@ async function allocate(params: {
 
 test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEnameByNamePartAndNumberPart/findEnames', async () => {
   const subjectId = await seedSubject();
-  const enameId = generateUUIDv7();
+  const id = generateUUIDv7();
   const createdAt = new Date();
 
-  const inserted = await allocate({ enameId, subjectId, namePart: 'jean-dupont', createdAt });
+  const inserted = await allocate({ id, subjectId, namePart: 'jean-dupont', createdAt });
   assert.equal(inserted.numberPart, 1);
 
   const found = await getEnameByNamePartAndNumberPart(pool, {
@@ -83,7 +90,7 @@ test('insertEnameWithNextNumber allocates numberPart 1 and round-trips via getEn
   });
   assert.ok(found);
   assert.deepEqual(inserted, found);
-  assert.equal(found.id, enameId);
+  assert.equal(found.id, id);
   assert.equal(found.subjectId, subjectId);
   assert.equal(found.namePart, 'jean-dupont');
   assert.equal(found.numberPart, 1);
@@ -123,7 +130,7 @@ test('insertEnameWithNextNumber retries a number_part collision: the loser takes
     async (db) => {
       const holderNumberPart = await insertEnameWithNextNumber(
         db,
-        { enameId: generateUUIDv7(), subjectId: holderSubjectId, namePart, createdAt: new Date() },
+        { id: generateUUIDv7(), subjectId: holderSubjectId, namePart, createdAt: new Date() },
         logger,
       );
       assert.equal(holderNumberPart.numberPart, 1);
@@ -230,9 +237,10 @@ test('getEnameByNamePartAndNumberPart returns undefined for an unknown ename', a
   );
 });
 
-// NamePartSchema is the pure namePart grammar (docs/ename-format.md): the single
-// definition every layer parses a namePart through, so one expected-value list
-// here covers the HTTP body, the event request and the projection row alike.
+// NamePartSchema is the pure namePart grammar (docs/ename-format.md): the
+// single definition every layer parses a namePart through, so one
+// expected-value list here covers the HTTP body, the event request and the
+// projection row alike.
 test('NamePartSchema accepts the namePart grammar and rejects everything else with the grammar message', () => {
   for (const namePart of ['a', 'jean', 'jean-dupont', 'a'.repeat(50)]) {
     assert.equal(NamePartSchema.safeParse(namePart).success, true, namePart);

@@ -151,9 +151,10 @@
             "example": [
               {
                 "path": [
+                  "ename",
                   "namePart"
                 ],
-                "message": "invalid format"
+                "message": "must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)"
               }
             ]
           }
@@ -174,6 +175,9 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
           },
+          "signature": {
+            "$ref": "#/components/schemas/Signature"
+          },
           "subject": {
             "$ref": "#/components/schemas/SubjectInput"
           },
@@ -183,10 +187,33 @@
         },
         "required": [
           "idempotencyKey",
+          "signature",
           "subject",
           "ename"
         ],
         "additionalProperties": false
+      },
+      "Signature": {
+        "type": "object",
+        "properties": {
+          "keyId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        "required": [
+          "keyId",
+          "value"
+        ],
+        "additionalProperties": false,
+        "example": {
+          "keyId": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e2c",
+          "value": "conZ143ZmXnjabp53VoZ9ng3_bcW8UbWTrqdBjyt_-dXQhqQVkK7BmOy2gzHz75clmlBDpEn3SDurH5taRqn1w"
+        }
       },
       "SubjectInput": {
         "type": "object",
@@ -269,13 +296,249 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
           },
+          "signature": {
+            "$ref": "#/components/schemas/Signature"
+          },
           "ename": {
             "$ref": "#/components/schemas/EnameInput"
           }
         },
         "required": [
           "idempotencyKey",
+          "signature",
           "ename"
+        ],
+        "additionalProperties": false
+      },
+      "AccreditPlatformResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-30T09:12:44.512Z"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "key": {
+            "$ref": "#/components/schemas/Key"
+          }
+        },
+        "required": [
+          "createdAt",
+          "platform",
+          "key"
+        ]
+      },
+      "Platform": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e3b"
+          },
+          "legalName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "example": "1PLACE"
+          },
+          "jurisdiction": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$",
+            "example": "FR"
+          },
+          "registrationAuthorityCode": {
+            "type": "string",
+            "pattern": "^RA[0-9]{6}$",
+            "example": "RA000189"
+          },
+          "registrationIdentifier": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "example": "951595875"
+          }
+        },
+        "required": [
+          "id",
+          "legalName",
+          "jurisdiction",
+          "registrationAuthorityCode",
+          "registrationIdentifier"
+        ]
+      },
+      "Key": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e4c"
+          },
+          "algorithm": {
+            "type": "string",
+            "enum": [
+              "ecdsa-p256-sha256"
+            ],
+            "example": "ecdsa-p256-sha256"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "example": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHrnigtJMJ_tcAdRsy4ZMy4p5R_-SVhFWZymWEFBCuFSznCy-sPtD8JD5pToqEI6AZUc0PLhuJTarVCAh0M5-yg"
+          }
+        },
+        "required": [
+          "id",
+          "algorithm",
+          "value"
+        ]
+      },
+      "AccreditPlatformRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/Signature"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/PlatformInput"
+          },
+          "key": {
+            "$ref": "#/components/schemas/KeyInput"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "signature",
+          "platform",
+          "key"
+        ],
+        "additionalProperties": false
+      },
+      "PlatformInput": {
+        "type": "object",
+        "properties": {
+          "legalName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "jurisdiction": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$"
+          },
+          "registrationAuthorityCode": {
+            "type": "string",
+            "pattern": "^RA[0-9]{6}$"
+          },
+          "registrationIdentifier": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "legalName",
+          "jurisdiction",
+          "registrationAuthorityCode",
+          "registrationIdentifier"
+        ],
+        "additionalProperties": false,
+        "example": {
+          "legalName": "1PLACE",
+          "jurisdiction": "FR",
+          "registrationAuthorityCode": "RA000189",
+          "registrationIdentifier": "951595875"
+        }
+      },
+      "KeyInput": {
+        "type": "object",
+        "properties": {
+          "algorithm": {
+            "type": "string",
+            "enum": [
+              "ecdsa-p256-sha256"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$"
+          }
+        },
+        "required": [
+          "algorithm",
+          "value"
+        ],
+        "additionalProperties": false,
+        "example": {
+          "algorithm": "ecdsa-p256-sha256",
+          "value": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHrnigtJMJ_tcAdRsy4ZMy4p5R_-SVhFWZymWEFBCuFSznCy-sPtD8JD5pToqEI6AZUc0PLhuJTarVCAh0M5-yg"
+        }
+      },
+      "AddPlatformKeyResponse": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-30T09:12:44.512Z"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/PlatformReference"
+          },
+          "key": {
+            "$ref": "#/components/schemas/Key"
+          }
+        },
+        "required": [
+          "createdAt",
+          "platform",
+          "key"
+        ]
+      },
+      "PlatformReference": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "example": {
+          "id": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e3b"
+        }
+      },
+      "AddPlatformKeyRequest": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/Signature"
+          },
+          "key": {
+            "$ref": "#/components/schemas/KeyInput"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "signature",
+          "key"
         ],
         "additionalProperties": false
       }
@@ -342,7 +605,8 @@
     "/subjects": {
       "post": {
         "summary": "Register a new subject (with its first ename)",
-        "description": "Atomically registers a new subject (of `kind = person` in v1) together with its first ename. A subject without at least one ename has no meaning in the registry — the two are created together. Emits one `subject.registered` event in the registry log. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key with a different body returns `409 Conflict`.",
+        "description": "Atomically registers a new subject (of `kind = person` in v1) together with its first ename. A subject without at least one ename has no meaning in the registry — the two are created together. The body must be signed by a key of an accredited platform, which becomes the home platform of the subject. Emits one `subject.registered` event in the registry log. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key for a different request, or under another signing key, returns `409 Conflict`.",
+        "x-ename-operation": "subject.register",
         "requestBody": {
           "required": true,
           "content": {
@@ -374,8 +638,28 @@
               }
             }
           },
+          "401": {
+            "description": "Request signature could not be verified",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request signer is not allowed to submit this request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "409": {
-            "description": "Idempotency key already used for a different operation",
+            "description": "Request conflicts with the current state or a prior use of its idempotency key",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -425,7 +709,7 @@
             }
           },
           "503": {
-            "description": "Too many concurrent ename creations for this name; transient — retry after the delay in the Retry-After header",
+            "description": "Service temporarily unavailable; retry after the Retry-After delay",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -440,7 +724,8 @@
     "/subjects/{id}/enames": {
       "post": {
         "summary": "Add an ename to an existing subject",
-        "description": "Adds one ename to an existing subject without replacing its previous enames. Emits one `subject.ename-added` event in the registry log. A subject cannot hold two enames with the same `namePart`; reusing the same `namePart` for the same subject returns `409 Conflict`. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key with a different path or body returns `409 Conflict`.",
+        "description": "Adds one ename to an existing subject without replacing its previous enames. The body must be signed by a key of the home platform of the subject. Emits one `subject.ename-added` event in the registry log. A subject cannot hold two enames with the same `namePart`; reusing the same `namePart` for the same subject returns `409 Conflict`. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key for a different request, or under another signing key, returns `409 Conflict`.",
+        "x-ename-operation": "subject.add-ename",
         "parameters": [
           {
             "schema": {
@@ -484,6 +769,26 @@
               }
             }
           },
+          "401": {
+            "description": "Request signature could not be verified",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request signer is not allowed to submit this request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Subject not found",
             "content": {
@@ -495,7 +800,7 @@
             }
           },
           "409": {
-            "description": "Idempotency key conflict or subject already has this namePart",
+            "description": "Request conflicts with the current state or a prior use of its idempotency key",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -545,7 +850,247 @@
             }
           },
           "503": {
-            "description": "Too many concurrent ename creations for this name; transient — retry after the delay in the Retry-After header",
+            "description": "Service temporarily unavailable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platforms": {
+      "post": {
+        "summary": "Accredit a platform (with its first key)",
+        "description": "Records the accreditation of a platform, identified by its legal entity, together with its first public key. The body must be signed by a key of the registry. Emits one `platform.accredited` event in the registry log. A legal entity holds one platform at a time; accrediting the same registration twice returns `409 Conflict`. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key for a different request, or under another signing key, returns `409 Conflict`.",
+        "x-ename-operation": "platform.accredit",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccreditPlatformRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Platform accredited (or idempotent replay of a prior success)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccreditPlatformResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body could not be read properly",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request signature could not be verified",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request signer is not allowed to submit this request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with the current state or a prior use of its idempotency key",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the size limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request body media type is not supported",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/platforms/{id}/keys": {
+      "post": {
+        "summary": "Add a key to an accredited platform",
+        "description": "Adds one public key to an accredited platform, beside the keys it already has. The body must be signed by a key of the registry. Emits one `platform.key-added` event in the registry log. Idempotent via `idempotencyKey`: retrying with the same key returns the original result; reusing the same key for a different request, or under another signing key, returns `409 Conflict`.",
+        "x-ename-operation": "platform.add-key",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "example": "01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e3b"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddPlatformKeyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Key added to the platform (or idempotent replay of a prior success)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddPlatformKeyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body could not be read properly",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request signature could not be verified",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request signer is not allowed to submit this request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Platform not found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request conflicts with the current state or a prior use of its idempotency key",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the size limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Request body media type is not supported",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Path parameter or request body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected error",
             "content": {
               "application/problem+json": {
                 "schema": {

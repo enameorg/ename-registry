@@ -8,10 +8,10 @@ import { app } from '../index.ts';
 import { MAX_BODY_BYTES } from './middleware.ts';
 import { TEST_ORIGIN, readProblem } from './testing.ts';
 
-// Contract of the v1 gates and fallbacks: under the version prefix, an oversized
-// body, an unmatched path or an unsupported method answers a Problem Details
-// carrying a request id, never Hono's text/plain defaults. Test doctrine:
-// ename-internals.md.
+// Contract of the v1 gates and fallbacks: under the version prefix, an
+// oversized body, an unmatched path or an unsupported method answers a Problem
+// Details carrying a request id, never Hono's text/plain defaults. Test
+// doctrine: ename-internals.md.
 
 useTestDatabase();
 
@@ -152,21 +152,32 @@ test('the v1 components name each wire shape once, shared across the write route
   const schemas = document.components.schemas;
 
   assert.deepEqual(Object.keys(schemas).sort(), [
+    'AccreditPlatformRequest',
+    'AccreditPlatformResponse',
     'AddEnameToSubjectRequest',
     'AddEnameToSubjectResponse',
+    'AddPlatformKeyRequest',
+    'AddPlatformKeyResponse',
     'Ename',
     'EnameInput',
     'HealthResponse',
+    'Key',
+    'KeyInput',
+    'Platform',
+    'PlatformInput',
+    'PlatformReference',
     'ProblemDetails',
     'RegisterSubjectRequest',
     'RegisterSubjectResponse',
+    'Signature',
     'Subject',
     'SubjectInput',
     'SubjectReference',
   ]);
 
-  // Both write routes submit the same `ename` object and return the same ename;
-  // registration returns the full subject, adding an ename only names it.
+  // Both subject routes submit the same `ename` object and return the same
+  // ename; registration returns the full subject, adding an ename only names
+  // it.
   const reference = (component: string, property: string) =>
     schemas[component]?.properties[property]?.$ref;
   assert.equal(reference('RegisterSubjectRequest', 'subject'), '#/components/schemas/SubjectInput');
@@ -179,4 +190,52 @@ test('the v1 components name each wire shape once, shared across the write route
     '#/components/schemas/SubjectReference',
   );
   assert.equal(reference('AddEnameToSubjectResponse', 'ename'), '#/components/schemas/Ename');
+
+  // Both platform routes submit the same `key` object and return the same key;
+  // accreditation returns the full platform, adding a key only names it.
+  assert.equal(
+    reference('AccreditPlatformRequest', 'platform'),
+    '#/components/schemas/PlatformInput',
+  );
+  assert.equal(reference('AccreditPlatformRequest', 'key'), '#/components/schemas/KeyInput');
+  assert.equal(reference('AddPlatformKeyRequest', 'key'), '#/components/schemas/KeyInput');
+  assert.equal(reference('AccreditPlatformResponse', 'platform'), '#/components/schemas/Platform');
+  assert.equal(reference('AccreditPlatformResponse', 'key'), '#/components/schemas/Key');
+  assert.equal(
+    reference('AddPlatformKeyResponse', 'platform'),
+    '#/components/schemas/PlatformReference',
+  );
+  assert.equal(reference('AddPlatformKeyResponse', 'key'), '#/components/schemas/Key');
+
+  // Every write route carries the same `signature` object.
+  for (const component of [
+    'RegisterSubjectRequest',
+    'AddEnameToSubjectRequest',
+    'AccreditPlatformRequest',
+    'AddPlatformKeyRequest',
+  ]) {
+    assert.equal(reference(component, 'signature'), '#/components/schemas/Signature', component);
+  }
+});
+
+// Each write route names the operation its body signs, the value the signed
+// document carries (docs/ename-signature.md), so a client knows what to sign
+// from the contract alone.
+test('each write route declares the operation its signature covers', async () => {
+  const response = await app.fetch(new Request(`${TEST_ORIGIN}/api/v1/openapi.json`));
+  const document = (await response.json()) as {
+    paths: Record<string, { post?: Record<string, unknown> }>;
+  };
+  const operations = Object.fromEntries(
+    Object.entries(document.paths)
+      .filter(([, item]) => item.post !== undefined)
+      .map(([path, item]) => [path, item.post?.['x-ename-operation']]),
+  );
+
+  assert.deepEqual(operations, {
+    '/subjects': 'subject.register',
+    '/subjects/{id}/enames': 'subject.add-ename',
+    '/platforms': 'platform.accredit',
+    '/platforms/{id}/keys': 'platform.add-key',
+  });
 });

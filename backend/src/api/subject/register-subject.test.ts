@@ -1,31 +1,62 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { beforeEach, test } from 'node:test';
 
-// API tests assert the HTTP contract only — status codes, headers, response
-// shape, Problem Details. Persistence invariants live in
-// services/subject/register-subject.test.ts. useTestDatabase is the only
-// ../../database import; no raw pool access here. Test doctrine: ename-internals.md.
 import { useTestDatabase } from '../../database/testing.ts';
+// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the
+// Zod schemas built after it loads, and the API wraps the Service's schemas.
 import { app } from '../../index.ts';
+import { subjectRegisteredEventKindDefinition } from '../../services/subject/index.ts';
+import {
+  setUpTestPlatform,
+  signRequest,
+  type TestPlatformSigner,
+  type TestSigner,
+} from '../../services/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { TEST_ORIGIN, postJSON, readJSON, readProblem } from '../testing.ts';
 
 import { RegisterSubjectResponseSchema } from './register-subject.ts';
 
+// The HTTP contract of POST /subjects only: statuses, headers, response
+// shapes, Problem Details. What the use case persists is tested in
+// services/subject/register-subject.test.ts. The registry is anchored and a
+// platform accredited before each test, through the Service's test helper:
+// setup, not the contract under test. Test doctrine: ename-internals.md.
+
 const PATH = '/api/v1/subjects';
 
 useTestDatabase();
 
-// Build a valid nested body; each call overrides only what it asserts on.
-function makeBody(overrides: {
-  idempotencyKey?: string;
-  kind?: string;
-  namePart?: string;
-}): Record<string, unknown> {
-  return {
-    idempotencyKey: overrides.idempotencyKey ?? generateUUIDv7(),
-    subject: { kind: overrides.kind ?? 'person' },
+let registry: TestSigner;
+let platform: TestPlatformSigner;
+
+beforeEach(async () => {
+  ({ registry, platform } = await setUpTestPlatform());
+});
+
+// Build a valid nested body, signed by the platform unless another signer is
+// given; each call overrides only what it asserts on. An invalid body is
+// signed as it stands: it fails validation before its signature is checked.
+function makeBody(
+  overrides: {
+    idempotencyKey?: string;
+    kind?: string;
+    namePart?: string;
+  },
+  signer: TestSigner = platform,
+): Record<string, unknown> {
+  const idempotencyKey = overrides.idempotencyKey ?? generateUUIDv7();
+  const request = {
+    subject: { kind: (overrides.kind ?? 'person') as 'person' },
     ename: { namePart: overrides.namePart ?? 'jean-dupont' },
+  };
+  return {
+    idempotencyKey,
+    signature: signRequest(subjectRegisteredEventKindDefinition, signer, {
+      idempotencyKey,
+      request,
+    }),
+    ...request,
   };
 }
 
@@ -95,6 +126,30 @@ test('idempotency conflict: same idempotencyKey with a different body returns 40
 });
 
 // ---------------------------------------------------------------------------
+// Signature (401, 403 — after validation, before anything else)
+// ---------------------------------------------------------------------------
+
+test('a signature that does not verify returns 401 problem+json with WWW-Authenticate', async () => {
+  const body = makeBody({});
+  const response = await postJSON(PATH, { ...body, ename: { namePart: 'other-name' } });
+
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get('WWW-Authenticate'), 'EnameSignature');
+  const problem = await readProblem(response);
+  assert.equal(problem.title, 'Unauthorized');
+  assert.equal(problem.detail, 'The request signature could not be verified.');
+});
+
+test('a body signed by a registry key returns 403 problem+json', async () => {
+  const response = await postJSON(PATH, makeBody({}, registry));
+
+  assert.equal(response.status, 403);
+  const problem = await readProblem(response);
+  assert.equal(problem.title, 'Forbidden');
+  assert.equal(problem.detail, 'The signing key is not allowed to submit this request.');
+});
+
+// ---------------------------------------------------------------------------
 // Malformed request body (not valid JSON → 400, before Zod validation)
 // ---------------------------------------------------------------------------
 
@@ -159,67 +214,77 @@ test('Content-Type with a charset parameter is still accepted (201)', async () =
 for (const scenario of [
   {
     name: 'missing ename object entirely',
-    body: { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' } },
+    body: () => ({ ...makeBody({}), ename: undefined }),
     expectedPath: ['ename'],
   },
   {
     name: 'missing namePart inside ename object',
-    body: { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: {} },
+    body: () => ({ ...makeBody({}), ename: {} }),
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'missing subject object entirely',
-    body: { idempotencyKey: generateUUIDv7(), ename: { namePart: 'jean' } },
+    body: () => ({ ...makeBody({}), subject: undefined }),
     expectedPath: ['subject'],
   },
   {
+    name: 'missing signature',
+    body: () => ({ ...makeBody({}), signature: undefined }),
+    expectedPath: ['signature'],
+  },
+  {
+    name: 'signature value is not base64url',
+    body: () => ({ ...makeBody({}), signature: { keyId: generateUUIDv7(), value: 'a+b/c=' } }),
+    expectedPath: ['signature', 'value'],
+  },
+  {
     name: 'namePart contains uppercase',
-    body: makeBody({ namePart: 'Jean-Dupont' }),
+    body: () => makeBody({ namePart: 'Jean-Dupont' }),
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'namePart contains digit',
-    body: makeBody({ namePart: 'jean42' }),
+    body: () => makeBody({ namePart: 'jean42' }),
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'namePart has leading hyphen',
-    body: makeBody({ namePart: '-jean' }),
+    body: () => makeBody({ namePart: '-jean' }),
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'namePart has trailing hyphen',
-    body: makeBody({ namePart: 'jean-' }),
+    body: () => makeBody({ namePart: 'jean-' }),
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'namePart has consecutive hyphens',
-    body: makeBody({ namePart: 'jean--dupont' }),
+    body: () => makeBody({ namePart: 'jean--dupont' }),
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'namePart longer than 50 chars',
-    body: makeBody({ namePart: 'a'.repeat(51) }),
+    body: () => makeBody({ namePart: 'a'.repeat(51) }),
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'kind is not "person"',
-    body: makeBody({ kind: 'organization' }),
+    body: () => makeBody({ kind: 'organization' }),
     expectedPath: ['subject', 'kind'],
   },
   {
     name: 'idempotencyKey is a UUIDv4 (not v7)',
-    body: makeBody({ idempotencyKey: '550e8400-e29b-41d4-a716-446655440000' }),
+    body: () => makeBody({ idempotencyKey: '550e8400-e29b-41d4-a716-446655440000' }),
     expectedPath: ['idempotencyKey'],
   },
   {
     name: 'idempotencyKey is not a UUID',
-    body: makeBody({ idempotencyKey: 'not-a-uuid' }),
+    body: () => makeBody({ idempotencyKey: 'not-a-uuid' }),
     expectedPath: ['idempotencyKey'],
   },
 ]) {
   test(`validation failure: ${scenario.name} → 422 problem+json`, async () => {
-    const response = await postJSON(PATH, scenario.body);
+    const response = await postJSON(PATH, scenario.body());
     assert.equal(response.status, 422);
 
     const body = await readProblem(response);
@@ -244,19 +309,19 @@ for (const scenario of [
 for (const scenario of [
   {
     name: 'unknown top-level field',
-    body: { ...makeBody({}), extra: 1 },
+    body: () => ({ ...makeBody({}), extra: 1 }),
     key: 'extra',
     expectedPath: [],
   },
   {
     name: 'unknown field inside subject object',
-    body: { ...makeBody({}), subject: { kind: 'person', hidden: true } },
+    body: () => ({ ...makeBody({}), subject: { kind: 'person', hidden: true } }),
     key: 'hidden',
     expectedPath: ['subject'],
   },
 ]) {
   test(`validation failure: ${scenario.name} → 422 naming the key`, async () => {
-    const response = await postJSON(PATH, scenario.body);
+    const response = await postJSON(PATH, scenario.body());
 
     assert.equal(response.status, 422);
 

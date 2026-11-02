@@ -44,17 +44,17 @@ The person a platform serves: they hold one or more enames, sign with their keys
 _Avoid_: customer, member, account
 
 **Home platform**:
-The accredited platform currently serving a given ename, as recorded in the registry.
+The accredited platform currently serving a given subject, and through it every ename the subject holds, as recorded in the registry.
 _Avoid_: provider, host
 
 ## Institutions
 
 **Registry**:
-The public database maintained by Ename that binds each ename to its subject, public keys, home platform and lifecycle metadata; by extension, the organization maintaining it and its institutional role (the ICANN model).
+The public database maintained by Ename that binds each ename to its subject and each subject to its home platform, and records the public keys and lifecycle metadata attached to them; by extension, the organization maintaining it and its institutional role (the ICANN model).
 _Avoid_: directory, database (when the institutional sense is meant)
 
 **Platform**:
-A third-party entity accredited by Ename to verify identities, manage keys, host portable user data and serve end users. Several platforms coexist and compete.
+A third-party entity accredited by Ename to verify identities, manage keys, host portable user data and serve end users. Several platforms coexist and compete. The platform is the accredited role, not the legal entity holding it: with Ename's approval, a successor entity can take it over, the platform remaining the same in the registry.
 _Avoid_: registrar, operator, provider, app
 
 **App**:
@@ -99,7 +99,7 @@ Data whose loss would lock a user in: credentials, correspondence, publications,
 _Avoid_: user content, profile data
 
 **Transfer**:
-The change of an ename's home platform from one accredited platform to another, the end user's portable user data moving with it.
+The change of a subject's home platform from one accredited platform to another, all its enames and the end user's portable user data moving with it.
 _Avoid_: migration (a database schema change), move, port
 
 **Per-app identifier**:
@@ -134,6 +134,26 @@ _Avoid_: cancellation, suspension
 A change of the key bound to an ename that the current key did not sign, submitted by a platform after the end user proved their right to it, and publicly labeled as such in the event log. Regaining access to the existing key, through a synced or reconstituted copy, leaves the binding unchanged and is not a recovery in this sense.
 _Avoid_: key reset, re-registration
 
+**Registry key**:
+The key with which Ename signs what the registry itself commits to: the events it submits (accreditations, keys) and, later, the signed tree heads of the event log.
+_Avoid_: platform key (an accredited platform's key), master key
+
+**Anchor**:
+The first event of the event log, which records the first registry key and is signed by that key itself: the only self-signed event, trusted through the key's fingerprint, which Ename publishes outside the log.
+_Avoid_: genesis block, root key, trust anchor (the function of cryptographic anchoring)
+
+**Platform key**:
+The key with which an accredited platform signs the request of every event it submits; its public half is recorded in the event log. Distinct from the registry key and from the keys bound to an ename.
+_Avoid_: API key (a shared secret), registry key
+
+**Signer**:
+Who signs a write request, named by the identifier of its signing key; through that key, it has an owner, an accredited platform or the registry itself. Two keys of the same owner are two signers.
+_Avoid_: actor, submitter, principal
+
+**Signable document**:
+What a signer signs for a registry mutation: the operation, the signing key's identifier, the idempotency key and the request, in canonical form. It is rebuilt by the registry and by any verifier, never sent, and never holds the signature.
+_Avoid_: signed document (read as a document carrying its signature), payload, envelope, signed request
+
 ## Registry data model
 
 **Event log**:
@@ -148,8 +168,12 @@ _Avoid_: transaction, mutation, log entry, record
 The named category of an event (`subject.registered`, `subject.ename-added`), declared once, by the use case that emits it, with the pair of strict schemas that parse its request and outcome, the mapping between the rows the use case writes and the event that records them, and how those rows are written again at a rebuild. Every event has exactly one kind.
 _Avoid_: event type
 
+**Operation**:
+The name, in the imperative, of the registry mutation a signer asks for (`subject.register`, `subject.add-ename`), carried in the signable document; each event kind is produced by exactly one operation.
+_Avoid_: action, operationId (the OpenAPI code identifier)
+
 **Request** (of an event):
-What the actor submitted for a registry mutation, recorded in its event exactly as submitted: the part of the event the actor's signature covers.
+What the signer submitted for a registry mutation, recorded in its event exactly as submitted: the part of the event the signer's signature covers.
 _Avoid_: payload, body (its HTTP carrier)
 
 **Outcome** (of an event):
@@ -157,11 +181,11 @@ What the registry allocated in performing a mutation (identifiers, number parts)
 _Avoid_: result (request and outcome together), response (the HTTP answer)
 
 **Idempotency key**:
-The client-supplied identifier carried in every write request and stored with the event it produces: the same request sent again gets a replay of the prior result, and the same key with a different request is a conflict.
+The client-supplied identifier carried in every write request and stored with the event it produces: the same request sent again by the same signer gets a replay of the prior result, and the same key with a different request, or from another signer, is a conflict.
 _Avoid_: request id (the server-generated correlation id), nonce
 
 **Replay**:
-The registry's answer to a write request whose idempotency key and request match a stored event: the result of the first write, read back from that event, with nothing executed again. The client sends the request again; the server replays the result, not the write.
+The registry's answer to a write request whose idempotency key, signer and request match a stored event: the result of the first write, read back from that event, with nothing executed again. The client sends the request again; the server replays the result, not the write.
 _Avoid_: retry (the client's resend; also the counter allocation's retry), duplicate (a conflicting value, answered by 409), cached response
 
 **Projection**:

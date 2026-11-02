@@ -4,6 +4,8 @@ import { HTTPException } from 'hono/http-exception';
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
 
 import {
+  AuthenticationError,
+  AuthorizationError,
   ConflictError,
   ContentionError,
   IdempotencyConflictError,
@@ -27,10 +29,11 @@ import { MAX_BODY_BYTES } from './middleware.ts';
 
 type ProblemStatus = ClientErrorStatusCode | ServerErrorStatusCode;
 
-// RFC 9457 Problem Details — the single shape for every 4xx/5xx response, served
-// as application/problem+json. Extensions beyond the RFC base: requestId (the
-// middleware's id, echoed so a user can quote it) and errors (field-level Zod
-// failures). `instance` is omitted in v1 — requestId plays that role.
+// RFC 9457 Problem Details — the single shape for every 4xx/5xx response,
+// served as application/problem+json. Extensions beyond the RFC base:
+// requestId (the middleware's id, echoed so a user can quote it) and errors
+// (field-level validation failures). `instance` is omitted in v1 — requestId
+// plays that role.
 export const ProblemDetailsSchema = z
   .object({
     type: z.string().openapi({ example: 'about:blank' }),
@@ -47,7 +50,13 @@ export const ProblemDetailsSchema = z
       )
       .optional()
       .openapi({
-        example: [{ path: ['namePart'], message: 'invalid format' }],
+        example: [
+          {
+            path: ['ename', 'namePart'],
+            message:
+              'must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)',
+          },
+        ],
       }),
   })
   .openapi('ProblemDetails');
@@ -62,6 +71,8 @@ const PROBLEM_CONTENT_TYPE = 'application/problem+json';
 // the override goes away once error-type URIs carry that distinction (target).
 const PROBLEM_TITLES: Partial<Record<ProblemStatus, string>> = {
   400: 'Bad request',
+  401: 'Unauthorized',
+  403: 'Forbidden',
   404: 'Not found',
   405: 'Method not allowed',
   409: 'Conflict',
@@ -89,6 +100,11 @@ const HTTP_EXCEPTION_DETAILS: Partial<Record<ProblemStatus, string>> = {
   415: 'The request body must be sent as application/json.',
 };
 
+// The authentication scheme a 401 announces, as RFC 9110 requires of every 401.
+// Not an HTTP authentication scheme proper: the signature travels in the body,
+// beside the request it signs (docs/ename-signature.md).
+const AUTHENTICATION_SCHEME = 'EnameSignature';
+
 // Retry-After hint (seconds) sent with 503 ContentionError responses. Kept
 // short: number_part allocation contention on a single name_part clears in
 // milliseconds, so a 1-second floor is already generous.
@@ -102,6 +118,32 @@ export const gateProblemResponses = {
   400: problemResponse('Request body could not be read properly'),
   413: problemResponse('Request body exceeds the size limit'),
   415: problemResponse('Request body media type is not supported'),
+};
+
+// The responses of a route whose body is signed: the signature does not verify
+// (401), or its signer may not submit the request (403). A route spreads them
+// into its `responses` beside the gate responses.
+export const signatureProblemResponses = {
+  401: problemResponse('Request signature could not be verified'),
+  403: problemResponse('Request signer is not allowed to submit this request'),
+};
+
+// The response of a write that conflicts with the current state, or that
+// reuses an idempotency key for another request or under another signing key
+// (409): one description for every route, the occurrence's `detail` naming
+// the cause. A route spreads it into its `responses` beside the signature
+// responses.
+export const conflictProblemResponses = {
+  409: problemResponse(
+    'Request conflicts with the current state or a prior use of its idempotency key',
+  ),
+};
+
+// The response of a write that allocates a group-scoped counter and exhausts
+// its retries under contention (503, with a Retry-After header). A route that
+// allocates one spreads it into its `responses`.
+export const contentionProblemResponses = {
+  503: problemResponse('Service temporarily unavailable; retry after the Retry-After delay'),
 };
 
 // ---------------------------------------------------------------------------
@@ -132,6 +174,14 @@ export const validationHook: NonNullable<OpenAPIHonoOptions<HonoEnv>['defaultHoo
 export const handleError: ErrorHandler<HonoEnv> = (error, context) => {
   if (error instanceof ValidationError) {
     return buildProblemJSON(context, 422, error.message, { errors: error.errors });
+  }
+  if (error instanceof AuthenticationError) {
+    const response = buildProblemJSON(context, 401, error.message);
+    response.headers.set('WWW-Authenticate', AUTHENTICATION_SCHEME);
+    return response;
+  }
+  if (error instanceof AuthorizationError) {
+    return buildProblemJSON(context, 403, error.message);
   }
   if (error instanceof IdempotencyConflictError) {
     return buildProblemJSON(context, 409, error.message, { title: 'Idempotency conflict' });
@@ -189,8 +239,8 @@ export function methodNotAllowedResponse(context: APIContext, allowedMethods: st
   return response;
 }
 
-// OpenAPI response descriptor reusable across endpoints. Use as:
-//   responses: { 404: problemResponse('Subject not found'), 409: problemResponse(...) }
+// OpenAPI response descriptor of a Problem Details, for a route's
+// `responses`: `404: problemResponse('Subject not found')`.
 export function problemResponse(description: string) {
   return {
     description,

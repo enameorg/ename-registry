@@ -3,10 +3,6 @@ import { test } from 'node:test';
 
 import { pino } from 'pino';
 
-// The walk over the whole log: the definition of each event found by its
-// kind, the batches, the stop. Each kind's own rebuild is tested beside its
-// use case; this file proves what only the walk does. Test doctrine:
-// ename-internals.md.
 import { pool } from '../../database/pool.ts';
 import {
   readCheckConstraintValues,
@@ -16,10 +12,34 @@ import {
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { findEvents } from '../event/index.ts';
-import { addEnameToSubject, findSubjects, registerSubject } from '../subject/index.ts';
+import { findKeys } from '../key/index.ts';
+import {
+  addPlatformKey,
+  findPlatforms,
+  platformKeyAddedEventKindDefinition,
+} from '../platform/index.ts';
+import {
+  addEnameToSubject,
+  findSubjects,
+  registerSubject,
+  subjectEnameAddedEventKindDefinition,
+  subjectRegisteredEventKindDefinition,
+} from '../subject/index.ts';
+import {
+  accreditTestPlatform,
+  generateTestKey,
+  setUpTestPlatform,
+  signInput,
+  type TestPlatformSigner,
+  type TestSigner,
+} from '../testing.ts';
 
 import { eventKindDefinitions, rebuildProjections } from './rebuild-projections.ts';
 
+// The walk over the whole log: the definition of each event found by its
+// kind, the batches, the stop. Each kind's own rebuild is tested beside its
+// use case; this file proves what only the walk does. Test doctrine:
+// ename-internals.md.
 const context = { logger: pino({ level: 'silent' }) };
 
 useTestDatabase();
@@ -38,22 +58,33 @@ test('the event kinds the rebuild knows are exactly the kinds the events_kind_al
   );
 });
 
-// Five events of both kinds, interleaved, homonyms included. Each batch size
-// ends the walk differently: on full batches then an empty read (1, 5), on an
-// incomplete batch (2), in a single incomplete batch (the default).
+// Events of every kind, interleaved, homonyms included: the anchor, two
+// accreditations, a key added to the first platform, then registrations and
+// additions by both platforms. Each batch size ends the walk differently: on
+// full batches then an empty read (1, 10), on an incomplete batch (3), in a
+// single incomplete batch (the default).
 test('rebuildProjections writes back exactly the projections the use cases wrote, whatever the batch size', async () => {
-  const jean = await register('jean-dupont');
-  await register('jean-dupont');
-  const marie = await register('marie-curie');
-  await addEname(jean.subject.id, 'marie-curie');
-  await addEname(marie.subject.id, 'jean-dupont');
+  const { registry, platform } = await setUpTestPlatform();
+  const other = await accreditTestPlatform(registry);
+  await addKey(registry, platform);
+  const jean = await register(platform, 'jean-dupont');
+  await register(other, 'jean-dupont');
+  const marie = await register(platform, 'marie-curie');
+  await addEname(platform, jean.subject.id, 'marie-curie');
+  await addEname(platform, marie.subject.id, 'jean-dupont');
 
+  const platforms = await findPlatforms(pool);
+  const keys = await findKeys(pool);
   const subjects = await findSubjects(pool);
   const enames = await findEnames(pool);
   const events = await findEvents(pool);
   assert.deepEqual(
     events.map((event) => event.kind),
     [
+      'registry.anchored',
+      'platform.accredited',
+      'platform.accredited',
+      'platform.key-added',
       'subject.registered',
       'subject.registered',
       'subject.registered',
@@ -62,12 +93,14 @@ test('rebuildProjections writes back exactly the projections the use cases wrote
     ],
   );
 
-  for (const batchSize of [1, 2, 5, undefined]) {
+  for (const batchSize of [1, 3, 10, undefined]) {
     await truncateProjections();
-    assert.deepEqual(await findEnames(pool), []);
+    assert.deepEqual(await findKeys(pool), []);
 
     await rebuildProjections(context, batchSize === undefined ? {} : { batchSize });
 
+    assert.deepEqual(await findPlatforms(pool), platforms, `batch size ${batchSize}`);
+    assert.deepEqual(await findKeys(pool), keys, `batch size ${batchSize}`);
     assert.deepEqual(await findSubjects(pool), subjects, `batch size ${batchSize}`);
     assert.deepEqual(await findEnames(pool), enames, `batch size ${batchSize}`);
     assert.deepEqual(await findEvents(pool), events, `batch size ${batchSize}`);
@@ -77,20 +110,41 @@ test('rebuildProjections writes back exactly the projections the use cases wrote
 test('rebuildProjections over an empty log writes nothing', async () => {
   await rebuildProjections(context);
 
+  assert.deepEqual(await findPlatforms(pool), []);
+  assert.deepEqual(await findKeys(pool), []);
   assert.deepEqual(await findSubjects(pool), []);
   assert.deepEqual(await findEnames(pool), []);
 });
 
-async function register(namePart: string) {
-  return await registerSubject(
-    { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
+async function addKey(registry: TestSigner, platform: TestPlatformSigner) {
+  return await addPlatformKey(
+    signInput(platformKeyAddedEventKindDefinition, registry, {
+      idempotencyKey: generateUUIDv7(),
+      platform: { id: platform.platformId },
+      key: { algorithm: 'ecdsa-p256-sha256', value: generateTestKey().publicKey },
+    }),
     context,
   );
 }
 
-async function addEname(subjectId: string, namePart: string) {
+async function register(platform: TestPlatformSigner, namePart: string) {
+  return await registerSubject(
+    signInput(subjectRegisteredEventKindDefinition, platform, {
+      idempotencyKey: generateUUIDv7(),
+      subject: { kind: 'person' },
+      ename: { namePart },
+    }),
+    context,
+  );
+}
+
+async function addEname(platform: TestPlatformSigner, subjectId: string, namePart: string) {
   return await addEnameToSubject(
-    { idempotencyKey: generateUUIDv7(), subject: { id: subjectId }, ename: { namePart } },
+    signInput(subjectEnameAddedEventKindDefinition, platform, {
+      idempotencyKey: generateUUIDv7(),
+      subject: { id: subjectId },
+      ename: { namePart },
+    }),
     context,
   );
 }

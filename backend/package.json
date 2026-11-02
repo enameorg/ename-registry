@@ -19,12 +19,15 @@
     "test": "node --env-file=.env.test --test --test-concurrency=1 --test-reporter=dot",
     "test:coverage": "node --env-file=.env.test --test --test-concurrency=1 --test-reporter=dot --experimental-test-coverage",
     "openapi:generate": "node --env-file=.env.development scripts/generate-openapi.ts",
+    "registry:init": "node --env-file=.env.development scripts/init-registry.ts",
+    "platform:accredit": "node --env-file=.env.development scripts/accredit-platform.ts",
     "check": "npm run typecheck && npm run lint && npm run format && npm run test"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.4",
     "@hono/zod-openapi": "^1.6.3",
     "@scalar/hono-api-reference": "^0.12.11",
+    "canonicalize": "^5.1.0",
     "hono": "^4.13.13",
     "pg": "^8.23.1",
     "pino": "^10.4.0",

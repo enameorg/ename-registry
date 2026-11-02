@@ -9,11 +9,11 @@ Recorded retroactively; the decision dates from the first write endpoint (commit
 
 ## Context
 
-Every write endpoint is idempotent through a client-provided UUIDv7 key, and the future layer-1 signature will cover what the actor submitted (ADR-0004). The HTTP convention is an `Idempotency-Key` header.
+Every write endpoint is idempotent through a client-provided UUIDv7 key, and the signer's signature covers what the signer submitted (ADR-0004, ADR-0011). The HTTP convention is an `Idempotency-Key` header.
 
 ## Decision
 
-The key is a mandatory `idempotencyKey` field in the JSON body. It is stored in its own `events.idempotency_key` column, outside the `request` JSONB. Covering the key is a requirement on the signature scheme, settled with `[Q-CRYPTO-IMPL]`; placing it in the body keeps that possible without a header-canonicalization scheme.
+The key is a mandatory `idempotencyKey` field in the JSON body. It is stored in its own `events.idempotency_key` column, outside the `request` JSONB. In the body, the key is covered by the signature with no header-canonicalization scheme: the signable document carries it beside the request (ADR-0011).
 
 ## Considered options
 
@@ -23,5 +23,5 @@ The key is a mandatory `idempotencyKey` field in the JSON body. It is stored in 
 ## Consequences
 
 - Generated SDKs expose the key as a body field, not a transport option.
-- The same key and body sent again get a replay of the prior result; the same key with a different body or path is a 409.
-- Key uniqueness is global in v1 and becomes per platform once platforms are authenticated, for isolation between them, not only collision avoidance.
+- The same idempotency key sent again with the same body and path, signed by the same signing key, gets a replay of the prior result; the same idempotency key with a different body or path, or signed by another key, is a 409.
+- Idempotency-key uniqueness is global. Isolation between signers comes from reconciliation, which compares the signing key (ADR-0011): a signer that reuses another's idempotency key gets a 409, never the other's result.

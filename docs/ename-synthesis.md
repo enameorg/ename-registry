@@ -4,7 +4,7 @@
 
 This document is the internal source of truth for the **Ename** project: the human digital identity registry and the organization that maintains it. Its primary reader is the AI assistant, which uses it to produce derivative materials (public documents, technical documents, governance documents, platform-facing communications), check the consistency of new decisions, and preserve vocabulary stability. The text therefore favors terminological stability and explicit density over marketing readability.
 
-This document is about the **Ename registry**. It describes platforms as an institutional category accredited by the registry, not as individual projects. The technical format of enames is described in [Ename — Format](./ename-format.md); the registry's internal implementation decisions (stack, hosting, schema) in [Ename — Registry Internals](./ename-internals.md); the project vocabulary in [`GLOSSARY.md`](../GLOSSARY.md) at the repository root. This synthesis does not restate those contents, but may refer to them.
+This document is about the **Ename registry**. It describes platforms as an institutional category accredited by the registry, not as individual projects. The technical format of enames is described in [Ename — Format](./ename-format.md), the signature of registry events in [Ename — Signature](./ename-signature.md); the registry's internal implementation decisions (stack, hosting, schema) in [Ename — Registry Internals](./ename-internals.md); the project vocabulary in [`GLOSSARY.md`](../GLOSSARY.md) at the repository root. This synthesis does not restate those contents, but may refer to them.
 
 Conventions:
 
@@ -91,7 +91,8 @@ Decisions:
 - **Key history in the registry**: Ename publishes the public-key history of each ename, with validity periods. A signature remains verifiable as long as its timestamp falls within the validity period of the key that produced it. `[settled in principle]`
 - **Revocation policy in case of compromise**: three possible options (invalidate everything during the presumed compromise period — purist; only elements after report — pragmatic; let the recipient choose — responsibility-shifting). To be settled in Ename rules. `[open: Q-REVOC]`
 - **Key recovery mechanisms**: three mechanisms the user may freely combine depending on risk profile — cloud-sync via passkey, social recovery by quorum of contacts, re-KYC with the platform as last resort. None is free of tradeoffs (each balances convenience, third-party dependence, and identity exposure differently). Interface standardization to be led by Ename; operational experimentation by platforms. `[settled in principle; Q-KEYREC]`
-- **Implementation choices** (signature algorithm such as Ed25519, canonical format such as CBOR or canonical JSON, content hash algorithm such as SHA-256 or BLAKE3, rotation-attestation mechanics in the registry, revocation granularity): belong in the Ename standards document, to be produced. `[open: Q-CRYPTO-IMPL]`
+- **Signature of registry events**: one mechanism for the registry, the platforms and the end users — ES256 (ECDSA P-256 with SHA-256), a document canonicalized with JCS (RFC 8785), SPKI public keys — defined in [Ename — Signature](./ename-signature.md). P-256 rather than Ed25519 because the secure enclaves of phones and computers support it. `[working hypothesis]`
+- **Other implementation choices** (content hash algorithm such as SHA-256 or BLAKE3, rotation-attestation mechanics in the registry, revocation granularity): belong in the Ename standards, to be produced. `[open: Q-CRYPTO-IMPL]`
 
 ### Governance
 
@@ -210,7 +211,7 @@ Stable identifiers, grouped by domain. Reference them from the body when a point
 
 ### Cryptography
 
-- **[Q-CRYPTO-IMPL]** Implementation choices: signature algorithm (Ed25519 or other), canonical metadata format for signature (CBOR, canonical JSON, etc.), content hash algorithm (SHA-256, BLAKE3, etc.), rotation-attestation mechanics in the registry, revocation granularity.
+- **[Q-CRYPTO-IMPL]** Implementation choices still open: content hash algorithm (SHA-256, BLAKE3, etc.), rotation-attestation mechanics in the registry, revocation granularity. The signature algorithm and the canonical format are a working hypothesis, in [Ename — Signature](./ename-signature.md).
 - **[Q-REVOC]** Revocation policy in case of compromise. Three options: invalidate everything during the presumed compromise period (purist), only elements after report (pragmatic), let the recipient choose (responsibility-shifting). To settle in Ename rules.
 - **[Q-KEYREC]** Standardization of interfaces for the three key-recovery mechanisms (cloud-sync via passkey, social recovery, re-KYC). Determines what every accredited platform must offer. To conduct early because it shapes onboarding UX and user trust.
 

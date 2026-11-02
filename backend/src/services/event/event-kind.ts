@@ -9,7 +9,7 @@ import type { Event } from './event.ts';
 // ---------------------------------------------------------------------------
 
 // An event kind is the kind literal, the pair of schemas that parse its two
-// JSONB columns — `request` is what the actor submitted, `outcome` what the
+// JSONB columns — `request` is what the signer submitted, `outcome` what the
 // server allocated (ADR-0004) — and the three functions that relate the event
 // to the rows its use case writes (the use case's result, in the concept's own
 // types: a `Subject`, an `Ename`). `toOutcome` keeps of the result what the
@@ -28,12 +28,18 @@ import type { Event } from './event.ts';
 // it. withEvent takes a definition to write one event, rebuildEvent to
 // write an event's rows again, and both read a stored event through
 // parseEvent (withEvent on a replay).
+//
+// A kind also names the operation, in the imperative, that the signable
+// document carries (`subject.register` for `subject.registered`: the signer
+// asks for a mutation, the log records a fact). Who may sign it is not the
+// kind's: the use case that emits it passes the authentication of its signer.
 export type EventKindDefinition<
   RequestSchema extends z.ZodType = z.ZodType,
   OutcomeSchema extends z.ZodType = z.ZodType,
   Result = unknown,
 > = {
   readonly kind: string;
+  readonly operation: string;
   readonly requestSchema: RequestSchema;
   readonly outcomeSchema: OutcomeSchema;
   // A method signature on purpose: it is checked bivariantly, so a kind whose

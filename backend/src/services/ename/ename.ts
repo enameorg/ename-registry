@@ -14,11 +14,11 @@ import { ConflictError, ContentionError, NotFoundError, ValidationError } from '
 // Ename format rules
 // ---------------------------------------------------------------------------
 
-// namePart grammar per docs/ename-format.md: lowercase letters and single hyphens,
-// no leading/trailing/consecutive hyphens, at least one letter.
+// namePart grammar per docs/ename-format.md: lowercase letters and single
+// hyphens, no leading/trailing/consecutive hyphens, at least one letter.
 //
-// No regex flags: the OpenAPI generator derives `pattern` from the regex source,
-// and a flag would not carry over into the generated JSON Schema.
+// No regex flags: the OpenAPI generator derives `pattern` from the regex
+// source, and a flag would not carry over into the generated JSON Schema.
 const NAME_PART_REGEX = /^[a-z]+(-[a-z]+)*$/;
 
 // Derived from the 52-character ename budget of docs/ename-format.md:
@@ -34,9 +34,9 @@ export const NamePartSchema = z.string().min(1).max(MAX_NAME_PART_LENGTH).regex(
     'must be lowercase letters separated by single hyphens (no leading, trailing or consecutive hyphens)',
 });
 
-// What a client submits for an ename, declared once and strict: the event kinds
-// compose this schema into their request, the API wraps it in place as its OpenAPI
-// component (cf. ename-internals.md).
+// What a client submits for an ename, declared once and strict: the event
+// kinds compose this schema into their request, the API wraps it in place as
+// its OpenAPI component (cf. ename-internals.md).
 export const EnameInputSchema = z.strictObject({
   namePart: NamePartSchema,
 });
@@ -127,7 +127,7 @@ export async function findEnames(db: Database): Promise<Ename[]> {
 export async function insertEnameWithNextNumber(
   db: Database,
   params: {
-    enameId: string;
+    id: string;
     subjectId: string;
     namePart: string;
     createdAt: Date;
@@ -168,7 +168,7 @@ export async function insertEnameWithNextNumber(
           [
             {
               path: ['ename', 'namePart'],
-              message: `namePart is too long: combined with the next available numberPart it would exceed ${MAX_ENAME_LENGTH} characters`,
+              message: `must leave room for the next numberPart within ${MAX_ENAME_LENGTH} characters`,
             },
           ],
         );
@@ -193,7 +193,7 @@ export async function insertEnameWithNextNumber(
 // translates or retries.
 async function insertEnameOnce(
   db: Database,
-  params: { enameId: string; subjectId: string; namePart: string; createdAt: Date },
+  params: { id: string; subjectId: string; namePart: string; createdAt: Date },
 ): Promise<Ename> {
   const rows = await queryRows(
     db,
@@ -201,7 +201,7 @@ async function insertEnameOnce(
      SELECT $1, $2, $3, COALESCE(MAX(number_part), 0) + 1, $4
      FROM enames WHERE name_part = $3
      RETURNING ${SELECT_ENAME_COLUMNS}`,
-    [params.enameId, params.subjectId, params.namePart, params.createdAt],
+    [params.id, params.subjectId, params.namePart, params.createdAt],
     EnameSchema,
   );
   const row = rows[0];

@@ -1,33 +1,77 @@
 import { strict as assert } from 'node:assert';
-import { test } from 'node:test';
+import { beforeEach, test } from 'node:test';
 
 import { useTestDatabase } from '../../database/testing.ts';
+// Loaded before any Service module: @hono/zod-openapi adds `.openapi()` to the
+// Zod schemas built after it loads, and the API wraps the Service's schemas.
 import { app } from '../../index.ts';
+import {
+  subjectEnameAddedEventKindDefinition,
+  subjectRegisteredEventKindDefinition,
+} from '../../services/subject/index.ts';
+import {
+  accreditTestPlatform,
+  setUpTestPlatform,
+  signRequest,
+  type TestPlatformSigner,
+  type TestSigner,
+} from '../../services/testing.ts';
 import { generateUUIDv7 } from '../../utilities/uuid.ts';
 import { TEST_ORIGIN, postJSON, readJSON, readProblem } from '../testing.ts';
 
 import { AddEnameToSubjectResponseSchema } from './add-ename-to-subject.ts';
 import { RegisterSubjectResponseSchema } from './register-subject.ts';
 
+// The HTTP contract of POST /subjects/{id}/enames only: statuses, headers,
+// response shapes, Problem Details. What the use case persists is tested in
+// services/subject/add-ename-to-subject.test.ts. The registry is anchored and
+// a platform accredited before each test, through the Service's test helper:
+// setup, not the contract under test. Test doctrine: ename-internals.md.
+
 const SUBJECTS_PATH = '/api/v1/subjects';
+
+function pathOf(subjectId: string): string {
+  return `${SUBJECTS_PATH}/${subjectId}/enames`;
+}
 
 useTestDatabase();
 
+let registry: TestSigner;
+let platform: TestPlatformSigner;
+
+beforeEach(async () => {
+  ({ registry, platform } = await setUpTestPlatform());
+});
+
 function makeRegisterBody(namePart: string): Record<string, unknown> {
+  const idempotencyKey = generateUUIDv7();
+  const request = { subject: { kind: 'person' as const }, ename: { namePart } };
   return {
-    idempotencyKey: generateUUIDv7(),
-    subject: { kind: 'person' },
-    ename: { namePart },
+    idempotencyKey,
+    signature: signRequest(subjectRegisteredEventKindDefinition, platform, {
+      idempotencyKey,
+      request,
+    }),
+    ...request,
   };
 }
 
-function makeAddBody(overrides: {
-  idempotencyKey?: string;
-  namePart?: string;
-}): Record<string, unknown> {
+// The body of an addition to this subject, signed by the platform unless
+// another signer is given: the signed request names the subject of the path.
+function makeAddBody(
+  subjectId: string,
+  overrides: { idempotencyKey?: string; namePart?: string },
+  signer: TestSigner = platform,
+): Record<string, unknown> {
+  const idempotencyKey = overrides.idempotencyKey ?? generateUUIDv7();
+  const ename = { namePart: overrides.namePart ?? 'new-name' };
   return {
-    idempotencyKey: overrides.idempotencyKey ?? generateUUIDv7(),
-    ename: { namePart: overrides.namePart ?? 'new-name' },
+    idempotencyKey,
+    signature: signRequest(subjectEnameAddedEventKindDefinition, signer, {
+      idempotencyKey,
+      request: { subject: { id: subjectId }, ename },
+    }),
+    ename,
   };
 }
 
@@ -42,8 +86,8 @@ test('happy path: returns 201 with the subject id and added ename', async () => 
   const subject = await seedSubject();
 
   const response = await postJSON(
-    `${SUBJECTS_PATH}/${subject.id}/enames`,
-    makeAddBody({ namePart: 'new-name' }),
+    pathOf(subject.id),
+    makeAddBody(subject.id, { namePart: 'new-name' }),
   );
 
   assert.equal(response.status, 201);
@@ -57,10 +101,13 @@ test('happy path: returns 201 with the subject id and added ename', async () => 
 
 test('idempotent replay: same path, idempotencyKey and body returns the same response', async () => {
   const subject = await seedSubject();
-  const requestBody = makeAddBody({ idempotencyKey: generateUUIDv7(), namePart: 'new-name' });
+  const requestBody = makeAddBody(subject.id, {
+    idempotencyKey: generateUUIDv7(),
+    namePart: 'new-name',
+  });
 
-  const firstResponse = await postJSON(`${SUBJECTS_PATH}/${subject.id}/enames`, requestBody);
-  const secondResponse = await postJSON(`${SUBJECTS_PATH}/${subject.id}/enames`, requestBody);
+  const firstResponse = await postJSON(pathOf(subject.id), requestBody);
+  const secondResponse = await postJSON(pathOf(subject.id), requestBody);
 
   assert.equal(firstResponse.status, 201);
   assert.equal(secondResponse.status, 201);
@@ -75,14 +122,14 @@ test('idempotency conflict: same key with a different body returns 409 problem+j
   const idempotencyKey = generateUUIDv7();
 
   const firstResponse = await postJSON(
-    `${SUBJECTS_PATH}/${subject.id}/enames`,
-    makeAddBody({ idempotencyKey, namePart: 'first-name' }),
+    pathOf(subject.id),
+    makeAddBody(subject.id, { idempotencyKey, namePart: 'first-name' }),
   );
   assert.equal(firstResponse.status, 201);
 
   const secondResponse = await postJSON(
-    `${SUBJECTS_PATH}/${subject.id}/enames`,
-    makeAddBody({ idempotencyKey, namePart: 'second-name' }),
+    pathOf(subject.id),
+    makeAddBody(subject.id, { idempotencyKey, namePart: 'second-name' }),
   );
   assert.equal(secondResponse.status, 409);
 
@@ -98,14 +145,14 @@ test('idempotency conflict: same key with a different path returns 409 problem+j
   const idempotencyKey = generateUUIDv7();
 
   const firstResponse = await postJSON(
-    `${SUBJECTS_PATH}/${firstSubject.id}/enames`,
-    makeAddBody({ idempotencyKey, namePart: 'shared-new-name' }),
+    pathOf(firstSubject.id),
+    makeAddBody(firstSubject.id, { idempotencyKey, namePart: 'shared-new-name' }),
   );
   assert.equal(firstResponse.status, 201);
 
   const secondResponse = await postJSON(
-    `${SUBJECTS_PATH}/${secondSubject.id}/enames`,
-    makeAddBody({ idempotencyKey, namePart: 'shared-new-name' }),
+    pathOf(secondSubject.id),
+    makeAddBody(secondSubject.id, { idempotencyKey, namePart: 'shared-new-name' }),
   );
   assert.equal(secondResponse.status, 409);
 
@@ -119,8 +166,8 @@ test('duplicate namePart for the same subject returns 409 problem+json', async (
   const subject = await seedSubject('same-name');
 
   const response = await postJSON(
-    `${SUBJECTS_PATH}/${subject.id}/enames`,
-    makeAddBody({ namePart: 'same-name' }),
+    pathOf(subject.id),
+    makeAddBody(subject.id, { namePart: 'same-name' }),
   );
 
   assert.equal(response.status, 409);
@@ -132,9 +179,10 @@ test('duplicate namePart for the same subject returns 409 problem+json', async (
 });
 
 test('unknown subject returns 404 problem+json', async () => {
+  const subjectId = generateUUIDv7();
   const response = await postJSON(
-    `${SUBJECTS_PATH}/${generateUUIDv7()}/enames`,
-    makeAddBody({ namePart: 'new-name' }),
+    pathOf(subjectId),
+    makeAddBody(subjectId, { namePart: 'new-name' }),
   );
 
   assert.equal(response.status, 404);
@@ -144,10 +192,40 @@ test('unknown subject returns 404 problem+json', async () => {
   assert.equal(body.detail, 'Subject not found.');
 });
 
+test('an addition signed by another platform than the home platform returns 403 problem+json', async () => {
+  const subject = await seedSubject();
+  const other = await accreditTestPlatform(registry);
+
+  const response = await postJSON(
+    pathOf(subject.id),
+    makeAddBody(subject.id, { namePart: 'new-name' }, other),
+  );
+
+  assert.equal(response.status, 403);
+  const body = await readProblem(response);
+  assert.equal(body.title, 'Forbidden');
+  assert.equal(body.detail, 'Only the home platform of this subject may add an ename to it.');
+});
+
+test('an addition signed for another subject returns 401 problem+json', async () => {
+  const subject = await seedSubject();
+
+  const response = await postJSON(
+    pathOf(subject.id),
+    makeAddBody(generateUUIDv7(), { namePart: 'new-name' }),
+  );
+
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get('WWW-Authenticate'), 'EnameSignature');
+  const body = await readProblem(response);
+  assert.equal(body.title, 'Unauthorized');
+  assert.equal(body.detail, 'The request signature could not be verified.');
+});
+
 test('invalid subject id path parameter returns 422 problem+json', async () => {
   const response = await postJSON(
-    `${SUBJECTS_PATH}/not-a-uuid/enames`,
-    makeAddBody({ namePart: 'new-name' }),
+    pathOf('not-a-uuid'),
+    makeAddBody('not-a-uuid', { namePart: 'new-name' }),
   );
 
   assert.equal(response.status, 422);
@@ -159,7 +237,7 @@ test('invalid subject id path parameter returns 422 problem+json', async () => {
 test('malformed JSON body returns 400 problem+json', async () => {
   const subject = await seedSubject();
   const response = await app.fetch(
-    new Request(`${TEST_ORIGIN}${SUBJECTS_PATH}/${subject.id}/enames`, {
+    new Request(`${TEST_ORIGIN}${pathOf(subject.id)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: 'hey',
@@ -173,10 +251,10 @@ test('malformed JSON body returns 400 problem+json', async () => {
 test('non-JSON Content-Type returns 415 problem+json', async () => {
   const subject = await seedSubject();
   const response = await app.fetch(
-    new Request(`${TEST_ORIGIN}${SUBJECTS_PATH}/${subject.id}/enames`, {
+    new Request(`${TEST_ORIGIN}${pathOf(subject.id)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(makeAddBody({})),
+      body: JSON.stringify(makeAddBody(subject.id, {})),
     }),
   );
 
@@ -187,33 +265,39 @@ test('non-JSON Content-Type returns 415 problem+json', async () => {
 for (const scenario of [
   {
     name: 'missing ename object entirely',
-    body: { idempotencyKey: generateUUIDv7() },
+    body: (subjectId: string) => ({ ...makeAddBody(subjectId, {}), ename: undefined }),
     expectedPath: ['ename'],
   },
   {
     name: 'missing namePart inside ename object',
-    body: { idempotencyKey: generateUUIDv7(), ename: {} },
+    body: (subjectId: string) => ({ ...makeAddBody(subjectId, {}), ename: {} }),
     expectedPath: ['ename', 'namePart'],
   },
   {
+    name: 'missing signature',
+    body: (subjectId: string) => ({ ...makeAddBody(subjectId, {}), signature: undefined }),
+    expectedPath: ['signature'],
+  },
+  {
     name: 'namePart contains uppercase',
-    body: makeAddBody({ namePart: 'New-Name' }),
+    body: (subjectId: string) => makeAddBody(subjectId, { namePart: 'New-Name' }),
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'namePart has consecutive hyphens',
-    body: makeAddBody({ namePart: 'new--name' }),
+    body: (subjectId: string) => makeAddBody(subjectId, { namePart: 'new--name' }),
     expectedPath: ['ename', 'namePart'],
   },
   {
     name: 'idempotencyKey is not a UUIDv7',
-    body: makeAddBody({ idempotencyKey: 'not-a-uuid', namePart: 'new-name' }),
+    body: (subjectId: string) =>
+      makeAddBody(subjectId, { idempotencyKey: 'not-a-uuid', namePart: 'new-name' }),
     expectedPath: ['idempotencyKey'],
   },
 ]) {
   test(`validation failure: ${scenario.name} → 422 problem+json`, async () => {
     const subject = await seedSubject();
-    const response = await postJSON(`${SUBJECTS_PATH}/${subject.id}/enames`, scenario.body);
+    const response = await postJSON(pathOf(subject.id), scenario.body(subject.id));
 
     assert.equal(response.status, 422);
 
@@ -235,20 +319,23 @@ for (const scenario of [
 for (const scenario of [
   {
     name: 'unknown top-level field',
-    body: { ...makeAddBody({}), extra: 1 },
+    body: (subjectId: string) => ({ ...makeAddBody(subjectId, {}), extra: 1 }),
     key: 'extra',
     expectedPath: [],
   },
   {
     name: 'unknown field inside ename object',
-    body: { ...makeAddBody({}), ename: { namePart: 'new-name', hidden: true } },
+    body: (subjectId: string) => ({
+      ...makeAddBody(subjectId, {}),
+      ename: { namePart: 'new-name', hidden: true },
+    }),
     key: 'hidden',
     expectedPath: ['ename'],
   },
 ]) {
   test(`validation failure: ${scenario.name} → 422 naming the key`, async () => {
     const subject = await seedSubject();
-    const response = await postJSON(`${SUBJECTS_PATH}/${subject.id}/enames`, scenario.body);
+    const response = await postJSON(pathOf(subject.id), scenario.body(subject.id));
 
     assert.equal(response.status, 422);
 

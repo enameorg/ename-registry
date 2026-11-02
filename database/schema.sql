@@ -51,7 +51,11 @@ CREATE TABLE public.events (
     request jsonb NOT NULL,
     outcome jsonb NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    CONSTRAINT events_kind_allowed CHECK ((kind = ANY (ARRAY['subject.registered'::text, 'subject.ename-added'::text])))
+    signature_key_id uuid NOT NULL,
+    signature_value text NOT NULL,
+    CONSTRAINT events_kind_allowed CHECK ((kind = ANY (ARRAY['registry.anchored'::text, 'platform.accredited'::text, 'platform.key-added'::text, 'subject.registered'::text, 'subject.ename-added'::text]))),
+    CONSTRAINT events_signature_value_charset CHECK ((signature_value ~ '^[A-Za-z0-9_-]+$'::text)),
+    CONSTRAINT events_signature_value_length CHECK (((length(signature_value) >= 1) AND (length(signature_value) <= 4096)))
 );
 
 
@@ -66,6 +70,40 @@ ALTER TABLE public.events ALTER COLUMN sequence ADD GENERATED ALWAYS AS IDENTITY
     NO MINVALUE
     NO MAXVALUE
     CACHE 1
+);
+
+
+--
+-- Name: keys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.keys (
+    id uuid NOT NULL,
+    platform_id uuid,
+    algorithm text NOT NULL,
+    value text NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    CONSTRAINT keys_algorithm_allowed CHECK ((algorithm = 'ecdsa-p256-sha256'::text)),
+    CONSTRAINT keys_value_charset CHECK ((value ~ '^[A-Za-z0-9_-]+$'::text)),
+    CONSTRAINT keys_value_length CHECK (((length(value) >= 1) AND (length(value) <= 4096)))
+);
+
+
+--
+-- Name: platforms; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.platforms (
+    id uuid NOT NULL,
+    legal_name text NOT NULL,
+    jurisdiction text NOT NULL,
+    registration_authority_code text NOT NULL,
+    registration_identifier text NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    CONSTRAINT platforms_jurisdiction_charset CHECK ((jurisdiction ~ '^[A-Z0-9-]{2,6}$'::text)),
+    CONSTRAINT platforms_legal_name_length CHECK (((length(legal_name) >= 1) AND (length(legal_name) <= 500))),
+    CONSTRAINT platforms_registration_authority_code_length CHECK (((length(registration_authority_code) >= 1) AND (length(registration_authority_code) <= 50))),
+    CONSTRAINT platforms_registration_identifier_length CHECK (((length(registration_identifier) >= 1) AND (length(registration_identifier) <= 100)))
 );
 
 
@@ -89,6 +127,7 @@ CREATE TABLE public.subjects (
     id uuid NOT NULL,
     kind text NOT NULL,
     created_at timestamp with time zone NOT NULL,
+    home_platform_id uuid NOT NULL,
     CONSTRAINT subjects_kind_allowed CHECK ((kind = 'person'::text))
 );
 
@@ -134,6 +173,30 @@ ALTER TABLE ONLY public.events
 
 
 --
+-- Name: keys keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.keys
+    ADD CONSTRAINT keys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: platforms platforms_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.platforms
+    ADD CONSTRAINT platforms_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: platforms platforms_registration_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.platforms
+    ADD CONSTRAINT platforms_registration_key UNIQUE (registration_authority_code, registration_identifier);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -150,11 +213,48 @@ ALTER TABLE ONLY public.subjects
 
 
 --
+-- Name: events_single_anchor_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX events_single_anchor_idx ON public.events USING btree (kind) WHERE (kind = 'registry.anchored'::text);
+
+
+--
+-- Name: keys_platform_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX keys_platform_id_idx ON public.keys USING btree (platform_id);
+
+
+--
+-- Name: subjects_home_platform_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX subjects_home_platform_id_idx ON public.subjects USING btree (home_platform_id);
+
+
+--
 -- Name: enames enames_subject_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.enames
     ADD CONSTRAINT enames_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.subjects(id);
+
+
+--
+-- Name: keys keys_platform_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.keys
+    ADD CONSTRAINT keys_platform_id_fkey FOREIGN KEY (platform_id) REFERENCES public.platforms(id);
+
+
+--
+-- Name: subjects subjects_home_platform_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subjects
+    ADD CONSTRAINT subjects_home_platform_id_fkey FOREIGN KEY (home_platform_id) REFERENCES public.platforms(id);
 
 
 --

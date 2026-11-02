@@ -12,8 +12,8 @@ export function health(): boolean {
   return true;
 }
 
-// Deep check: the database answers a trivial query within the bound. The failure
-// goes to the log; the caller only needs the verdict.
+// Deep check: the database answers a trivial query within the bound. The
+// failure goes to the log; the caller only needs the verdict.
 export async function checkDatabase(context: ServiceContext): Promise<boolean> {
   try {
     await pingDatabase(pool, DATABASE_PROBE_TIMEOUT_MS);

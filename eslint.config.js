@@ -18,7 +18,7 @@ const boundary = {
     message: 'Import a Node built-in with the node: prefix.',
   },
   // Another concept folder is imported through its index.ts barrel, whatever
-  // the depth of the path (cf. ename-internals.md, concept folders).
+  // the depth of the path (cf. ename-internals.md).
   barrelOfConcept: {
     regex: String.raw`(?:^|/)(?:services|api)/[^/]+/(?!index\.ts$)[^/]+$`,
     message: 'Import another concept through its index.ts barrel.',
@@ -27,7 +27,10 @@ const boundary = {
     regex: String.raw`^\.\./(?!\.\./)[^/]+/(?!index\.ts$)[^/]+$`,
     message: 'Import another concept through its index.ts barrel.',
   },
-  barrelOfSiblingFromAPI: {
+  // The same rule for a block that holds a layer's root modules (src/api/*.ts,
+  // src/services/*.ts): from there the utilities and the other layers are
+  // sibling folders too, imported by file.
+  barrelOfSiblingConcept: {
     regex: String.raw`^\.\./(?!\.\./|utilities/|services/|database/)[^/]+/(?!index\.ts$)[^/]+$`,
     message: 'Import another concept through its index.ts barrel.',
   },
@@ -54,18 +57,33 @@ const boundary = {
     regex: String.raw`/database/(?!testing\.ts$)`,
     message: 'An API test imports nothing of src/database/ but testing.ts.',
   },
-  noServices: {
-    regex: String.raw`/services/`,
+  noLayer: {
+    regex: String.raw`(^|/)(api|services|database)/`,
     message: 'A utility knows no layer.',
   },
-  // The event concept sits below every aggregate and imports none of them.
-  noAggregateFromEvent: {
+  // The event concept sits below every other concept and imports none of them:
+  // the signer of an event is authenticated by the function its use case
+  // passes. It imports only the Service's common folder, which any concept may
+  // import.
+  noConceptFromEvent: {
+    regex: String.raw`^\.\./(?!\.\./|errors\.ts$|context\.ts$|common/index\.ts$)`,
+    message: 'The event concept imports no other concept (cf. ename-internals.md).',
+  },
+  // The key concept sits below the concepts that own keys and imports no other
+  // concept.
+  noConceptFromKey: {
+    regex: String.raw`^\.\./(?!\.\./|errors\.ts$|context\.ts$|common/index\.ts$)`,
+    message: 'The key concept imports no other concept (cf. ename-internals.md).',
+  },
+  // The Service's common folder holds what several concepts share, below all of
+  // them: it imports no concept.
+  noConceptFromCommon: {
     regex: String.raw`^\.\./(?!\.\./|errors\.ts$|context\.ts$)`,
-    message: 'The event concept imports no aggregate (cf. ename-internals.md).',
+    message: 'The common folder imports no concept (cf. ename-internals.md).',
   },
 };
 
-// pg appears only in src/database/ (cf. ename-internals.md, primitives).
+// pg appears only in src/database/ (cf. ename-internals.md).
 const noPg = { name: 'pg', message: 'pg is imported by src/database/ only.' };
 
 function restrictImports(patterns, paths = []) {
@@ -113,8 +131,9 @@ export default defineConfig(
     },
   },
   {
-    // Test files: node:test's `test(name, fn)` returns a tracked Promise that the
-    // runner handles internally, so the floating-promises rule produces noise here.
+    // Test files: node:test's `test(name, fn)` returns a tracked Promise that
+    // the runner handles internally, so the floating-promises rule produces
+    // noise here.
     files: ['**/*.test.ts'],
     rules: {
       '@typescript-eslint/no-floating-promises': 'off',
@@ -142,13 +161,7 @@ export default defineConfig(
     files: ['backend/src/utilities/**/*.ts'],
     rules: {
       'no-restricted-imports': restrictImports(
-        [
-          boundary.nodePrefix,
-          boundary.noHono,
-          boundary.noAPI,
-          boundary.noServices,
-          boundary.noDatabase,
-        ],
+        [boundary.nodePrefix, boundary.noHono, boundary.noLayer],
         [noPg],
       ),
     },
@@ -182,6 +195,25 @@ export default defineConfig(
     },
   },
   {
+    // The Service layer's root modules (its errors, its context, its test
+    // helper) sit beside the concept folders, one level up: from there the
+    // plumbing and the utilities are siblings, imported by file.
+    files: ['backend/src/services/*.ts'],
+    rules: {
+      'no-restricted-imports': restrictImports(
+        [
+          boundary.nodePrefix,
+          boundary.noHono,
+          boundary.noAPI,
+          boundary.barrelOfConcept,
+          boundary.barrelOfSiblingConcept,
+          boundary.barrelOfChild,
+        ],
+        [noPg],
+      ),
+    },
+  },
+  {
     files: ['backend/src/services/event/**/*.ts'],
     ignores: ['**/*.test.ts'],
     rules: {
@@ -193,7 +225,43 @@ export default defineConfig(
           boundary.barrelOfConcept,
           boundary.barrelOfSibling,
           boundary.barrelOfChild,
-          boundary.noAggregateFromEvent,
+          boundary.noConceptFromEvent,
+        ],
+        [noPg],
+      ),
+    },
+  },
+  {
+    files: ['backend/src/services/key/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': restrictImports(
+        [
+          boundary.nodePrefix,
+          boundary.noHono,
+          boundary.noAPI,
+          boundary.barrelOfConcept,
+          boundary.barrelOfSibling,
+          boundary.barrelOfChild,
+          boundary.noConceptFromKey,
+        ],
+        [noPg],
+      ),
+    },
+  },
+  {
+    files: ['backend/src/services/common/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': restrictImports(
+        [
+          boundary.nodePrefix,
+          boundary.noHono,
+          boundary.noAPI,
+          boundary.barrelOfConcept,
+          boundary.barrelOfSibling,
+          boundary.barrelOfChild,
+          boundary.noConceptFromCommon,
         ],
         [noPg],
       ),
@@ -208,7 +276,7 @@ export default defineConfig(
           boundary.nodePrefix,
           boundary.noDatabase,
           boundary.barrelOfConcept,
-          boundary.barrelOfSiblingFromAPI,
+          boundary.barrelOfSiblingConcept,
           boundary.barrelOfChild,
         ],
         [noPg],
@@ -223,7 +291,7 @@ export default defineConfig(
           boundary.nodePrefix,
           boundary.noDatabaseButTesting,
           boundary.barrelOfConcept,
-          boundary.barrelOfSiblingFromAPI,
+          boundary.barrelOfSiblingConcept,
           boundary.barrelOfChild,
         ],
         [noPg],
@@ -231,7 +299,8 @@ export default defineConfig(
     },
   },
   {
-    // Environment variables are read once, in config.ts (cf. ename-internals.md).
+    // Environment variables are read once, in config.ts (cf.
+    // ename-internals.md).
     files: ['backend/src/**/*.ts'],
     ignores: ['backend/src/config.ts'],
     rules: {

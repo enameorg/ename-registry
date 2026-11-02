@@ -2,36 +2,48 @@ import { z } from 'zod';
 
 import { isUniqueViolation } from '../../database/errors.ts';
 import { type Database, queryRows } from '../../database/query.ts';
+import type { PublicKey } from '../../utilities/signature.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
+import { isSignatureValid, type Signature, SignatureSchema } from '../common/index.ts';
+import { ConflictError } from '../errors.ts';
+
+import type { EventKindDefinition } from './event-kind.ts';
 
 // ---------------------------------------------------------------------------
 // Event domain type and lookups
 // ---------------------------------------------------------------------------
 
-// Domain-shaped Event, mirroring the events table (the registry's source of
+// Domain-shaped Event, read from the events table (the registry's source of
 // truth; see ename-internals.md).
 //
-// request and outcome are typed `unknown`: the table holds heterogeneous kinds
-// (subject.registered, subject.ename-added, future key rotation, …), each with
-// its own pair of schemas. Callers narrow by kind and parse each column with
-// the kind's definition, declared by the use case that emits it (see
+// request and outcome are typed `unknown`: the table holds every kind, each
+// with its own pair of schemas. Callers narrow by kind and parse each column
+// with the kind's definition, declared by the use case that emits it (see
 // event-kind.ts).
 //
 // idempotencyKey is exposed for service-internal use (replay lookup, race
 // reconciliation) and admin reads; it is transport metadata, projected out of
 // the future public log endpoint by the API layer.
+//
+// signature is the signer's, as it was submitted: the key that signed the
+// event's document and the signature's value, from which anyone holding the
+// log can verify the event again (see isEventSignatureValid). Stored in two
+// columns, assembled by the SELECT.
 export const EventSchema = z.object({
   sequence: z.coerce.number().int().min(1),
   idempotencyKey: UUIDv7Schema,
   kind: z.string(),
   request: z.unknown(),
   outcome: z.unknown(),
+  signature: SignatureSchema,
   createdAt: z.date(),
 });
 
 export type Event = z.infer<typeof EventSchema>;
 
-const SELECT_EVENT_COLUMNS = 'sequence, idempotency_key, kind, request, outcome, created_at';
+const SELECT_EVENT_COLUMNS = `sequence, idempotency_key, kind, request, outcome,
+  json_build_object('keyId', signature_key_id, 'value', signature_value) AS signature,
+  created_at`;
 
 export async function getEventByIdempotencyKey(
   db: Database,
@@ -65,13 +77,45 @@ export async function findEvents(
 }
 
 // ---------------------------------------------------------------------------
+// Signature of a stored event
+// ---------------------------------------------------------------------------
+
+// Whether a stored event's signature verifies against the key it names, from
+// nothing but what the event stores: the document is rebuilt from the kind's
+// operation, the key, the idempotency key and the request read back from the
+// log. The check a verifier of the log runs on every event; each kind's test
+// runs it on the events its use case writes. The caller resolves the key; its
+// id is checked against the event's, since one public key may be recorded
+// under two ids.
+export function isEventSignatureValid(
+  definition: EventKindDefinition,
+  event: Event,
+  key: PublicKey & { id: string },
+): boolean {
+  if (event.kind !== definition.kind || key.id !== event.signature.keyId) return false;
+  return isSignatureValid(
+    key,
+    {
+      operation: definition.operation,
+      keyId: event.signature.keyId,
+      idempotencyKey: event.idempotencyKey,
+      request: event.request,
+    },
+    event.signature.value,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Insertion helper
 // ---------------------------------------------------------------------------
 
 const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
+const EVENTS_SINGLE_ANCHOR_INDEX = 'events_single_anchor_idx';
 
 // INSERT one event row. On a UNIQUE collision on idempotency_key, throws
-// IdempotencyRaceError so the caller can roll back and reconcile from the winner.
+// IdempotencyRaceError so the caller can roll back and reconcile from the
+// winner. A second anchor, which the log admits once (cf. ename-internals.md),
+// is a ConflictError.
 export async function insertEvent(
   db: Database,
   params: {
@@ -79,18 +123,31 @@ export async function insertEvent(
     kind: string;
     request: unknown;
     outcome: unknown;
+    signature: Signature;
     createdAt: Date;
   },
 ): Promise<void> {
   try {
     await db.query(
-      `INSERT INTO events (idempotency_key, kind, request, outcome, created_at)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [params.idempotencyKey, params.kind, params.request, params.outcome, params.createdAt],
+      `INSERT INTO events
+         (idempotency_key, kind, request, outcome, signature_key_id, signature_value, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        params.idempotencyKey,
+        params.kind,
+        params.request,
+        params.outcome,
+        params.signature.keyId,
+        params.signature.value,
+        params.createdAt,
+      ],
     );
   } catch (error) {
     if (isUniqueViolation(error, EVENTS_IDEMPOTENCY_KEY_CONSTRAINT)) {
       throw new IdempotencyRaceError();
+    }
+    if (isUniqueViolation(error, EVENTS_SINGLE_ANCHOR_INDEX)) {
+      throw new ConflictError('The registry is already anchored.');
     }
     throw error;
   }

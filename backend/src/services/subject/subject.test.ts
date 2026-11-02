@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { pool } from '../../database/pool.ts';
 import { readCheckConstraintValues, useTestDatabase } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
+import { insertTestPlatform } from '../testing.ts';
 
 import { findSubjects, getSubject, insertSubject, SubjectKindSchema } from './subject.ts';
 
@@ -17,14 +18,21 @@ useTestDatabase();
 test('insertSubject then read back by id and via findSubjects', async () => {
   const id = generateUUIDv7();
   const createdAt = new Date();
+  const platform = await insertTestPlatform(pool);
 
-  const inserted = await insertSubject(pool, { id, kind: 'person', createdAt });
+  const inserted = await insertSubject(pool, {
+    id,
+    kind: 'person',
+    homePlatformId: platform.id,
+    createdAt,
+  });
 
   const found = await getSubject(pool, id);
   assert.ok(found);
   assert.deepEqual(inserted, found);
   assert.equal(found.id, id);
   assert.equal(found.kind, 'person');
+  assert.equal(found.homePlatformId, platform.id);
   assert.match(found.id, UUIDV7_REGEX);
   assert.equal(found.createdAt.getTime(), createdAt.getTime());
 
@@ -39,8 +47,14 @@ test('getSubject returns undefined for an unknown id', async () => {
 
 test('findSubjects returns every inserted subject', async () => {
   const ids = [generateUUIDv7(), generateUUIDv7(), generateUUIDv7()];
+  const platform = await insertTestPlatform(pool);
   for (const id of ids) {
-    await insertSubject(pool, { id, kind: 'person', createdAt: new Date() });
+    await insertSubject(pool, {
+      id,
+      kind: 'person',
+      homePlatformId: platform.id,
+      createdAt: new Date(),
+    });
   }
 
   const all = await findSubjects(pool);
@@ -50,7 +64,8 @@ test('findSubjects returns every inserted subject', async () => {
 
 // The subject kind vocabulary is declared once in code (SubjectKindSchema) and
 // once in the database (the subjects_kind_allowed CHECK); this pins that the
-// two agree, in both directions, so a kind added on one side only fails by name.
+// two agree, in both directions, so a kind added on one side only fails by
+// name.
 test('the subject kinds SubjectKindSchema declares are exactly the kinds the subjects_kind_allowed CHECK admits', async () => {
   const admitted = await readCheckConstraintValues('subjects_kind_allowed');
 

@@ -15,8 +15,8 @@ import { TEST_ORIGIN, readProblem } from './testing.ts';
 // The branches of handleError no v1 route reaches on purpose: an unexpected
 // error (the opaque 500), a framework HTTPException whose status the mapping
 // does not own, and the contention 503 that a real burst reaches only by
-// chance (cf. services/subject/register-subject.test.ts). A throwaway sub-app wired
-// like the v1 sub-app (request context, then handleError) throws them on
+// chance (cf. services/subject/register-subject.test.ts). A throwaway sub-app
+// wired like the v1 sub-app (request context, then handleError) throws them on
 // demand, so the test observes the same function the real app runs, through
 // the same HTTP surface. What handleError writes to the request's logger is
 // part of that surface: the sub-app swaps the request's logger for a child of

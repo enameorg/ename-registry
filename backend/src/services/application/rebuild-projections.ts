@@ -3,15 +3,23 @@ import { withTransaction } from '../../database/query.ts';
 import type { ServiceContext } from '../context.ts';
 import { type Event, type EventKindDefinition, findEvents, rebuildEvent } from '../event/index.ts';
 import {
+  platformAccreditedEventKindDefinition,
+  platformKeyAddedEventKindDefinition,
+} from '../platform/index.ts';
+import { registryAnchoredEventKindDefinition } from '../registry/index.ts';
+import {
   subjectEnameAddedEventKindDefinition,
   subjectRegisteredEventKindDefinition,
 } from '../subject/index.ts';
 
-// Every event kind definition the use cases declare, listed here and nowhere
-// else: a new kind is added here. The events.kind CHECK is the authoritative
-// list of kinds, and rebuild-projections.test.ts names any kind on which the
-// two disagree.
+// Every event kind definition the use cases declare: the one production list,
+// where a new kind is added. The events.kind CHECK is the authoritative list
+// of kinds, and rebuild-projections.test.ts names any kind on which the two
+// disagree.
 export const eventKindDefinitions: readonly EventKindDefinition[] = [
+  registryAnchoredEventKindDefinition,
+  platformAccreditedEventKindDefinition,
+  platformKeyAddedEventKindDefinition,
   subjectRegisteredEventKindDefinition,
   subjectEnameAddedEventKindDefinition,
 ];

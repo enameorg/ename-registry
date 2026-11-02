@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { randomInt } from 'node:crypto';
 import { test } from 'node:test';
 
 import { pino } from 'pino';
@@ -11,23 +12,29 @@ import { useTestDatabase } from './testing.ts';
 
 // Executable specification of withTransaction's nesting: a transaction on the
 // pool, a savepoint on a transaction's client (cf. ename-internals.md). The
-// subjects table is only a target for rows; raw SQL keeps this test inside
-// src/database/. Inside a block, `db` shadows the outer one on purpose: the
-// block's statements run on the block's handle.
+// platforms table, which references no other, is only a target for rows; raw
+// SQL keeps this test inside src/database/. Inside a block, `db` shadows the
+// outer one on purpose: the block's statements run on the block's handle.
 const logger = pino({ level: 'silent' });
 
 useTestDatabase();
 
+// A row of its own: a random nine-digit identifier, since a platform's
+// registration is UNIQUE and a test inserts several rows.
 async function insertRow(db: Database): Promise<void> {
-  await db.query('INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)', [
-    generateUUIDv7(),
-    'person',
-    new Date(),
-  ]);
+  const registrationIdentifier = String(randomInt(1, 1_000_000_000)).padStart(9, '0');
+  await db.query(
+    `INSERT INTO platforms
+       (id, legal_name, jurisdiction, registration_authority_code, registration_identifier, created_at)
+     VALUES ($1, 'TEST', 'FR', 'RA000189', $2, $3)`,
+    [generateUUIDv7(), registrationIdentifier, new Date()],
+  );
 }
 
 async function countRows(): Promise<number> {
-  const result = await pool.query<{ count: number }>('SELECT count(*)::int AS count FROM subjects');
+  const result = await pool.query<{ count: number }>(
+    'SELECT count(*)::int AS count FROM platforms',
+  );
   return result.rows[0]?.count ?? -1;
 }
 

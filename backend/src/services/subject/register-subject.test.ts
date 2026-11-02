@@ -3,29 +3,37 @@ import { test } from 'node:test';
 
 import { pino } from 'pino';
 
-// Service integration tests: assert the return value and the persisted state
-// read back through the Service's own functions (findSubjects, findEnames,
-// findEvents) — no raw pool/SQL. Those read primitives are themselves covered
-// by their concept's *.test.ts, so reading state through them here is not
-// circular. The kind's mapping and its rebuild from the log are tested here
-// too, beside the use case. Idempotency (replay, conflict, race) is
-// withEvent's and is tested at its interface in
-// services/event/with-event.test.ts. Test doctrine: ename-internals.md.
 import { pool } from '../../database/pool.ts';
 import { withTransaction } from '../../database/query.ts';
 import { truncateProjections, useTestDatabase } from '../../database/testing.ts';
 import { generateUUIDv7, UUIDV7_REGEX } from '../../utilities/uuid.ts';
 import { findEnames } from '../ename/index.ts';
 import { ContentionError, ValidationError } from '../errors.ts';
-import { findEvents, parseEvent, rebuildEvent } from '../event/index.ts';
+import { type Event, findEvents, isEventSignatureValid, parseEvent } from '../event/index.ts';
+import { getKey } from '../key/index.ts';
+import {
+  rebuildEvents,
+  setUpEventKindDefinitions,
+  setUpTestPlatform,
+  signInput,
+  type TestPlatformSigner,
+} from '../testing.ts';
 
 import {
   registerSubject,
+  type RegisterSubjectInput,
   type RegisterSubjectResult,
   subjectRegisteredEventKindDefinition,
 } from './register-subject.ts';
 import { findSubjects } from './subject.ts';
 
+// What this use case adds to the write protocol: its kind's mapping, the two
+// rows it writes, their rebuild from the log, the sequential and concurrent
+// allocation of numberParts, the 52-character budget and the namePart
+// grammar; its signer's authentication is authenticatePlatform's, tested in
+// services/platform/platform.test.ts; idempotency is withEvent's, tested in
+// services/event/with-event.test.ts. Test doctrine: ename-internals.md.
+//
 // Silent logger: these tests assert behavior, not log output. Keeping the
 // test runner output clean while still exercising the logger plumbing in the
 // service (logger.warn on number_part retry).
@@ -33,6 +41,32 @@ const silentLogger = pino({ level: 'silent' });
 const context = { logger: silentLogger };
 
 useTestDatabase();
+
+// Register through the use case, signed by the platform.
+async function register(
+  platform: TestPlatformSigner,
+  input: Omit<RegisterSubjectInput, 'signature'>,
+): Promise<RegisterSubjectResult> {
+  return await registerSubject(
+    signInput(subjectRegisteredEventKindDefinition, platform, input),
+    context,
+  );
+}
+
+function registration(namePart: string) {
+  return {
+    idempotencyKey: generateUUIDv7(),
+    subject: { kind: 'person' as const },
+    ename: { namePart },
+  };
+}
+
+// The events the use case wrote, the setup's anchor and accreditation aside.
+async function findSubjectEvents(): Promise<Event[]> {
+  return (await findEvents(pool)).filter(
+    (event) => event.kind === subjectRegisteredEventKindDefinition.kind,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // The kind's mapping: pure, no database
@@ -44,15 +78,19 @@ useTestDatabase();
 test('toOutcome keeps what the server allocated, and fromEvent reads it back as the rows written', () => {
   const subjectId = generateUUIDv7();
   const enameId = generateUUIDv7();
+  const platformId = generateUUIDv7();
   const createdAt = new Date('2026-05-27T14:32:11.123Z');
   const request = { subject: { kind: 'person' as const }, ename: { namePart: 'jean-dupont' } };
   const rows: RegisterSubjectResult = {
-    subject: { id: subjectId, kind: 'person', createdAt },
+    subject: { id: subjectId, kind: 'person', homePlatformId: platformId, createdAt },
     ename: { id: enameId, subjectId, namePart: 'jean-dupont', numberPart: 3, createdAt },
   };
 
   const outcome = subjectRegisteredEventKindDefinition.toOutcome(rows);
-  assert.deepEqual(outcome, { subject: { id: subjectId }, ename: { id: enameId, numberPart: 3 } });
+  assert.deepEqual(outcome, {
+    subject: { id: subjectId, homePlatform: { id: platformId } },
+    ename: { id: enameId, numberPart: 3 },
+  });
   assert.deepEqual(
     subjectRegisteredEventKindDefinition.fromEvent({ request, outcome, createdAt }),
     rows,
@@ -63,18 +101,16 @@ test('toOutcome keeps what the server allocated, and fromEvent reads it back as 
 // Happy path: full inspection of projections and event log
 // ---------------------------------------------------------------------------
 
-test('happy path: writes one row per table with consistent ids, namePart, numberPart, request, outcome, kind, idempotency_key and created_at', async () => {
+test('happy path: writes one row per table with consistent ids, namePart, numberPart, home platform, request, outcome, kind, idempotency_key, signature and created_at', async () => {
+  const { platform } = await setUpTestPlatform();
   const idempotencyKey = generateUUIDv7();
   const namePart = 'jean-dupont';
 
-  const result = await registerSubject(
-    {
-      idempotencyKey,
-      subject: { kind: 'person' },
-      ename: { namePart },
-    },
-    context,
-  );
+  const result = await register(platform, {
+    idempotencyKey,
+    subject: { kind: 'person' },
+    ename: { namePart },
+  });
 
   assert.match(result.subject.id, UUIDV7_REGEX);
   assert.match(result.ename.id, UUIDV7_REGEX);
@@ -87,6 +123,8 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(subjects.length, 1);
   assert.equal(subjects[0]?.id, result.subject.id);
   assert.equal(subjects[0]?.kind, 'person');
+  // The signing platform is the home platform.
+  assert.equal(subjects[0]?.homePlatformId, platform.platformId);
 
   // `enames` projection.
   const enames = await findEnames(pool);
@@ -98,7 +136,7 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(enames[0]?.numberPart, 1);
 
   // Event log.
-  const events = await findEvents(pool);
+  const events = await findSubjectEvents();
   assert.equal(events.length, 1);
   assert.equal(events[0]?.idempotencyKey, idempotencyKey);
   assert.equal(events[0]?.kind, 'subject.registered');
@@ -110,6 +148,14 @@ test('happy path: writes one row per table with consistent ids, namePart, number
   assert.equal(outcome.subject.id, result.subject.id);
   assert.equal(outcome.ename.id, result.ename.id);
   assert.equal(outcome.ename.numberPart, 1);
+  assert.equal(outcome.subject.homePlatform.id, platform.platformId);
+
+  // The stored event verifies again from what it stores alone (cf.
+  // ename-internals.md): the platform's key, the operation, the request.
+  assert.equal(events[0].signature.keyId, platform.keyId);
+  const key = await getKey(pool, events[0].signature.keyId);
+  assert.ok(key);
+  assert.equal(isEventSignatureValid(subjectRegisteredEventKindDefinition, events[0], key), true);
 
   // The three created_at values are strictly equal — required for a
   // deterministic rebuild — and the returned rows carry it.
@@ -128,14 +174,14 @@ test('happy path: writes one row per table with consistent ids, namePart, number
 
 // The second way this kind's rows get written (cf. ename-internals.md): with
 // the projections emptied, rebuilding every event in sequence order writes the
-// same rows the use case wrote, ids, numberParts and createdAt included, and
-// leaves the log as it was. Homonyms make the allocated numberParts differ.
+// same rows the use case wrote, ids, numberParts, home platform and createdAt
+// included, and leaves the log as it was. Homonyms make the allocated
+// numberParts differ. The setup's events come first, as in the log: the
+// subjects reference the platform they accredited.
 test('rebuilding the log writes back exactly the subjects and enames registerSubject wrote', async () => {
+  const { platform } = await setUpTestPlatform();
   for (const namePart of ['jean-dupont', 'jean-dupont', 'marie-curie']) {
-    await registerSubject(
-      { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
-      context,
-    );
+    await register(platform, registration(namePart));
   }
   const subjects = await findSubjects(pool);
   const enames = await findEnames(pool);
@@ -147,12 +193,11 @@ test('rebuilding the log writes back exactly the subjects and enames registerSub
 
   await withTransaction(
     pool,
-    async (db) => {
-      for (const event of events) {
-        assert.equal(event.kind, subjectRegisteredEventKindDefinition.kind);
-        await rebuildEvent(db, subjectRegisteredEventKindDefinition, event);
-      }
-    },
+    (db) =>
+      rebuildEvents(db, events, [
+        ...setUpEventKindDefinitions,
+        subjectRegisteredEventKindDefinition,
+      ]),
     silentLogger,
   );
 
@@ -165,23 +210,23 @@ test('rebuilding the log writes back exactly the subjects and enames registerSub
 // rebuilt alone into empty projections, the second homonym is #2, where the
 // live allocation (COALESCE(MAX)+1) would pick #1.
 test('a rebuilt event writes the numberPart it recorded, never the next free one', async () => {
+  const { platform } = await setUpTestPlatform();
+  const setUpEvents = await findEvents(pool);
   for (let index = 0; index < 2; index += 1) {
-    await registerSubject(
-      {
-        idempotencyKey: generateUUIDv7(),
-        subject: { kind: 'person' },
-        ename: { namePart: 'jean-dupont' },
-      },
-      context,
-    );
+    await register(platform, registration('jean-dupont'));
   }
-  const second = (await findEvents(pool))[1];
+  const second = (await findSubjectEvents())[1];
   assert.ok(second);
 
   await truncateProjections();
   await withTransaction(
     pool,
-    (db) => rebuildEvent(db, subjectRegisteredEventKindDefinition, second),
+    (db) =>
+      rebuildEvents(
+        db,
+        [...setUpEvents, second],
+        [...setUpEventKindDefinitions, subjectRegisteredEventKindDefinition],
+      ),
     silentLogger,
   );
 
@@ -197,16 +242,11 @@ test('a rebuilt event writes the numberPart it recorded, never the next free one
 // ---------------------------------------------------------------------------
 
 test('two sequential registrations for the same namePart produce consecutive numberParts', async () => {
+  const { platform } = await setUpTestPlatform();
   const namePart = 'marie-curie';
 
-  const first = await registerSubject(
-    { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
-    context,
-  );
-  const second = await registerSubject(
-    { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
-    context,
-  );
+  const first = await register(platform, registration(namePart));
+  const second = await register(platform, registration(namePart));
 
   assert.notEqual(first.subject.id, second.subject.id);
   assert.equal(first.ename.numberPart, 1);
@@ -218,20 +258,12 @@ test('two sequential registrations for the same namePart produce consecutive num
 // ---------------------------------------------------------------------------
 
 test('concurrent registrations for the same namePart produce consecutive numberParts', async () => {
+  const { platform } = await setUpTestPlatform();
   const namePart = 'concurrent-name';
   const concurrency = 10;
 
   const results = await Promise.all(
-    Array.from({ length: concurrency }, () =>
-      registerSubject(
-        {
-          idempotencyKey: generateUUIDv7(),
-          subject: { kind: 'person' },
-          ename: { namePart },
-        },
-        context,
-      ),
-    ),
+    Array.from({ length: concurrency }, () => register(platform, registration(namePart))),
   );
 
   // Each call must have produced a distinct ename row with a unique
@@ -247,10 +279,6 @@ test('concurrent registrations for the same namePart produce consecutive numberP
   const subjectIds = new Set(results.map((result) => result.subject.id));
   assert.equal(subjectIds.size, concurrency);
 });
-
-// ---------------------------------------------------------------------------
-// Domain validation: total length > 52 chars once the numberPart is allocated
-// ---------------------------------------------------------------------------
 
 // Beyond the retry budget, a burst on one namePart ends in ContentionError for
 // the losers — a retryable domain error, never an unexpected one — while the
@@ -268,20 +296,12 @@ test('concurrent registrations for the same namePart produce consecutive numberP
 // to 5 at 10, 8 to 11 at 20, 11 to 14 at 80. A larger pool only strengthens the
 // assertion; a smaller one weakens it, and the failure message below says so.
 test('concurrent registrations for the same namePart beyond the retry budget fail with ContentionError, the rest succeed', async () => {
+  const { platform } = await setUpTestPlatform();
   const namePart = 'martin';
   const concurrency = 40;
 
   const outcomes = await Promise.allSettled(
-    Array.from({ length: concurrency }, () =>
-      registerSubject(
-        {
-          idempotencyKey: generateUUIDv7(),
-          subject: { kind: 'person' },
-          ename: { namePart },
-        },
-        context,
-      ),
-    ),
+    Array.from({ length: concurrency }, () => register(platform, registration(namePart))),
   );
 
   const fulfilled = outcomes.filter((outcome) => outcome.status === 'fulfilled');
@@ -301,25 +321,23 @@ test('concurrent registrations for the same namePart beyond the retry budget fai
   assert.equal((await findEnames(pool)).length, fulfilled.length);
 });
 
+// ---------------------------------------------------------------------------
+// Domain validation: total length > 52 chars once the numberPart is allocated
+// ---------------------------------------------------------------------------
+
 test('52-char budget: throws ValidationError pointing at ename.namePart and rolls back the transaction', async () => {
   // Seed via the public service surface — no test backdoor. With a 50-char
   // namePart, the first 9 registrations stay within the 52-char limit
   // (50 + 1 + 1-digit numberPart ≤ 52). The 10th attempt would allocate
   // numberPart=10 (2 digits) → total 53 > 52, which the allocation refuses.
+  const { platform } = await setUpTestPlatform();
   const namePart = 'a'.repeat(50);
   for (let index = 0; index < 9; index += 1) {
-    await registerSubject(
-      { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
-      context,
-    );
+    await register(platform, registration(namePart));
   }
 
   await assert.rejects(
-    () =>
-      registerSubject(
-        { idempotencyKey: generateUUIDv7(), subject: { kind: 'person' }, ename: { namePart } },
-        context,
-      ),
+    () => register(platform, registration(namePart)),
     (error: unknown) => {
       assert.ok(error instanceof ValidationError);
       assert.match(error.message, /52/);
@@ -336,7 +354,7 @@ test('52-char budget: throws ValidationError pointing at ename.namePart and roll
   // each projection, and exactly 9 events in the log.
   assert.equal((await findSubjects(pool)).length, 9);
   assert.equal((await findEnames(pool)).length, 9);
-  assert.equal((await findEvents(pool)).length, 9);
+  assert.equal((await findSubjectEvents()).length, 9);
 });
 
 // ---------------------------------------------------------------------------
@@ -344,16 +362,9 @@ test('52-char budget: throws ValidationError pointing at ename.namePart and roll
 // ---------------------------------------------------------------------------
 
 test('a namePart outside the grammar is rejected before anything is written', async () => {
+  const { platform } = await setUpTestPlatform();
   await assert.rejects(
-    () =>
-      registerSubject(
-        {
-          idempotencyKey: generateUUIDv7(),
-          subject: { kind: 'person' },
-          ename: { namePart: 'Jean-Dupont' },
-        },
-        context,
-      ),
+    () => register(platform, registration('Jean-Dupont')),
     (error: unknown) => {
       assert.ok(error instanceof ValidationError);
       assert.ok(
@@ -365,5 +376,5 @@ test('a namePart outside the grammar is rejected before anything is written', as
 
   assert.equal((await findSubjects(pool)).length, 0);
   assert.equal((await findEnames(pool)).length, 0);
-  assert.equal((await findEvents(pool)).length, 0);
+  assert.equal((await findSubjectEvents()).length, 0);
 });

@@ -3,15 +3,15 @@ import { z } from '@hono/zod-openapi';
 import * as subjectService from '../../services/subject/index.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
 
-// Wire schemas of the subject concept, shared by every route under /subjects, so
-// the contract holds one component per shape whatever route produces it (cf.
-// ename-internals.md). A request-side schema carries the `Input` suffix;
-// `Subject` is the full subject as the registry returns it; `SubjectReference`
-// names an existing subject by id alone.
+// Wire schemas of the subject concept, shared by every route under /subjects,
+// so the contract holds one component per shape whatever route produces it
+// (cf. ename-internals.md): `SubjectInput` is what a platform submits to
+// register a subject, `Subject` the subject as the registry returns it,
+// `SubjectReference` an existing subject named by its id alone.
 
-// The input schemas are the Service's, strict, wrapped in place with their
-// example (a clone; the Service schema stays untouched): the contract cannot
-// drift from what the event kinds store (cf. ename-internals.md).
+// The input schema is the Service's, strict, wrapped in place with its example
+// (a clone; the Service schema stays untouched): the contract cannot drift
+// from what the event kinds store (cf. ename-internals.md).
 export const SubjectInputSchema = subjectService.SubjectInputSchema.openapi('SubjectInput', {
   example: { kind: 'person' },
 });

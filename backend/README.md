@@ -35,6 +35,11 @@ npm run db:up -w database
 
 # Generate the canonical OpenAPI spec (writes backend/openapi.json).
 npm run openapi:generate -w backend
+
+# Anchor the registry of ename_dev: generates the first registry key, writes
+# the anchor as the first event of the log, and keeps the private key in
+# backend/.keys/ (git-ignored). Run once per database.
+npm run registry:init -w backend
 ```
 
 The local database is managed by the [`database/`](../database/) package: a single PostgreSQL 18 cluster (matching Scaleway Serverless SQL) hosting two logical databases — `ename_dev` (used by the app) and `ename_test` (used by the test runner).
@@ -43,34 +48,54 @@ The local database is managed by the [`database/`](../database/) package: a sing
 
 Run from this directory, or from the repository root with `-w backend` (`npm run dev -w backend`).
 
-| Command                    | What it does                                               |
-| -------------------------- | ---------------------------------------------------------- |
-| `npm run dev`              | Run the server with file watching (`node --watch`).        |
-| `npm start`                | Run the server without watching (production mode).         |
-| `npm test`                 | Run the test suite via `node:test`.                        |
-| `npm run test:coverage`    | Run tests with built-in coverage reporting.                |
-| `npm run typecheck`        | Type-check the entire codebase (`tsc --noEmit`).           |
-| `npm run lint`             | Lint the codebase via ESLint.                              |
-| `npm run lint:fix`         | Lint and auto-fix where possible.                          |
-| `npm run format`           | Check formatting via Prettier.                             |
-| `npm run format:fix`       | Reformat the codebase via Prettier.                        |
-| `npm run openapi:generate` | Regenerate `openapi.json` from the live route definitions. |
-| `npm run check`            | Run typecheck + lint + format + tests in sequence.         |
+| Command                     | What it does                                                             |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `npm run dev`               | Run the server with file watching (`node --watch`).                      |
+| `npm start`                 | Run the server without watching (production mode).                       |
+| `npm test`                  | Run the test suite via `node:test`.                                      |
+| `npm run test:coverage`     | Run tests with built-in coverage reporting.                              |
+| `npm run typecheck`         | Type-check the entire codebase (`tsc --noEmit`).                         |
+| `npm run lint`              | Lint the codebase via ESLint.                                            |
+| `npm run lint:fix`          | Lint and auto-fix where possible.                                        |
+| `npm run format`            | Check formatting via Prettier.                                           |
+| `npm run format:fix`        | Reformat the codebase via Prettier.                                      |
+| `npm run openapi:generate`  | Regenerate `openapi.json` from the live route definitions.               |
+| `npm run registry:init`     | Anchor the registry of `ename_dev` with a new registry key.              |
+| `npm run platform:accredit` | Accredit a platform on the running server, signed with the registry key. |
+| `npm run check`             | Run typecheck + lint + format + tests in sequence.                       |
 
 Schema, migration, and local cluster commands (`db:up`, `db:migrate`, `db:new`, `db:reset`, `db:dump`, …) live in the sibling [`database/`](../database/) package — see [`../database/README.md`](../database/README.md).
 
 ## Endpoints
 
-| Method | Path                          | Description                                                                                                                                |
-| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `POST` | `/api/v1/subjects`            | Register a new subject together with its first ename atomically. Idempotent via `idempotencyKey`. Produces one `subject.registered` event. |
-| `POST` | `/api/v1/subjects/:id/enames` | Add one ename to an existing subject. Idempotent via `idempotencyKey`. Produces one `subject.ename-added` event.                           |
-| `GET`  | `/api/v1/health`              | Liveness check: the process answers, nothing else is checked. Returns 200 + `{"status":"ok"}` or 503 + `{"status":"unhealthy"}`.           |
-| `GET`  | `/api/v1/health/deep`         | Deep check: the database must answer a trivial query within 1 s. Same body shape, 200 or 503. For monitoring, never the container probe.   |
-| `GET`  | `/api/v1/openapi.json`        | OpenAPI 3.1 specification of the v1 contract.                                                                                              |
-| `GET`  | `/api/v1/docs`                | Interactive API reference and client (Scalar UI), reading the live spec.                                                                   |
+| Method | Path                          | Description                                                                                                                                                                                                   |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST` | `/api/v1/subjects`            | Register a new subject together with its first ename atomically. Signed by an accredited platform, which becomes its home platform. Idempotent via `idempotencyKey`. Produces one `subject.registered` event. |
+| `POST` | `/api/v1/subjects/:id/enames` | Add one ename to an existing subject. Signed by the subject's home platform. Idempotent via `idempotencyKey`. Produces one `subject.ename-added` event.                                                       |
+| `POST` | `/api/v1/platforms`           | Accredit a platform together with its first key. Signed by a registry key. Idempotent via `idempotencyKey`. Produces one `platform.accredited` event.                                                         |
+| `POST` | `/api/v1/platforms/:id/keys`  | Add a key to an accredited platform. Signed by a registry key. Idempotent via `idempotencyKey`. Produces one `platform.key-added` event.                                                                      |
+| `GET`  | `/api/v1/health`              | Liveness check: the process answers, nothing else is checked. Returns 200 + `{"status":"ok"}` or 503 + `{"status":"unhealthy"}`.                                                                              |
+| `GET`  | `/api/v1/health/deep`         | Deep check: the database must answer a trivial query within 1 s. Same body shape, 200 or 503. For monitoring, never the container probe.                                                                      |
+| `GET`  | `/api/v1/openapi.json`        | OpenAPI 3.1 specification of the v1 contract.                                                                                                                                                                 |
+| `GET`  | `/api/v1/docs`                | Interactive API reference and client (Scalar UI), reading the live spec.                                                                                                                                      |
+
+Every write body carries a `signature` (`{ keyId, value }`) of its request, built as [`../docs/ename-signature.md`](../docs/ename-signature.md) defines; the operation to sign is the route's `x-ename-operation` in the spec.
 
 After `npm run dev`, open <http://localhost:3000/api/v1/docs> in a browser to browse the endpoints, send requests, and store variables and environments locally. The page fetches `openapi.json` live at each load, so it always reflects the running code — no import or duplication step.
+
+## Keys and accreditation in development
+
+The registry never holds a private key: whoever submits an event signs it. In development, the keys live in `backend/.keys/`, git-ignored:
+
+- `registry.pem` and `registry.key-id`, written by `npm run registry:init`. The command refuses to run when the key files exist or when the registry is already anchored; to start over, `npm run db:reset -w database` and delete the directory.
+- `platform-<keyId>.pem`, written by `npm run platform:accredit` when it is given no public key. A real platform keeps its private key: it hands its public key over as a PEM file, `--public-key path/to/public.pem`.
+
+```bash
+# With `npm run dev` running in another terminal:
+npm run platform:accredit -w backend -- --legal-name 1PLACE --jurisdiction FR --registration-authority-code RA000189 --registration-identifier 951595875
+```
+
+The script prints the accredited platform and its key; the platform signs its requests with that key's id. In production, the custody of the registry key is `[Q-REGKEY-MGMT]`, and only the signing client changes.
 
 ## Project structure
 
@@ -82,26 +107,37 @@ backend/
 │   ├── api/                  # API layer (HTTP surface): one folder per URL root, one file per route, the wire schemas beside them
 │   │   ├── application/      # /health and /health/deep
 │   │   ├── subject/          # /subjects and /subjects/:id/enames
+│   │   ├── platform/         # /platforms and /platforms/:id/keys
+│   │   ├── common/           # Wire schemas of the concepts no URL root owns: Signature, which every write body carries, and Key
 │   │   ├── index.ts          # v1 mount table: middleware order, routes, fallbacks, OpenAPI document
+│   │   ├── context.ts        # APIContext: the request-scoped values middleware binds (requestId, child logger)
 │   │   ├── errors.ts         # Error policy: Problem Details, validation hook, error → response mapping
 │   │   ├── middleware.ts     # requestId + child logger + entrance/exit logs; the body-size cap
+│   │   ├── openapi-metadata.ts # OpenAPI version and info block of the v1 document
 │   │   └── testing.ts        # API test helpers: postJSON, readJSON, readProblem
 │   ├── database/             # Low-level DB plumbing the services build on: pool, query and transaction helpers, pg error narrowing
 │   │   └── testing.ts        # Test DB lifecycle: reset, lock probe, CHECK reader, projection truncation
 │   ├── services/             # Service layer (business logic, no HTTP): one folder per concept, each with an index.ts barrel
 │   │   ├── subject/          # Subject: schemas, primitives, the write use cases with the event kinds they emit
 │   │   ├── ename/            # Ename: format rules, schemas, primitives
-│   │   ├── event/            # The append-only log: the shape of an event kind, withEvent(), rebuildEvent()
+│   │   ├── platform/         # Platform: legal identity, primitives, the authentication of a platform signer, accreditation and key addition
+│   │   ├── key/              # The public keys that sign events: schemas, primitives, the verification of a recorded key's signature
+│   │   ├── registry/         # What the registry records of itself: the authentication of a registry signer, the anchor
+│   │   ├── event/            # The append-only log: the shape of an event kind, withEvent(), rebuildEvent(), the signature of a stored event
 │   │   ├── application/      # health(), checkDatabase(), closeDatabase(); rebuildProjections() and the list of event kinds
+│   │   ├── common/           # Sub-concepts several concepts share, with no table of their own: the signature of a request
 │   │   ├── context.ts        # ServiceContext (request-scoped values passed from the API layer)
-│   │   └── errors.ts         # Domain error classes and the translation of a Zod failure
-│   ├── utilities/            # Pure modules both layers import directly: uuid.ts, date-time.ts
+│   │   ├── errors.ts         # Domain error classes and the translation of a Zod failure
+│   │   └── testing.ts        # Service test helpers: test keys, the registry anchored, a platform accredited, a request signed
+│   ├── utilities/            # Pure modules both layers import directly: uuid.ts, date-time.ts, signature.ts (JCS, ES256, keys)
 │   ├── config.ts             # Environment-driven configuration (Zod-validated)
 │   ├── index.ts              # Top-level app assembly (mounts /api/v1)
 │   ├── logger.ts             # Pino root logger
 │   └── server.ts             # Node runtime entry: serve + graceful shutdown
 ├── scripts/
-│   └── generate-openapi.ts   # Regenerates the canonical OpenAPI spec
+│   ├── generate-openapi.ts   # Regenerates the canonical OpenAPI spec
+│   ├── init-registry.ts      # Anchors the registry with its first key
+│   └── accredit-platform.ts  # Accredits a platform through the API, signed with the registry key
 ├── openapi.json              # Canonical versioned copy of the generated OpenAPI spec (the audit trail)
 ├── tsconfig.json             # Extends the repository-root tsconfig.base.json
 ├── package.json

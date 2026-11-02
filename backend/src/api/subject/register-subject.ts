@@ -1,10 +1,20 @@
 import { createRoute, type RouteHandler, z } from '@hono/zod-openapi';
 
-import { registerSubject } from '../../services/subject/index.ts';
+import {
+  registerSubject,
+  subjectRegisteredEventKindDefinition,
+} from '../../services/subject/index.ts';
 import { DateTimeSchema } from '../../utilities/date-time.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
+import { SignatureSchema } from '../common/index.ts';
 import type { HonoEnv } from '../context.ts';
-import { gateProblemResponses, problemResponse } from '../errors.ts';
+import {
+  conflictProblemResponses,
+  contentionProblemResponses,
+  gateProblemResponses,
+  problemResponse,
+  signatureProblemResponses,
+} from '../errors.ts';
 
 import { EnameInputSchema, EnameSchema } from './ename.ts';
 import { SubjectInputSchema, SubjectSchema } from './subject.ts';
@@ -15,10 +25,11 @@ import { SubjectInputSchema, SubjectSchema } from './subject.ts';
 
 // Strict at every level: an unknown field is a 422 naming the key, never
 // silently dropped, so the validated request is exactly what the client sent
-// (cf. ename-internals.md). The `subject` and `ename` objects are the shared wire components.
+// (cf. ename-internals.md).
 const RegisterSubjectRequestSchema = z
   .strictObject({
     idempotencyKey: UUIDv7Schema.openapi({ example: '01927e8f-9b2a-7c3d-8e4f-5a6b7c8d9e0f' }),
+    signature: SignatureSchema,
     subject: SubjectInputSchema,
     ename: EnameInputSchema,
   })
@@ -43,9 +54,11 @@ export const registerSubjectRoute = createRoute({
   description:
     'Atomically registers a new subject (of `kind = person` in v1) together with its first ename. ' +
     'A subject without at least one ename has no meaning in the registry — the two are created together. ' +
+    'The body must be signed by a key of an accredited platform, which becomes the home platform of the subject. ' +
     'Emits one `subject.registered` event in the registry log. ' +
     'Idempotent via `idempotencyKey`: retrying with the same key returns the original result; ' +
-    'reusing the same key with a different body returns `409 Conflict`.',
+    'reusing the same key for a different request, or under another signing key, returns `409 Conflict`.',
+  'x-ename-operation': subjectRegisteredEventKindDefinition.operation,
   request: {
     body: {
       required: true,
@@ -62,12 +75,11 @@ export const registerSubjectRoute = createRoute({
       },
     },
     ...gateProblemResponses,
-    409: problemResponse('Idempotency key already used for a different operation'),
+    ...signatureProblemResponses,
+    ...conflictProblemResponses,
+    ...contentionProblemResponses,
     422: problemResponse('Request body failed validation'),
     500: problemResponse('Unexpected error'),
-    503: problemResponse(
-      'Too many concurrent ename creations for this name; transient — retry after the delay in the Retry-After header',
-    ),
   },
 });
 
@@ -82,8 +94,8 @@ export const registerSubjectHandler: RouteHandler<typeof registerSubjectRoute, H
   const logger = context.var.logger;
 
   const { subject, ename } = await registerSubject(input, { logger });
-  // Field by field, never a spread: the wire carries the event's timestamp once,
-  // not each row's createdAt, and not the ename's subjectId.
+  // Field by field, never a spread: the wire carries the event's timestamp
+  // once, not each row's createdAt, and not the ename's subjectId.
   return context.json(
     {
       createdAt: subject.createdAt.toISOString(),

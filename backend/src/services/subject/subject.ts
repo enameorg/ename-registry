@@ -19,22 +19,13 @@ export const SubjectKindSchema = z.enum(['person']);
 export type SubjectKind = z.infer<typeof SubjectKindSchema>;
 
 // ---------------------------------------------------------------------------
-// Subject domain type and lookups
+// Subject input
 // ---------------------------------------------------------------------------
 
-// Domain-shaped Subject. Mirrors the `subjects` projection table.
-export const SubjectSchema = z.object({
-  id: UUIDv7Schema,
-  kind: SubjectKindSchema,
-  createdAt: z.date(),
-});
-
-export type Subject = z.infer<typeof SubjectSchema>;
-
-// What a client submits for a subject, declared once and strict: the event kinds
-// compose these schemas into their request, the API wraps them in place as its
-// OpenAPI components (cf. ename-internals.md). An unknown field fails here, at the
-// seam that stores the request, never stripped.
+// What a client submits for a subject, declared once and strict: the event
+// kinds compose these schemas into their request, the API wraps them in place
+// as its OpenAPI components (cf. ename-internals.md). An unknown field fails
+// here, at the seam that stores the request, never stripped.
 export const SubjectInputSchema = z.strictObject({
   kind: SubjectKindSchema,
 });
@@ -45,7 +36,23 @@ export const SubjectReferenceSchema = z.strictObject({
   id: UUIDv7Schema,
 });
 
-const SELECT_SUBJECT_COLUMNS = 'id, kind, created_at';
+// ---------------------------------------------------------------------------
+// Subject domain type and lookups
+// ---------------------------------------------------------------------------
+
+// Domain-shaped Subject. Mirrors the `subjects` projection table. The home
+// platform is the platform serving the subject, and through it every ename the
+// subject holds: the platform that registered it, until Transfers exist.
+export const SubjectSchema = z.object({
+  id: UUIDv7Schema,
+  kind: SubjectKindSchema,
+  homePlatformId: UUIDv7Schema,
+  createdAt: z.date(),
+});
+
+export type Subject = z.infer<typeof SubjectSchema>;
+
+const SELECT_SUBJECT_COLUMNS = 'id, kind, home_platform_id, created_at';
 
 export async function getSubject(db: Database, id: string): Promise<Subject | undefined> {
   const rows = await queryRows(
@@ -72,18 +79,17 @@ export async function findSubjects(db: Database): Promise<Subject[]> {
 // Insertion helper
 // ---------------------------------------------------------------------------
 
-// Each table's write lives in the concept that owns it, even when trivial.
-// Returns the row as the database wrote it, so a caller never reassembles it
-// from the parameters.
-export async function insertSubject(
-  db: Database,
-  params: { id: string; kind: SubjectKind; createdAt: Date },
-): Promise<Subject> {
+// INSERT the subject exactly as given: nothing is allocated, so the use case
+// and a rebuild write through the same primitive. Returns the row as the
+// database wrote it. The home platform is the verified signer's, never a
+// client's input, so a missing platform is no fault a caller can cause and
+// surfaces raw.
+export async function insertSubject(db: Database, subject: Subject): Promise<Subject> {
   const rows = await queryRows(
     db,
-    `INSERT INTO subjects (id, kind, created_at) VALUES ($1, $2, $3)
+    `INSERT INTO subjects (id, kind, home_platform_id, created_at) VALUES ($1, $2, $3, $4)
      RETURNING ${SELECT_SUBJECT_COLUMNS}`,
-    [params.id, params.kind, params.createdAt],
+    [subject.id, subject.kind, subject.homePlatformId, subject.createdAt],
     SubjectSchema,
   );
   const row = rows[0];

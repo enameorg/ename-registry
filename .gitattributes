@@ -1,1 +1,3 @@
 *.sql text eol=lf
+# Test vectors compared byte for byte
+backend/src/utilities/test-data/** -text

@@ -19,6 +19,12 @@ import {
 import { MAX_BODY_BYTES, requestContext } from './middleware.ts';
 import { openAPIMetadata } from './openapi-metadata.ts';
 import {
+  accreditPlatformHandler,
+  accreditPlatformRoute,
+  addPlatformKeyHandler,
+  addPlatformKeyRoute,
+} from './platform/index.ts';
+import {
   addEnameToSubjectHandler,
   addEnameToSubjectRoute,
   registerSubjectHandler,
@@ -54,6 +60,8 @@ api.openapi(healthRoute, healthHandler);
 api.openapi(healthDeepRoute, healthDeepHandler);
 api.openapi(registerSubjectRoute, registerSubjectHandler);
 api.openapi(addEnameToSubjectRoute, addEnameToSubjectHandler);
+api.openapi(accreditPlatformRoute, accreditPlatformHandler);
+api.openapi(addPlatformKeyRoute, addPlatformKeyHandler);
 
 // The live spec, byte-identical to the committed backend/openapi.json (see
 // renderOpenAPIDocument below).
@@ -61,9 +69,9 @@ api.get('/openapi.json', (context) => {
   return context.text(renderOpenAPIDocument(), 200, { 'Content-Type': 'application/json' });
 });
 
-// Interactive API reference + client, reading the live spec at each load, so the
-// page is always in sync with the running app. Interim: the reference page moves
-// to the frontend and this route goes away (cf. ename-internals.md).
+// Interactive API reference + client, reading the live spec at each load, so
+// the page is always in sync with the running app. Interim: the reference page
+// moves to the frontend and this route goes away (cf. ename-internals.md).
 api.get(
   '/docs',
   Scalar({

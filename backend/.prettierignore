@@ -3,3 +3,6 @@ coverage
 
 # Generated artifact — formatting is controlled by scripts/generate-openapi.ts
 openapi.json
+
+# Third-party test vectors, compared byte for byte
+src/utilities/test-data
