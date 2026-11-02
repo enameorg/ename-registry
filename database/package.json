@@ -23,7 +23,7 @@
     "db:new": "node scripts/new-migration.ts",
     "db:reset": "docker compose exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_dev WITH (FORCE)\" -c \"CREATE DATABASE ename_dev\" && npm run db:migrate",
     "db:reset:test": "docker compose exec -T db psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS ename_test WITH (FORCE)\" -c \"CREATE DATABASE ename_test\" && npm run db:migrate:test",
-    "db:dump": "docker compose exec -T db pg_dump -U postgres -d ename_dev --schema-only --no-owner --no-privileges --restrict-key=enameschemadump > schema.sql",
+    "db:dump": "node --env-file=.env.development scripts/dump-schema.ts",
     "db:status": "docker compose exec -T db psql -U postgres -d ename_dev -c \"SELECT version, name, applied_at FROM schema_migrations ORDER BY version\"",
     "check": "npm run typecheck && npm run lint && npm run format && npm run test"
   },

@@ -24,8 +24,9 @@ From the repository root:
 npm install
 
 # Copy the environment files, one per local environment, and adjust if needed:
-# `npm run db:migrate` loads .env.development, `npm run db:migrate:test` and
-# `npm test` load .env.test, and each fails if its file is missing.
+# `npm run db:migrate` and `npm run db:dump` load .env.development,
+# `npm run db:migrate:test` and `npm test` load .env.test, and each fails if its
+# file is missing.
 cp database/.env.development.example database/.env.development
 cp database/.env.test.example database/.env.test
 
@@ -50,9 +51,9 @@ Run from this directory, or from the repository root with `-w database` (`npm ru
 | `npm run db:new -- <name>` | Create a new empty `<unix_ts>_<name>.sql` in `migrations/`.                         |
 | `npm run db:reset`         | Drop and recreate `ename_dev`, then re-run migrations. Fast reset without nuking.   |
 | `npm run db:reset:test`    | Same for `ename_test`.                                                              |
-| `npm run db:dump`          | Dump `ename_dev`'s schema to `schema.sql` (versioned).                              |
+| `npm run db:dump`          | Write `schema.sql` (versioned) from the migrations, on a throwaway database.        |
 | `npm run db:status`        | List migrations applied to `ename_dev`.                                             |
-| `npm run typecheck`        | Type-check the migration scripts (`tsc --noEmit`).                                  |
+| `npm run typecheck`        | Type-check the runner, its tests and the scripts (`tsc --noEmit`).                  |
 | `npm run lint`             | Lint the codebase via ESLint.                                                       |
 | `npm run lint:fix`         | Lint and auto-fix where possible.                                                   |
 | `npm run format`           | Check formatting via Prettier.                                                      |
@@ -68,6 +69,7 @@ database/
 │   └── 01-create-databases.sql    # Runs once at first container boot — creates ename_test
 ├── migrations/                    # <unix_ts>_<name>.sql, forward-only (no down files)
 ├── scripts/
+│   ├── dump-schema.ts             # Writes schema.sql from the migrations, on a throwaway database
 │   ├── migrate.ts                 # CLI over src/migrate.ts: connection to DATABASE_URL, exit code
 │   └── new-migration.ts           # Scaffolds a new empty migration file
 ├── src/
