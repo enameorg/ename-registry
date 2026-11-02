@@ -972,6 +972,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Service temporarily unavailable; retry after the Retry-After delay",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -1097,6 +1107,16 @@
           },
           "500": {
             "description": "Unexpected error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service temporarily unavailable; retry after the Retry-After delay",
             "content": {
               "application/problem+json": {
                 "schema": {

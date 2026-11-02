@@ -5,7 +5,7 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import { HTTPException } from 'hono/http-exception';
 import { pino } from 'pino';
 
-import { ContentionError } from '../services/errors.ts';
+import { ContentionError, UnavailableError } from '../services/errors.ts';
 
 import type { HonoEnv } from './context.ts';
 import { handleError } from './errors.ts';
@@ -14,8 +14,10 @@ import { TEST_ORIGIN, readProblem } from './testing.ts';
 
 // The branches of handleError no v1 route reaches on purpose: an unexpected
 // error (the opaque 500), a framework HTTPException whose status the mapping
-// does not own, and the contention 503 that a real burst reaches only by
-// chance (cf. services/subject/register-subject.test.ts). A throwaway sub-app
+// does not own, the contention 503 that a real burst reaches only by chance
+// (cf. services/subject/register-subject.test.ts), and the unavailable 503
+// that only a database outage reaches (cf. database/query.test.ts). A
+// throwaway sub-app
 // wired like the v1 sub-app (request context, then handleError) throws them on
 // demand, so the test observes the same function the real app runs, through
 // the same HTTP surface. What handleError writes to the request's logger is
@@ -51,6 +53,13 @@ throwing.get('/teapot', () => {
 });
 throwing.get('/contended', () => {
   throw new ContentionError('Too many concurrent ename creations right now.');
+});
+throwing.get('/unavailable', () => {
+  throw new UnavailableError({
+    cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), {
+      code: 'ECONNREFUSED',
+    }),
+  });
 });
 throwing.onError(handleError);
 
@@ -140,4 +149,38 @@ test('a ContentionError answers a 503 problem+json with a Retry-After header, wi
 
   // A transient capacity signal, not a server fault: nothing at error level.
   assert.deepEqual(logLines, []);
+});
+
+test('an UnavailableError answers a 503 problem+json with a Retry-After header, and logs the error with its cause', async () => {
+  const response = await throwing.fetch(new Request(`${TEST_ORIGIN}/unavailable`));
+
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get('Retry-After'), '5');
+
+  const body = await readProblem(response);
+  assert.deepEqual(body, {
+    type: 'about:blank',
+    title: 'Service temporarily unavailable',
+    status: 503,
+    detail:
+      'The registry is temporarily unavailable. Retry after the delay in the Retry-After header.',
+    requestId: response.headers.get('X-Request-Id'),
+  });
+
+  // An outage must alert: one error line, under the request id, whose message
+  // pino's serializer completes with the cause the client never sees.
+  assert.deepEqual(
+    logLines.map((line) => ({
+      msg: line.msg,
+      requestId: line.requestId,
+      errorMessage: line.err?.message,
+    })),
+    [
+      {
+        msg: 'service unavailable',
+        requestId: body.requestId,
+        errorMessage: 'the database did not answer: connect ECONNREFUSED 127.0.0.1:5432',
+      },
+    ],
+  );
 });

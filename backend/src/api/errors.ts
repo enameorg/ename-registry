@@ -10,6 +10,7 @@ import {
   ContentionError,
   IdempotencyConflictError,
   NotFoundError,
+  UnavailableError,
   ValidationError,
   validationErrorFromZodError,
 } from '../services/errors.ts';
@@ -105,10 +106,12 @@ const HTTP_EXCEPTION_DETAILS: Partial<Record<ProblemStatus, string>> = {
 // beside the request it signs (docs/ename-signature.md).
 const AUTHENTICATION_SCHEME = 'EnameSignature';
 
-// Retry-After hint (seconds) sent with 503 ContentionError responses. Kept
-// short: number_part allocation contention on a single name_part clears in
-// milliseconds, so a 1-second floor is already generous.
-const RETRY_AFTER_SECONDS = 1;
+// Retry-After hints (seconds) of the two 503s, one per cause. Contention on a
+// single name_part clears in milliseconds, so a 1-second floor is already
+// generous. An unavailable Service is given five seconds, a choice, not a
+// measure.
+const CONTENTION_RETRY_AFTER_SECONDS = 1;
+const UNAVAILABLE_RETRY_AFTER_SECONDS = 5;
 
 // The responses the version's body gates answer before any handler with a JSON
 // body runs (cf. HTTP_EXCEPTION_DETAILS). A route spreads them into its
@@ -139,10 +142,11 @@ export const conflictProblemResponses = {
   ),
 };
 
-// The response of a write that allocates a group-scoped counter and exhausts
-// its retries under contention (503, with a Retry-After header). A route that
-// allocates one spreads it into its `responses`.
-export const contentionProblemResponses = {
+// The response of a write when the Service is unavailable or a counter
+// allocation exhausts its retries under contention (503, with a Retry-After
+// header): one description for both causes, the occurrence's `detail` naming
+// it. Every write route spreads it into its `responses`.
+export const unavailableProblemResponses = {
   503: problemResponse('Service temporarily unavailable; retry after the Retry-After delay'),
 };
 
@@ -196,7 +200,21 @@ export const handleError: ErrorHandler<HonoEnv> = (error, context) => {
     // Transient capacity signal, not a server fault — the Retry-After header
     // tells a well-behaved client to retry.
     const response = buildProblemJSON(context, 503, error.message);
-    response.headers.set('Retry-After', String(RETRY_AFTER_SECONDS));
+    response.headers.set('Retry-After', String(CONTENTION_RETRY_AFTER_SECONDS));
+    return response;
+  }
+  if (error instanceof UnavailableError) {
+    // The Service could not serve the request for now: retryable, and safe to
+    // retry under the same idempotency key even when the write may have
+    // committed. Logged at error level, cause included, since an outage must
+    // alert.
+    context.var.logger.error({ err: error }, 'service unavailable');
+    const response = buildProblemJSON(
+      context,
+      503,
+      'The registry is temporarily unavailable. Retry after the delay in the Retry-After header.',
+    );
+    response.headers.set('Retry-After', String(UNAVAILABLE_RETRY_AFTER_SECONDS));
     return response;
   }
   if (error instanceof HTTPException) {

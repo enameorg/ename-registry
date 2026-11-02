@@ -13,6 +13,7 @@ import {
   gateProblemResponses,
   problemResponse,
   signatureProblemResponses,
+  unavailableProblemResponses,
 } from '../errors.ts';
 
 import { PlatformReferenceSchema } from './platform.ts';
@@ -81,6 +82,7 @@ export const addPlatformKeyRoute = createRoute({
     ...gateProblemResponses,
     ...signatureProblemResponses,
     ...conflictProblemResponses,
+    ...unavailableProblemResponses,
     404: problemResponse('Platform not found'),
     422: problemResponse('Path parameter or request body failed validation'),
     500: problemResponse('Unexpected error'),

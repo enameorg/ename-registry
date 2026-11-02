@@ -38,7 +38,7 @@ function makeSignature() {
   return { keyId: generateUUIDv7(), value: 'c2lnbmF0dXJl' };
 }
 
-test('insertEvent then read back round-trips kind, request, outcome, idempotencyKey, signature and createdAt', async () => {
+test('insertEvent returns the event it wrote, read back the same by idempotencyKey', async () => {
   const idempotencyKey = generateUUIDv7();
   const createdAt = new Date();
   const signature = makeSignature();
@@ -48,7 +48,7 @@ test('insertEvent then read back round-trips kind, request, outcome, idempotency
     ename: { id: generateUUIDv7(), numberPart: 1 },
   };
 
-  await insertEvent(pool, {
+  const inserted = await insertEvent(pool, {
     idempotencyKey,
     kind: 'subject.registered',
     request,
@@ -57,15 +57,14 @@ test('insertEvent then read back round-trips kind, request, outcome, idempotency
     createdAt,
   });
 
-  const found = await getEventByIdempotencyKey(pool, idempotencyKey);
-  assert.ok(found);
-  assert.equal(found.idempotencyKey, idempotencyKey);
-  assert.equal(found.kind, 'subject.registered');
-  assert.deepEqual(found.request, request);
-  assert.deepEqual(found.outcome, outcome);
-  assert.deepEqual(found.signature, signature);
-  assert.equal(found.createdAt.getTime(), createdAt.getTime());
-  assert.ok(found.sequence >= 1);
+  assert.equal(inserted.idempotencyKey, idempotencyKey);
+  assert.equal(inserted.kind, 'subject.registered');
+  assert.deepEqual(inserted.request, request);
+  assert.deepEqual(inserted.outcome, outcome);
+  assert.deepEqual(inserted.signature, signature);
+  assert.equal(inserted.createdAt.getTime(), createdAt.getTime());
+  assert.ok(inserted.sequence >= 1);
+  assert.deepEqual(await getEventByIdempotencyKey(pool, idempotencyKey), inserted);
 
   const all = await findEvents(pool);
   assert.equal(all.length, 1);

@@ -4,7 +4,7 @@ import { isUniqueViolation } from '../../database/errors.ts';
 import { type Database, queryRows } from '../../database/query.ts';
 import type { PublicKey } from '../../utilities/signature.ts';
 import { UUIDv7Schema } from '../../utilities/uuid.ts';
-import { isSignatureValid, type Signature, SignatureSchema } from '../common/index.ts';
+import { isSignatureValid, SignatureSchema } from '../common/index.ts';
 import { ConflictError } from '../errors.ts';
 
 import type { EventKindDefinition } from './event-kind.ts';
@@ -112,36 +112,37 @@ export function isEventSignatureValid(
 const EVENTS_IDEMPOTENCY_KEY_CONSTRAINT = 'events_idempotency_key_key';
 const EVENTS_SINGLE_ANCHOR_INDEX = 'events_single_anchor_idx';
 
-// INSERT one event row. On a UNIQUE collision on idempotency_key, throws
+// INSERT one event and return it as the database wrote it, its sequence
+// allocated. On a UNIQUE collision on idempotency_key, throws
 // IdempotencyRaceError so the caller can roll back and reconcile from the
 // winner. A second anchor, which the log admits once (cf. ename-internals.md),
 // is a ConflictError.
-export async function insertEvent(
-  db: Database,
-  params: {
-    idempotencyKey: string;
-    kind: string;
-    request: unknown;
-    outcome: unknown;
-    signature: Signature;
-    createdAt: Date;
-  },
-): Promise<void> {
+export async function insertEvent(db: Database, event: Omit<Event, 'sequence'>): Promise<Event> {
   try {
-    await db.query(
+    const rows = await queryRows(
+      db,
       `INSERT INTO events
          (idempotency_key, kind, request, outcome, signature_key_id, signature_value, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING ${SELECT_EVENT_COLUMNS}`,
       [
-        params.idempotencyKey,
-        params.kind,
-        params.request,
-        params.outcome,
-        params.signature.keyId,
-        params.signature.value,
-        params.createdAt,
+        event.idempotencyKey,
+        event.kind,
+        event.request,
+        event.outcome,
+        event.signature.keyId,
+        event.signature.value,
+        event.createdAt,
       ],
+      EventSchema,
     );
+    const row = rows[0];
+    if (!row) {
+      // Unreachable in practice (a successful INSERT ... RETURNING returns a
+      // row); defensive against a future refactor.
+      throw new Error('insert events returned no row');
+    }
+    return row;
   } catch (error) {
     if (isUniqueViolation(error, EVENTS_IDEMPOTENCY_KEY_CONSTRAINT)) {
       throw new IdempotencyRaceError();

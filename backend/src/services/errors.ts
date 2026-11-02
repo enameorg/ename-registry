@@ -107,3 +107,8 @@ export class ContentionError extends DomainError {
     super(detail);
   }
 }
+
+// Raised by the query helpers when the database does not answer, whatever the
+// operation. Not a domain error: it is re-exported under its own name so the
+// API maps it to a retryable 503 without knowing src/database/.
+export { UnavailableError } from '../database/errors.ts';

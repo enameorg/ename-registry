@@ -13,6 +13,7 @@ import {
   gateProblemResponses,
   problemResponse,
   signatureProblemResponses,
+  unavailableProblemResponses,
 } from '../errors.ts';
 
 import { PlatformInputSchema, PlatformSchema } from './platform.ts';
@@ -76,6 +77,7 @@ export const accreditPlatformRoute = createRoute({
     ...gateProblemResponses,
     ...signatureProblemResponses,
     ...conflictProblemResponses,
+    ...unavailableProblemResponses,
     422: problemResponse('Request body failed validation'),
     500: problemResponse('Unexpected error'),
   },

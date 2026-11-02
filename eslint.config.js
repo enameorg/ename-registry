@@ -83,6 +83,17 @@ const boundary = {
   },
 };
 
+// The selectors of no-restricted-syntax, shared by the blocks below.
+const noProcessEnv = {
+  selector: 'MemberExpression[object.name="process"][property.name="env"]',
+  message: 'process.env is read in config.ts only; import config.',
+};
+
+const noQuery = {
+  selector: 'CallExpression[callee.property.name="query"]',
+  message: 'The Service layer runs SQL through the query helpers of src/database/.',
+};
+
 // pg appears only in src/database/ (cf. ename-internals.md).
 const noPg = { name: 'pg', message: 'pg is imported by src/database/ only.' };
 
@@ -304,13 +315,16 @@ export default defineConfig(
     files: ['backend/src/**/*.ts'],
     ignores: ['backend/src/config.ts'],
     rules: {
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'MemberExpression[object.name="process"][property.name="env"]',
-          message: 'process.env is read in config.ts only; import config.',
-        },
-      ],
+      'no-restricted-syntax': ['error', noProcessEnv],
+    },
+  },
+  {
+    // The Service layer runs SQL through the query helpers, which translate an
+    // unavailable database (cf. ename-internals.md). A later block replaces a
+    // rule rather than extending it, so this one repeats noProcessEnv.
+    files: ['backend/src/services/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', noProcessEnv, noQuery],
     },
   },
 );

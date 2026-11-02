@@ -12,6 +12,7 @@ import {
   AuthenticationError,
   ConflictError,
   IdempotencyConflictError,
+  UnavailableError,
   ValidationError,
 } from '../errors.ts';
 import {
@@ -514,6 +515,45 @@ test('a domain error raised by the work with no winner surfaces as is, and nothi
   );
   assert.deepEqual(await findSubjectEvents(), []);
   assert.equal((await findSubjects(pool)).length, 0);
+});
+
+// An unavailable database is not a current-state error: it surfaces as is,
+// never reconciled against a winner, even one that committed, since the
+// lookup would fail with it; the client's retry under the same key replays.
+test('an UnavailableError raised by the work surfaces as is, even over a same-key winner', async () => {
+  const { platform } = await setUpTestPlatform();
+  const idempotencyKey = generateUUIDv7();
+  const signature = sign(platform, idempotencyKey);
+  const unavailable = new UnavailableError({
+    cause: new Error('Connection terminated unexpectedly'),
+  });
+
+  await assert.rejects(
+    () =>
+      withEvent(
+        subjectRegisteredEventKindDefinition,
+        {
+          idempotencyKey,
+          request,
+          signature,
+          authenticate: authenticatePlatform,
+          work: async () => {
+            await insertEvent(pool, {
+              idempotencyKey,
+              kind: subjectRegisteredEventKindDefinition.kind,
+              request,
+              outcome: makeOutcome(platform.platformId),
+              signature,
+              createdAt: new Date(),
+            });
+            throw unavailable;
+          },
+        },
+        context,
+      ),
+    (error: unknown) => error === unavailable,
+  );
+  assert.equal((await findSubjectEvents()).length, 1);
 });
 
 // ---------------------------------------------------------------------------

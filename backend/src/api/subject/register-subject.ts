@@ -10,10 +10,10 @@ import { SignatureSchema } from '../common/index.ts';
 import type { HonoEnv } from '../context.ts';
 import {
   conflictProblemResponses,
-  contentionProblemResponses,
   gateProblemResponses,
   problemResponse,
   signatureProblemResponses,
+  unavailableProblemResponses,
 } from '../errors.ts';
 
 import { EnameInputSchema, EnameSchema } from './ename.ts';
@@ -78,7 +78,7 @@ export const registerSubjectRoute = createRoute({
     ...gateProblemResponses,
     ...signatureProblemResponses,
     ...conflictProblemResponses,
-    ...contentionProblemResponses,
+    ...unavailableProblemResponses,
     422: problemResponse('Request body failed validation'),
     500: problemResponse('Unexpected error'),
   },

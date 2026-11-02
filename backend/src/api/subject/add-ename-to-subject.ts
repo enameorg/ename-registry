@@ -10,10 +10,10 @@ import { SignatureSchema } from '../common/index.ts';
 import type { HonoEnv } from '../context.ts';
 import {
   conflictProblemResponses,
-  contentionProblemResponses,
   gateProblemResponses,
   problemResponse,
   signatureProblemResponses,
+  unavailableProblemResponses,
 } from '../errors.ts';
 
 import { EnameInputSchema, EnameSchema } from './ename.ts';
@@ -84,7 +84,7 @@ export const addEnameToSubjectRoute = createRoute({
     ...gateProblemResponses,
     ...signatureProblemResponses,
     ...conflictProblemResponses,
-    ...contentionProblemResponses,
+    ...unavailableProblemResponses,
     404: problemResponse('Subject not found'),
     422: problemResponse('Path parameter or request body failed validation'),
     500: problemResponse('Unexpected error'),
