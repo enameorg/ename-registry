@@ -1,0 +1,5 @@
+# Commits that only reformat, which git blame skips. GitHub reads this file; locally:
+# git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Rewrap every comment to 100 columns
+2c696d029e02aff903747d33511e10839eb26129
