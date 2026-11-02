@@ -4,7 +4,7 @@ import { generateUUIDv7, UUIDv7Schema } from '../../utilities/uuid.ts';
 import type { Signature } from '../common/index.ts';
 import type { ServiceContext } from '../context.ts';
 import { defineEventKind, type EventRequest, withEvent } from '../event/index.ts';
-import { insertKey, type Key, KeyInputSchema } from '../key/index.ts';
+import { insertKey, isPlatformKey, KeyInputSchema, type PlatformKey } from '../key/index.ts';
 import { authenticateRegistry } from '../registry/index.ts';
 
 import { PlatformReferenceSchema } from './platform.ts';
@@ -18,8 +18,8 @@ export type AddPlatformKeyInput = {
   signature: Signature;
 } & EventRequest<typeof platformKeyAddedEventKindDefinition>;
 
-// What the use case writes and returns: the key row, as is.
-export type AddPlatformKeyResult = Key;
+// What the use case writes and returns: the key row, a key of the platform.
+export type AddPlatformKeyResult = PlatformKey;
 
 // ---------------------------------------------------------------------------
 // addPlatformKey — public use case
@@ -39,14 +39,21 @@ export async function addPlatformKey(
       request: { platform: input.platform, key: input.key },
       signature: input.signature,
       authenticate: authenticateRegistry,
-      work: (db, createdAt) =>
-        insertKey(db, {
+      work: async (db, createdAt) => {
+        const key = await insertKey(db, {
           id: generateUUIDv7(),
           platformId: input.platform.id,
           algorithm: input.key.algorithm,
           value: input.key.value,
           createdAt,
-        }),
+        });
+        if (!isPlatformKey(key)) {
+          // Unreachable in practice: the row keeps the platform it was given.
+          // The check narrows its type to a platform key.
+          throw new Error('insert keys returned a key with no platform');
+        }
+        return key;
+      },
     },
     context,
   );

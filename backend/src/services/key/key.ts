@@ -57,13 +57,16 @@ export const KeySchema = z.object({
 export type Key = z.infer<typeof KeySchema>;
 
 // Who owns a key, by the rule this concept states: a key with no platform is
-// the registry's. Type guards, so a caller reads the platform id of a platform
-// key without a check of its own.
-export function isPlatformKey(key: Key): key is Key & { platformId: string } {
+// the registry's. A type names each owner's keys, and the guards let a caller
+// read the platform id of a platform key without a check of its own.
+export type PlatformKey = Key & { platformId: string };
+export type RegistryKey = Key & { platformId: null };
+
+export function isPlatformKey(key: Key): key is PlatformKey {
   return key.platformId !== null;
 }
 
-export function isRegistryKey(key: Key): key is Key & { platformId: null } {
+export function isRegistryKey(key: Key): key is RegistryKey {
   return key.platformId === null;
 }
 

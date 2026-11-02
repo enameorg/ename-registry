@@ -9,4 +9,4 @@ export {
   KeyInputSchema,
   KeySchema,
 } from './key.ts';
-export type { Key } from './key.ts';
+export type { Key, PlatformKey, RegistryKey } from './key.ts';

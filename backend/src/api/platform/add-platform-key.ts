@@ -109,12 +109,12 @@ export const addPlatformKeyHandler: RouteHandler<typeof addPlatformKeyRoute, Hon
     },
     { logger },
   );
-  // Field by field, never a spread. The platform is named by the path's id: a
-  // replay matched the stored request, which carries the same id.
+  // Field by field, never a spread. The platform is named by the row's
+  // platformId, the same id on a first write and on a replay.
   return context.json(
     {
       createdAt: key.createdAt.toISOString(),
-      platform: { id },
+      platform: { id: key.platformId },
       key: { id: key.id, algorithm: key.algorithm, value: key.value },
     },
     201,
